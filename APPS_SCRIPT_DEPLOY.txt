@@ -1,0 +1,47 @@
+Infinity Nakshatra — deploy Google Apps Script (includes upsertPlotRow)
+
+The API key is already set in:
+  - apps_script_collection_data.gs  →  SCRIPT_API_KEY
+  - infinity_nakshatra_dashboard.html → COLLECTION_API_KEY
+They must stay identical.
+
+You still must paste the Web app URL into the HTML (COLLECTION_API_URL) after step 6.
+
+Steps
+-----
+1. Open your Google Sheet → Extensions → Apps Script.
+2. Replace the project code with the full contents of: apps_script_collection_data.gs
+   (SCRIPT_API_KEY is already filled — or change it in BOTH files if you want a new secret.)
+3. Save the Apps Script project (disk icon).
+4. Deploy → New deployment → Select type: Web app.
+   - Execute as: Me
+   - Who has access: Anyone  (simplest for the portal; tighten later if needed)
+5. Deploy. Copy the Web app URL (must look like …/macros/s/…/exec).
+6. In infinity_nakshatra_dashboard.html set:
+     const COLLECTION_API_URL = "PASTE_THE_FULL_URL_HERE";
+   Save the file.
+7. Serve the portal over http://127.0.0.1:8080/… (not file://) and test:
+   - Owner contact update
+   - Admin → Unsold → Update → Save to Google Sheet
+   - Backup payments / collection rows
+
+If you rotate the key, update BOTH SCRIPT_API_KEY and COLLECTION_API_KEY on the same value.
+
+----------------------------------------------------------------------
+"Failed to fetch" even with correct /exec URL (browser cannot reach Google)
+----------------------------------------------------------------------
+Some networks block or break HTTPS to script.google.com from the browser only.
+Use the small local relay (Python forwards the POST; often works on the same PC).
+
+1. In PowerShell (from the Nakshatra folder), set your real Web App URL and start the relay:
+     $env:APPS_SCRIPT_POST_URL="https://script.google.com/macros/s/…/exec"
+     python scripts/collection_proxy.py
+   Leave that window running. You should see: listening http://127.0.0.1:8765
+
+2. In infinity_nakshatra_dashboard.html set:
+     const COLLECTION_API_URL = "http://127.0.0.1:8765";
+
+3. Open the portal over http://127.0.0.1:8080/… (not file://, not https), same machine.
+   If the page is https, the browser blocks http://127.0.0.1 (mixed content).
+
+4. Test backup or sheet update again.

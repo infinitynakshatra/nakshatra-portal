@@ -1,0 +1,22 @@
+Open CMD
+cd C:\HC\Reports\cursor\Nakshatra
+
+py -3 -m http.server 8080
+
+Then open: http://127.0.0.1:8080/infinity_nakshatra_dashboard.html
+
+Google Sheet collection backup: see COLLECTION_SETUP.md
+
+---
+If you see "404 File not found" (browser error page):
+
+1) Wrong folder / old bookmark — The project moved to C:\HC\Reports\cursor\Nakshatra.
+   Do not use llm-foundry-main paths. Always cd to Nakshatra before starting the server.
+
+2) Wrong URL — Use the filename above. A typo or old path returns 404.
+
+If the page loads but the main table shows a CSV / load error:
+
+3) Google Sheet CSV — Share the spreadsheet (Viewer with link). In infinity_nakshatra_dashboard.html check SHEET_ID and SHEET_EXPORT_GIDS (tab order).
+   The tab must exist; the sheet must allow CSV export (link sharing / publish as needed).
+
