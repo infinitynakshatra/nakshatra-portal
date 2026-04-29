@@ -1283,11 +1283,6 @@
         <div class="pillrow">
           <button class="btn secondary" id="userBankViewBtn" type="button" data-i18n="user.btn.bank">Account & UPI Details</button>
           <button class="btn secondary" id="userAddPayBtn" type="button" data-i18n="user.btn.addPayment">Add payment</button>
-          <select class="btn secondary" id="userLangSelect" aria-label="Language" style="min-width:140px;">
-            <option value="en">English</option>
-            <option value="hi">Hindi</option>
-            <option value="mr">Marathi</option>
-          </select>
           <a class="btn" href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer" data-i18n="user.btn.whatsapp">Join WhatsApp Group</a>
           <div class="profileWrap">
             <button class="profileBtn" id="userProfileBtn" type="button" aria-expanded="false" data-i18n="user.btn.profile">Profile</button>
@@ -1855,8 +1850,6 @@
     const LS_PROJECT_DOCS = "ins_project_docs_v1";
     /** Per-login keys: which doc ids this user has "liked" (toggle). */
     const LS_DOC_USER_LIKES = "ins_doc_user_likes_v1";
-    /** UI language for Owner portal. */
-    const LS_LANG_KEY = "ins_lang";
     /** Admin "Months in scope" selection (multi-select). */
     const LS_MC_SELECTED_YMS = "ins_mc_selected_yms_v1";
     const MC_PER_MONTH = 350;
@@ -2907,66 +2900,13 @@
         "user.tbl.title": "Title",
         "user.tbl.details": "Details",
         "user.tbl.attachment": "Attachment"
-      },
-      hi: {
-        "user.tagline": "ओनर पोर्टल • आप अपने प्लॉट से जुड़ी सभी जानकारी देख सकते हैं, जिसमें भुगतान और बकाया मेंटेनेंस शामिल है।",
-        "user.btn.bank": "खाता और UPI विवरण",
-        "user.btn.addPayment": "भुगतान जोड़ें",
-        "user.btn.whatsapp": "WhatsApp ग्रुप जॉइन करें",
-        "user.btn.profile": "प्रोफ़ाइल",
-        "user.btn.changePw": "पासवर्ड बदलें",
-        "user.btn.logout": "लॉग आउट",
-        "user.h.summary": "आपके भुगतान का सारांश",
-        "user.kpi.plots": "प्लॉट",
-        "user.kpi.received": "प्राप्त",
-        "user.kpi.expected": "अपेक्षित",
-        "user.kpi.pending": "बकाया",
-        "user.kpi.lateFee": "लेट फी"
-        ,
-        "user.h.notices": "सूचनाएं",
-        "user.note.notices": "सोसायटी की नवीनतम सूचनाएं।",
-        "user.tbl.date": "तारीख",
-        "user.tbl.title": "शीर्षक",
-        "user.tbl.details": "विवरण",
-        "user.tbl.attachment": "अटैचमेंट"
-      },
-      mr: {
-        "user.tagline": "ओनर पोर्टल • तुमच्या प्लॉटशी संबंधित सर्व माहिती येथे पाहू शकता, ज्यामध्ये भरलेली व प्रलंबित मेंटेनन्स रक्कम समाविष्ट आहे.",
-        "user.btn.bank": "खाते व UPI तपशील",
-        "user.btn.addPayment": "पेमेंट जोडा",
-        "user.btn.whatsapp": "WhatsApp ग्रुप जॉइन करा",
-        "user.btn.profile": "प्रोफाइल",
-        "user.btn.changePw": "पासवर्ड बदला",
-        "user.btn.logout": "लॉग आउट",
-        "user.h.summary": "तुमच्या पेमेंटचा सारांश",
-        "user.kpi.plots": "प्लॉट",
-        "user.kpi.received": "प्राप्त",
-        "user.kpi.expected": "अपेक्षित",
-        "user.kpi.pending": "बाकी",
-        "user.kpi.lateFee": "लेट फी"
-        ,
-        "user.h.notices": "सूचना",
-        "user.note.notices": "सोसायटीकडून नवीन सूचना.",
-        "user.tbl.date": "तारीख",
-        "user.tbl.title": "शीर्षक",
-        "user.tbl.details": "तपशील",
-        "user.tbl.attachment": "अटॅचमेंट"
       }
     };
 
-    function langGet(){
-      const v = norm(localStorage.getItem(LS_LANG_KEY) || "");
-      return (v === "hi" || v === "mr" || v === "en") ? v : "en";
-    }
     function t(key){
-      const l = langGet();
-      return (I18N[l] && I18N[l][key]) || (I18N.en && I18N.en[key]) || key;
+      return (I18N.en && I18N.en[key]) || key;
     }
-    function applyUserLanguage(lang){
-      const l = (lang === "hi" || lang === "mr" || lang === "en") ? lang : "en";
-      try { localStorage.setItem(LS_LANG_KEY, l); } catch {}
-      const sel = document.getElementById("userLangSelect");
-      if (sel) sel.value = l;
+    function applyUserLanguage(){
       const tag = document.getElementById("userTagline");
       if (tag) tag.textContent = t("user.tagline");
       document.querySelectorAll("[data-i18n]").forEach(el => {
@@ -3410,7 +3350,7 @@
         if (upb) upb.textContent = t("user.btn.profile");
         if (upn) upn.textContent = "Owner";
         if (ups) ups.textContent = `Signed in: ${sess.userId}`;
-        applyUserLanguage(langGet());
+        applyUserLanguage();
         renderUserGuideBanner();
         startRefreshTimer();
         loadCsv();
@@ -5859,13 +5799,6 @@
         }
         openAddPaymentModal("user", plotNo);
       });
-
-      const userLangSelect = document.getElementById("userLangSelect");
-      if (userLangSelect && !globalThis.__insUserLangWired){
-        globalThis.__insUserLangWired = true;
-        userLangSelect.value = langGet();
-        userLangSelect.addEventListener("change", () => applyUserLanguage(userLangSelect.value));
-      }
 
       (function wireUserPlotFocus(){
         const sel = document.getElementById("userPlotFocus");
