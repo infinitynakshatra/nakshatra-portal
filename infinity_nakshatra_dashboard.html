@@ -2185,7 +2185,7 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [] };
+    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], banking: null };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
@@ -2239,13 +2239,16 @@
         paymentsByPlot: byPlot,
         pending: Array.isArray(j.pending) ? j.pending : [],
         tickets: Array.isArray(j.tickets) ? j.tickets : [],
-        notices: Array.isArray(j.notices) ? j.notices : []
+        notices: Array.isArray(j.notices) ? j.notices : [],
+        banking: (j.banking !== undefined && j.banking !== null && typeof j.banking === "object") ? j.banking : null
       };
       renderNotices();
       // Refresh UI that depends on payments/pending after server state arrives.
       try {
         renderAdminPendingApprovalPanel();
         updateMaintenanceCollectionCards();
+        renderUserGuideBanner();
+        if (document.getElementById("bankViewBackdrop")?.classList.contains("show")) fillBankViewModal();
         const sess = readSession();
         if (sess && sess.role === "user") refreshUserPaymentsOnly();
         // If these modals are open, refresh them too.
@@ -2261,6 +2264,23 @@
       if (!isServerEnabled()) return { ok:false, skipped:true };
       if (portalServerState.loaded) return { ok:true };
       return await portalServerFetchState();
+    }
+
+    async function portalServerSaveBanking(c){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "saveBanking",
+        actor: "admin",
+        banking: c
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true };
     }
 
     async function portalServerAddPayment(plotNo, ym, amount, lateFee){
@@ -2966,41 +2986,67 @@
         guidelines: defaultBankingGuide()
       };
     }
-    function loadBankingConfig(){
+    function mergeBankingFromObject_(o, base){
+      const rawGuide = norm(o.guidelines);
+      const guidelines =
+        !rawGuide || rawGuide === LEGACY_BANKING_GUIDE || rawGuide === LEGACY_BANKING_GUIDE_V2
+          ? defaultBankingGuide()
+          : rawGuide;
+      return {
+        ...base,
+        primaryAccountHolder: norm(o.primaryAccountHolder),
+        secondaryAccountHolder: norm(o.secondaryAccountHolder),
+        beneficiaryName: norm(o.beneficiaryName),
+        bankName: norm(o.bankName),
+        accountNumber: norm(o.accountNumber),
+        accountType: norm(o.accountType),
+        ifsc: norm(o.ifsc),
+        upiId: norm(o.upiId),
+        qrDataUrl: norm(o.qrDataUrl),
+        guidelines
+      };
+    }
+    function loadBankingFromLocalStorage_(){
       const base = defaultBankingConfig();
       try {
         const raw = localStorage.getItem(LS_BANKING_KEY);
         if (!raw) return base;
         const o = JSON.parse(raw);
         if (!o || typeof o !== "object") return base;
-        const rawGuide = norm(o.guidelines);
-        const guidelines =
-          !rawGuide || rawGuide === LEGACY_BANKING_GUIDE || rawGuide === LEGACY_BANKING_GUIDE_V2
-            ? defaultBankingGuide()
-            : rawGuide;
-        return {
-          ...base,
-          primaryAccountHolder: norm(o.primaryAccountHolder),
-          secondaryAccountHolder: norm(o.secondaryAccountHolder),
-          beneficiaryName: norm(o.beneficiaryName),
-          bankName: norm(o.bankName),
-          accountNumber: norm(o.accountNumber),
-          accountType: norm(o.accountType),
-          ifsc: norm(o.ifsc),
-          upiId: norm(o.upiId),
-          qrDataUrl: norm(o.qrDataUrl),
-          guidelines
-        };
+        return mergeBankingFromObject_(o, base);
       } catch {
         return base;
       }
     }
-    function saveBankingConfig(c){
+    function loadBankingConfig(){
+      const base = defaultBankingConfig();
+      const local = loadBankingFromLocalStorage_();
+      if (portalServerState.loaded && isServerEnabled()){
+        const sb = portalServerState.banking;
+        if (sb != null && typeof sb === "object"){
+          return mergeBankingFromObject_(sb, base);
+        }
+      }
+      return local;
+    }
+    async function saveBankingConfig(c){
       try {
         localStorage.setItem(LS_BANKING_KEY, JSON.stringify(c));
       } catch {
         alert("Could not save (browser storage may be full).");
+        return { ok:false };
       }
+      if (!isServerEnabled()) return { ok:true };
+      const sr = await portalServerSaveBanking(c);
+      if (!sr.ok){
+        const det = String(sr.detail?.error || sr.error || "");
+        if (det.indexOf("too_large") >= 0){
+          alert("Banking payload is too large for the server (try a smaller QR image). Saved in this browser only.");
+        }
+        return sr;
+      }
+      await portalServerFetchState();
+      return { ok:true };
     }
     function readFileAsDataURL(file){
       return new Promise((resolve, reject) => {
@@ -3065,15 +3111,21 @@
         }
       }
     }
-    function openBankingViewModal(){
+    async function openBankingViewModal(){
+      if (isServerEnabled()){
+        try { await ensureServerStateLoaded(); } catch {}
+      }
       fillBankViewModal();
       showBackdrop("bankViewBackdrop", true);
     }
-    function openBankingEditModal(){
+    async function openBankingEditModal(){
       const sess = readSession();
       if (!sess || sess.role !== "admin"){
         alert("Only an admin can update society account and UPI details.");
         return;
+      }
+      if (isServerEnabled()){
+        try { await ensureServerStateLoaded(); } catch {}
       }
       bankQrEditState = { cleared: false, newDataUrl: null };
       const c = loadBankingConfig();
@@ -3102,7 +3154,7 @@
       }
       showBackdrop("bankEditBackdrop", true);
     }
-    function saveBankingEditModal(){
+    async function saveBankingEditModal(){
       const sess = readSession();
       if (!sess || sess.role !== "admin") return;
       const cur = loadBankingConfig();
@@ -3121,7 +3173,10 @@
         qrDataUrl: qr,
         guidelines: norm(document.getElementById("bankEditGuidelines").value) || defaultBankingGuide()
       };
-      saveBankingConfig(c);
+      const sr = await saveBankingConfig(c);
+      if (isServerEnabled() && sr && !sr.ok && !sr.skipped){
+        alert("Saved in this browser. Server sync failed: " + String(sr.error || sr.detail?.error || "unknown"));
+      }
       showBackdrop("bankEditBackdrop", false);
       renderUserGuideBanner();
     }
