@@ -1736,22 +1736,34 @@
       <div class="payAddScroll">
         <div class="kvGrid">
           <div class="field">
-            <label for="bankEditBeneficiary">Beneficiary name</label>
+            <label for="bankEditPrimaryHolder">Primary Account Holder</label>
+            <input id="bankEditPrimaryHolder" type="text" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="bankEditSecondaryHolder">Secondary Account Holder</label>
+            <input id="bankEditSecondaryHolder" type="text" autocomplete="off" />
+          </div>
+          <div class="field">
+            <label for="bankEditBeneficiary">Beneficiary Name</label>
             <input id="bankEditBeneficiary" type="text" autocomplete="off" />
           </div>
           <div class="field">
-            <label for="bankEditBankName">Bank name</label>
+            <label for="bankEditBankName">Bank Name</label>
             <input id="bankEditBankName" type="text" autocomplete="off" />
           </div>
           <div class="field">
-            <label for="bankEditAccount">Account number</label>
+            <label for="bankEditAccount">Account Number</label>
             <input id="bankEditAccount" type="text" inputmode="numeric" autocomplete="off" />
           </div>
           <div class="field">
-            <label for="bankEditIfsc">IFSC</label>
+            <label for="bankEditAccountType">Account Type</label>
+            <input id="bankEditAccountType" type="text" autocomplete="off" placeholder="e.g. Savings, Current" />
+          </div>
+          <div class="field">
+            <label for="bankEditIfsc">IFSC Code</label>
             <input id="bankEditIfsc" type="text" autocomplete="off" />
           </div>
-          <div class="field" style="grid-column:1/-1;">
+          <div class="field">
             <label for="bankEditUpi">UPI ID</label>
             <input id="bankEditUpi" type="text" autocomplete="off" placeholder="societyname@bank" />
           </div>
@@ -2895,11 +2907,14 @@
     }
 
     function defaultBankingGuide(){
-      return "Pay the maintenance amount via NEFT/IMPS using the account details provided, or scan the UPI QR code. Please include your plot number in the payment remarks. After completing the payment, use the \"Add Payment\" option on the portal to ensure your plot record matches the amount received in the society account.";
+      return "Pay the maintenance amount via NEFT/IMPS/Account Transfer using the account details provided, or scan the UPI QR code. Please include your plot number in the payment remarks. After completing the payment, use the \"Add Payment\" option on the portal to ensure your plot record matches the amount received in the society account.";
     }
     /** Previous default so loadBankingConfig can upgrade stored guidelines without admin edit. */
     const LEGACY_BANKING_GUIDE =
       "Transfer maintenance via NEFT/IMPS using the account details below, or scan the UPI QR. In the payment remarks, mention your plot number. After paying, use \u201cAdd payment\u201d on this portal so your plot record matches what the society receives.";
+    /** Prior portal default (NEFT/IMPS only) — migrate to defaultBankingGuide() on load. */
+    const LEGACY_BANKING_GUIDE_V2 =
+      "Pay the maintenance amount via NEFT/IMPS using the account details provided, or scan the UPI QR code. Please include your plot number in the payment remarks. After completing the payment, use the \"Add Payment\" option on the portal to ensure your plot record matches the amount received in the society account.";
 
     const I18N = {
       en: {
@@ -2939,9 +2954,12 @@
     }
     function defaultBankingConfig(){
       return {
+        primaryAccountHolder: "",
+        secondaryAccountHolder: "",
         beneficiaryName: "",
         bankName: "",
         accountNumber: "",
+        accountType: "",
         ifsc: "",
         upiId: "",
         qrDataUrl: "",
@@ -2957,14 +2975,17 @@
         if (!o || typeof o !== "object") return base;
         const rawGuide = norm(o.guidelines);
         const guidelines =
-          !rawGuide || rawGuide === LEGACY_BANKING_GUIDE
+          !rawGuide || rawGuide === LEGACY_BANKING_GUIDE || rawGuide === LEGACY_BANKING_GUIDE_V2
             ? defaultBankingGuide()
             : rawGuide;
         return {
           ...base,
+          primaryAccountHolder: norm(o.primaryAccountHolder),
+          secondaryAccountHolder: norm(o.secondaryAccountHolder),
           beneficiaryName: norm(o.beneficiaryName),
           bankName: norm(o.bankName),
           accountNumber: norm(o.accountNumber),
+          accountType: norm(o.accountType),
           ifsc: norm(o.ifsc),
           upiId: norm(o.upiId),
           qrDataUrl: norm(o.qrDataUrl),
@@ -3012,10 +3033,13 @@
       const kv = document.getElementById("bankViewKv");
       if (kv){
         const rows = [
-          ["Beneficiary", norm(c.beneficiaryName) || "—"],
-          ["Bank name", norm(c.bankName) || "—"],
-          ["Account number", norm(c.accountNumber) || "—"],
-          ["IFSC", norm(c.ifsc) || "—"],
+          ["Primary Account Holder", norm(c.primaryAccountHolder) || "—"],
+          ["Secondary Account Holder", norm(c.secondaryAccountHolder) || "—"],
+          ["Beneficiary Name", norm(c.beneficiaryName) || "—"],
+          ["Bank Name", norm(c.bankName) || "—"],
+          ["Account Number", norm(c.accountNumber) || "—"],
+          ["Account Type", norm(c.accountType) || "—"],
+          ["IFSC Code", norm(c.ifsc) || "—"],
           ["UPI ID", norm(c.upiId) || "—"]
         ];
         kv.innerHTML = rows.map(([k, v]) => `
@@ -3054,9 +3078,12 @@
       bankQrEditState = { cleared: false, newDataUrl: null };
       const c = loadBankingConfig();
       const setv = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+      setv("bankEditPrimaryHolder", norm(c.primaryAccountHolder));
+      setv("bankEditSecondaryHolder", norm(c.secondaryAccountHolder));
       setv("bankEditBeneficiary", norm(c.beneficiaryName));
       setv("bankEditBankName", norm(c.bankName));
       setv("bankEditAccount", norm(c.accountNumber));
+      setv("bankEditAccountType", norm(c.accountType));
       setv("bankEditIfsc", norm(c.ifsc));
       setv("bankEditUpi", norm(c.upiId));
       setv("bankEditGuidelines", norm(c.guidelines) || defaultBankingGuide());
@@ -3083,9 +3110,12 @@
       if (bankQrEditState.cleared && !bankQrEditState.newDataUrl) qr = "";
       else if (bankQrEditState.newDataUrl) qr = bankQrEditState.newDataUrl;
       const c = {
+        primaryAccountHolder: norm(document.getElementById("bankEditPrimaryHolder").value),
+        secondaryAccountHolder: norm(document.getElementById("bankEditSecondaryHolder").value),
         beneficiaryName: norm(document.getElementById("bankEditBeneficiary").value),
         bankName: norm(document.getElementById("bankEditBankName").value),
         accountNumber: norm(document.getElementById("bankEditAccount").value),
+        accountType: norm(document.getElementById("bankEditAccountType").value),
         ifsc: norm(document.getElementById("bankEditIfsc").value).toUpperCase(),
         upiId: norm(document.getElementById("bankEditUpi").value),
         qrDataUrl: qr,
