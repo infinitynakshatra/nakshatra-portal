@@ -2186,7 +2186,8 @@
         const plotNo = norm(p.plotNo);
         if (!plotNo) continue;
         if (!byPlot.has(plotNo)) byPlot.set(plotNo, new Map());
-        const ym = String(p.ym || "");
+        const ym = normalizePortalYm(String(p.ym || ""));
+        if (!ym) continue;
         const at = p.atIso ? Date.parse(String(p.atIso)) : 0;
         const cur = byPlot.get(plotNo).get(ym);
         // Deduplicate: keep the latest record for the same plot+month.
@@ -3647,7 +3648,7 @@
           return arr
             .filter(e => e && typeof e.ym === "string")
             .map(e => ({
-              ym: String(e.ym),
+              ym: normalizePortalYm(String(e.ym)),
               amount: toMoneyNumber(e.amount),
               lateFee: toMoneyNumber(e.lateFee),
               by: norm(e.by || ""),
@@ -3662,11 +3663,12 @@
     }
 
     function bestPaymentMetaForYm_(entries, ym){
+      const want = normalizePortalYm(ym);
       let bestAt = -1;
       let by = "";
       let source = "";
       for (const e of entries || []){
-        if (!e || String(e.ym) !== String(ym)) continue;
+        if (!e || normalizePortalYm(e.ym) !== want) continue;
         const at = Number(e.at) || 0;
         if (at >= bestAt){
           bestAt = at;
@@ -3683,8 +3685,8 @@
      */
     function mergeServerLocalPaymentEntryLists_(serverEntries, localEntries){
       const ymSet = new Set();
-      for (const e of serverEntries || []) if (e && e.ym) ymSet.add(String(e.ym));
-      for (const e of localEntries || []) if (e && e.ym) ymSet.add(String(e.ym));
+      for (const e of serverEntries || []) if (e && e.ym) ymSet.add(normalizePortalYm(e.ym));
+      for (const e of localEntries || []) if (e && e.ym) ymSet.add(normalizePortalYm(e.ym));
       const yms = [...ymSet].sort((a, b) => String(a).localeCompare(String(b)));
       const out = [];
       for (const ym of yms){
@@ -3748,7 +3750,7 @@
 
     function paymentsSaveEntries(plotNo, entries){
       const clean = (entries || []).map(e => ({
-        ym: String(e.ym),
+        ym: normalizePortalYm(String(e.ym)),
         amount: toMoneyNumber(e.amount),
         lateFee: toMoneyNumber(e.lateFee),
         by: norm(e.by || ""),
@@ -3763,14 +3765,16 @@
 
     function hasAdminLockForMonth(plotNo, ym){
       if (!plotNo || !ym) return false;
+      const want = normalizePortalYm(ym);
       const entries = paymentsLoadEntries(plotNo);
-      return entries.some(e => String(e.ym) === String(ym) && norm(e.by) === "admin");
+      return entries.some(e => normalizePortalYm(e.ym) === want && norm(e.by) === "admin");
     }
 
     function hasAnyPaymentForMonth(plotNo, ym){
       if (!plotNo || !ym) return false;
+      const want = normalizePortalYm(ym);
       const entries = paymentsLoadEntries(plotNo);
-      return entries.some(e => String(e.ym) === String(ym));
+      return entries.some(e => normalizePortalYm(e.ym) === want);
     }
 
     function paymentsPendingLoad(){
@@ -3820,8 +3824,9 @@
     }
 
     function paymentsPendingClearForPlotYm(plotNo, ym){
+      const want = normalizePortalYm(ym);
       paymentsPendingSaveAll(paymentsPendingLoad().filter(it => !(
-        String(it.plotNo) === String(plotNo) && String(it.ym) === String(ym)
+        String(it.plotNo) === String(plotNo) && normalizePortalYm(it.ym) === want
       )));
     }
 
@@ -3845,7 +3850,7 @@
       const sorted = [...items].sort((a, b) => (Number(b.requestedAt) || 0) - (Number(a.requestedAt) || 0));
       tbody.innerHTML = sorted.map(it => {
         const when = it.requestedAt ? new Date(Number(it.requestedAt)).toLocaleString() : "—";
-        const mlab = fyLabelForYm(it.ym);
+        const mlab = ymPendingAdminLabel(it.ym);
         return `<tr>
           <td class="mono">${escapeHtml(when)}</td>
           <td>${escapeHtml(String(it.plotNo))}</td>
@@ -3895,7 +3900,7 @@
       reqBtn.disabled = false;
     }
 
-    function submitPaymentApprovalRequest(){
+    async function submitPaymentApprovalRequest(){
       const errEl = document.getElementById("payErr");
       setErr(errEl, "");
       const saveBtn = document.getElementById("paySaveBtn");
@@ -3914,6 +3919,9 @@
         setErr(errEl, "Please choose a month.");
         return;
       }
+      if (isServerEnabled()){
+        try { await ensureServerStateLoaded(); } catch {}
+      }
       if (hasAnyPaymentForMonth(plotNo, ym)){
         alert("You have already added the payment for this specific month. You cannot add it again.");
         return;
@@ -3929,33 +3937,35 @@
         return;
       }
       const mob = norm(sess.userId);
+      const ymCanon = normalizePortalYm(ym);
 
       if (portalServerState.loaded && isServerEnabled()){
-        void (async () => {
-          const sr = await portalServerSubmitPaymentRequest(plotNo, ym, amount, lateFee, mob);
-          if (!sr.ok){
-            const e = sr.detail?.error || sr.error || "";
-            if (String(e) === "already_paid"){
-              alert("You have already added the payment for this specific month. You cannot add it again.");
-            } else {
-              alert("Could not submit request to server. Saved locally only.");
-            }
-            return;
+        const sr = await portalServerSubmitPaymentRequest(plotNo, ymCanon, amount, lateFee, mob);
+        if (!sr.ok){
+          const e = sr.detail?.error || sr.error || "";
+          if (String(e) === "already_paid"){
+            alert("You have already added the payment for this specific month. You cannot add it again.");
+          } else {
+            alert("Could not submit request to server. Please try again.");
           }
-          await portalServerFetchState();
-          renderAdminPendingApprovalPanel();
-        })();
+          return;
+        }
+        await portalServerFetchState();
+        renderAdminPendingApprovalPanel();
+        alert("Your payment details were sent for admin approval. They will appear in your chart after an admin approves.");
+        refreshUserView();
+        return;
       }
 
       const items = paymentsPendingLoad().filter(it => !(
         String(it.plotNo) === String(plotNo) &&
-        String(it.ym) === String(ym) &&
+        normalizePortalYm(it.ym) === ymCanon &&
         norm(it.requesterMobile) === mob
       ));
       items.push({
         id: makePaymentRequestId(),
         plotNo,
-        ym,
+        ym: ymCanon,
         amount,
         lateFee,
         requesterMobile: mob,
@@ -4110,11 +4120,46 @@
       return slots;
     }
 
+    /** Map sheet/legacy ym strings to canonical YYYY-MM (same as buildIndianFYSlots). */
+    function normalizePortalYm(ym){
+      const s = norm(ym);
+      if (!s) return "";
+      const mIso = s.match(/^(\d{4})-(\d{1,2})$/);
+      if (mIso) return `${mIso[1]}-${String(mIso[2]).padStart(2, "0")}`;
+      const m6 = s.match(/^(\d{4})(\d{2})$/);
+      if (m6) return `${m6[1]}-${m6[2]}`;
+      const mon3 = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const cleaned = s.replace(/['’]/g, "-").replace(/\s+/g, "");
+      const head = cleaned.slice(0, 3);
+      const mi = mon3.findIndex(x => x.toLowerCase() === head.toLowerCase());
+      if (mi < 0) return s;
+      const tail = cleaned.slice(3).replace(/^-+/, "");
+      const yy = tail.match(/^(\d{2}|\d{4})$/);
+      if (!yy) return s;
+      let yNum = Number(yy[1]);
+      if (!Number.isFinite(yNum)) return s;
+      if (yNum < 100) yNum += 2000;
+      return `${yNum}-${String(mi + 1).padStart(2, "0")}`;
+    }
+
+    /** Admin pending table: compact month label (e.g. May-26). */
+    function ymPendingAdminLabel(ymRaw){
+      const c = normalizePortalYm(ymRaw);
+      if (!c) return String(ymRaw || "—");
+      for (let y = SOCIETY_FY_START_MAY_YEAR; y <= SOCIETY_FY_END_MAY_YEAR; y++){
+        for (const s of buildIndianFYSlots(y)){
+          if (s.ym === c) return `${s.shortMonth}-${String(s.calendarYear).slice(-2)}`;
+        }
+      }
+      return c;
+    }
+
     function sumEntriesForYm(entries, ym){
+      const want = normalizePortalYm(ym);
       let amt = 0;
       let late = 0;
       for (const e of entries || []){
-        if (String(e.ym) !== String(ym)) continue;
+        if (normalizePortalYm(e.ym) !== want) continue;
         amt += toMoneyNumber(e.amount);
         late += toMoneyNumber(e.lateFee);
       }
@@ -4897,6 +4942,7 @@
         if (noteEl){
           noteEl.innerHTML = "You <b>cannot</b> post maintenance to the books yourself. Choose the month and amounts, then <b>Send for Admin Approval</b>. If this month was already saved from the admin login, you cannot add or change it from your owner login.";
         }
+        if (isServerEnabled()) void ensureServerStateLoaded().then(() => { try { updatePayModalMonthGuard(); } catch {} });
       }
     }
 
@@ -5046,7 +5092,8 @@
       }
 
       const entries = paymentsLoadEntries(plotNo);
-      const existing = entries.find(e => String(e.ym) === String(ym));
+      const ymAd = normalizePortalYm(ym);
+      const existing = entries.find(e => normalizePortalYm(e.ym) === ymAd);
       if (existing){
         alert("You have already added the payment for this specific month. You cannot add it again.");
         return;
@@ -5058,7 +5105,7 @@
             alert("Unable to add entry: could not load server state. Check COLLECTION_API_URL.");
             return;
           }
-          const sr = await portalServerAddPayment(plotNo, ym, amount, lateFee);
+          const sr = await portalServerAddPayment(plotNo, ymAd, amount, lateFee);
           if (!sr.ok){
             const e = sr.detail?.error || sr.error || "";
             if (String(e) === "already_paid"){
@@ -5069,12 +5116,12 @@
             return;
           }
           // Ensure admin FY filter includes this payment month so it appears in tables/KPIs.
-          ensureAdminFyIncludesYm(ym);
+          ensureAdminFyIncludesYm(ymAd);
           const fr = await portalServerFetchState();
           if (!fr.ok){
             // Still show it locally if state refresh failed for some reason.
             const cur = paymentsLoadEntries(plotNo);
-            cur.push({ ym, amount, lateFee, by: "admin", source: "admin", at: Date.now() });
+            cur.push({ ym: ymAd, amount, lateFee, by: "admin", source: "admin", at: Date.now() });
             paymentsSaveEntries(plotNo, cur);
           }
           renderPaymentsTable(plotNo);
@@ -5083,9 +5130,9 @@
         })();
         return;
       }
-      entries.push({ ym, amount, lateFee, by: "admin", source: "admin", at: Date.now() });
+      entries.push({ ym: ymAd, amount, lateFee, by: "admin", source: "admin", at: Date.now() });
       paymentsSaveEntries(plotNo, entries);
-      paymentsPendingClearForPlotYm(plotNo, ym);
+      paymentsPendingClearForPlotYm(plotNo, ymAd);
       renderAdminPendingApprovalPanel();
 
       // keep save context updated if admin changed plot select
@@ -5103,8 +5150,8 @@
         const entry = {
           atIso: new Date().toISOString(),
           plotNo: String(plotNo),
-          ym: String(ym),
-          monthLabel: fyLabelForYm(ym),
+          ym: String(ymAd),
+          monthLabel: fyLabelForYm(ymAd),
           amount: Number(amount) || 0,
           lateFee: Number(lateFee) || 0,
           role: String(role),
