@@ -1599,12 +1599,12 @@
           <div class="smallNote" id="payAddFlowNote">Add a received maintenance entry (amount default 350) and optional late fee.</div>
 
           <div class="field adminOnly" id="payPlotField">
-            <label for="payPlotSelect">Plot No.</label>
+            <label for="payPlotSelect">Plot Number and Name</label>
             <select id="payPlotSelect"></select>
           </div>
 
           <div class="field" id="payPlotFieldUser" style="display:none;">
-            <label for="payPlotSelectUser">Plot No.</label>
+            <label for="payPlotSelectUser">Plot Number and Name</label>
             <select id="payPlotSelectUser" aria-label="Choose plot for this payment"></select>
           </div>
 
@@ -5017,7 +5017,10 @@
       const opts = [];
       opts.push(`<option value="">Select…</option>`);
       for (let i = 1; i <= 109; i++){
-        opts.push(`<option value="${i}">${i}</option>`);
+        const key = String(i);
+        const name = plotOwnersLabelForPlot(key);
+        const label = name ? `${key} — ${name}` : key;
+        opts.push(`<option value="${key}">${escapeHtml(label)}</option>`);
       }
       selectEl.innerHTML = opts.join("");
     }
@@ -5168,7 +5171,12 @@
         const plots = [...new Set(rows.map(plotNoOfRow).filter(Boolean))].sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b)));
         if (plots.length > 1 && payPlotFieldUser && payPlotSelectUser){
           showEl(payPlotFieldUser, true);
-          payPlotSelectUser.innerHTML = plots.map(p => `<option value="${escapeHtml(String(p))}">Plot ${escapeHtml(String(p))}</option>`).join("");
+          payPlotSelectUser.innerHTML = plots.map(p => {
+            const pk = String(p);
+            const nm = plotOwnersLabelForPlot(pk);
+            const disp = nm ? `${escapeHtml(pk)} — ${escapeHtml(nm)}` : escapeHtml(pk);
+            return `<option value="${escapeHtml(pk)}">${disp}</option>`;
+          }).join("");
           const pref = norm(plotNo);
           const fromDash = pref && plots.some(p => String(p) === String(pref)) ? pref : getUserFocusedPlotNo(rows, sess.userId);
           const initial = fromDash && plots.some(p => String(p) === String(fromDash)) ? String(fromDash) : String(plots[0]);
