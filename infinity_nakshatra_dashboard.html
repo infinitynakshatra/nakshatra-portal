@@ -221,25 +221,14 @@
       flex-direction:column;
       gap:6px;
     }
-    .payMonthCheckboxHost label.payMonthCbRow{
-      display:flex;
-      flex-direction:row;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      width:100%;
-      font-size:12px;
-      cursor:pointer;
-      line-height:1.3;
-      color:var(--text);
-    }
-    .payMonthCheckboxHost label.payMonthCbRow .payMonthCbLabel{
-      flex:1;
-      min-width:0;
-      text-align:left;
-    }
-    .payMonthCheckboxHost label.payMonthCbRow input.payMonthCb{flex-shrink:0; margin:0;}
-    .payMonthCheckboxHost label{color:var(--text);}
+    .payMonthCheckboxHost .payMonthPickTable{width:100%; border-collapse:collapse; font-size:12px; color:var(--text);}
+    .payMonthCheckboxHost .payMonthPickTable th,
+    .payMonthCheckboxHost .payMonthPickTable td{padding:6px 8px; text-align:left; border-bottom:1px solid var(--border); vertical-align:middle;}
+    .payMonthCheckboxHost .payMonthPickTable th{font-size:11px; color:var(--muted); font-weight:600;}
+    .payMonthCheckboxHost .payMonthPickTable td:last-child{text-align:center; width:56px;}
+    .payMonthCheckboxHost .payMonthPickLabel{cursor:pointer; display:inline;}
+    .payMonthCheckboxHost .payMonthMirrorCell{color:var(--text);}
+    .payMonthCheckboxHost .payMonthMirrorCell .mono{font-variant-numeric:tabular-nums;}
     .payBulkPlotTableWrap{
       max-height:min(280px, 42vh);
       overflow:auto;
@@ -252,6 +241,7 @@
     .payBulkPlotTable td{padding:6px 8px; text-align:left; border-bottom:1px solid var(--border); vertical-align:middle;}
     .payBulkPlotTable th{font-size:11px; color:var(--muted);}
     .payBulkPlotTable input.payBulkPlotAmt{width:100%; min-width:72px; max-width:120px;}
+    .payBulkPlotTable input.payBulkPlotLate{width:100%; min-width:56px; max-width:96px;}
     .modalPayAdd .field input,
     .modalPayAdd .field select{
       padding:7px 10px;
@@ -1636,14 +1626,14 @@
 
           <div class="field adminOnly" id="payMonthFieldMulti" style="display:none;">
             <span class="mcDdLabel" style="display:block; margin-bottom:2px;">Choose month(s) (FY)</span>
-            <div class="smallNote" style="margin-top:0;">Tick one or more months. The same payment amount and late fee above apply to <b>each</b> selected month.</div>
-            <div id="payMonthCheckboxHost" class="payMonthCheckboxHost" role="group" aria-label="Months for payment"></div>
+            <div class="smallNote" style="margin-top:0;">Enter <b>payment amount</b> and <b>payment late fee</b> above; they apply to <b>each</b> month you tick in <b>Select</b> (values are mirrored in the table).</div>
+            <div id="payMonthCheckboxHost" class="payMonthCheckboxHost"></div>
           </div>
 
           <div class="field adminOnly" id="payBulkMultiUserPanel" style="display:none;">
             <label for="payBulkSingleMonth">Month (FY) for all selected plots</label>
             <select id="payBulkSingleMonth" aria-label="Single month for bulk plot payments"></select>
-            <div class="smallNote" style="margin-top:6px;">Tick rows below. Each row has its own amount; <b>Payment late fee</b> (above) applies to <b>each</b> selected plot for this month.</div>
+            <div class="smallNote" style="margin-top:6px;">Tick rows below. Each row has its own amount and payment late fee for the selected month.</div>
             <div class="payBulkPlotTableWrap">
               <table class="payBulkPlotTable">
                 <thead>
@@ -1652,6 +1642,7 @@
                     <th>Name</th>
                     <th>Month</th>
                     <th style="min-width:88px;">Amount</th>
+                    <th style="min-width:72px;">Payment Late Fee</th>
                     <th>Primary Contact Number</th>
                     <th>Group Status</th>
                     <th style="width:72px;">Select</th>
@@ -5105,12 +5096,26 @@
           <td>${escapeHtml(plotNo)}</td>
           <td>${escapeHtml(name)}${paidHint}</td>
           <td>${escapeHtml(ymLabel)}</td>
-          <td><input type="number" class="payBulkPlotAmt" data-plot="${escapeHtml(plotNo)}" value="350" inputmode="numeric" autocomplete="off" /></td>
+          <td><input type="number" class="payBulkPlotAmt" data-plot="${escapeHtml(plotNo)}" value="350" inputmode="numeric" autocomplete="off" ${dis} /></td>
+          <td><input type="number" class="payBulkPlotLate" data-plot="${escapeHtml(plotNo)}" value="" inputmode="numeric" autocomplete="off" placeholder="0" ${dis} /></td>
           <td>${escapeHtml(primaryDisp)}</td>
           <td>${escapeHtml(gstatDisp)}</td>
           <td><input type="checkbox" class="payBulkPlotCb" data-plot="${escapeHtml(plotNo)}" ${dis} aria-label="Select plot ${escapeHtml(plotNo)}" /></td>
         </tr>`;
-      }).join("") || `<tr><td colspan="7">No plot rows in sheet.</td></tr>`;
+      }).join("") || `<tr><td colspan="8">No plot rows in sheet.</td></tr>`;
+    }
+
+    function syncPayMonthAdminMirrors(){
+      const host = document.getElementById("payMonthCheckboxHost");
+      if (!host) return;
+      const aEl = document.getElementById("payAmount");
+      const lEl = document.getElementById("payLateFee");
+      const av = aEl ? norm(aEl.value) : "";
+      const lv = lEl ? norm(lEl.value) : "";
+      const aDisp = av === "" ? "—" : av;
+      const lDisp = lv === "" ? "—" : lv;
+      host.querySelectorAll(".payMonthMirrorAmt").forEach(el => { el.textContent = aDisp; });
+      host.querySelectorAll(".payMonthMirrorLate").forEach(el => { el.textContent = lDisp; });
     }
 
     function populatePayMonthAdminCheckboxes(){
@@ -5119,16 +5124,32 @@
       const slots = allAdminSlotsUnion();
       const plotNo = norm(document.getElementById("paySaveBtn")?.dataset.plot);
       const entries = plotNo ? paymentsLoadEntries(plotNo) : [];
-      host.innerHTML = slots.map(s => {
+      let idx = 0;
+      const body = slots.map(s => {
         const sums = sumEntriesForYm(entries, s.ym);
         const has = toMoneyNumber(sums.amount) > 0 || toMoneyNumber(sums.lateFee) > 0;
         const dis = has ? "disabled" : "";
         const hint = has ? " <span style=\"color:var(--muted); font-weight:700;\">(already recorded)</span>" : "";
-        return `<label class="payMonthCbRow">
-          <span class="payMonthCbLabel">${escapeHtml(s.label)}${hint}</span>
-          <input type="checkbox" class="payMonthCb" value="${escapeHtml(s.ym)}" ${dis} />
-        </label>`;
+        const id = `payMonthCb_${idx++}`;
+        return `<tr>
+          <td><label for="${id}" class="payMonthPickLabel">${escapeHtml(s.label)}${hint}</label></td>
+          <td class="payMonthMirrorCell"><span class="payMonthMirrorAmt mono" aria-hidden="true"></span></td>
+          <td class="payMonthMirrorCell"><span class="payMonthMirrorLate mono" aria-hidden="true"></span></td>
+          <td><input type="checkbox" id="${id}" class="payMonthCb" value="${escapeHtml(s.ym)}" ${dis} aria-label="Select ${escapeHtml(s.label)}" /></td>
+        </tr>`;
       }).join("");
+      host.innerHTML = `<table class="payMonthPickTable" role="group" aria-label="Months for payment">
+        <thead>
+          <tr>
+            <th scope="col">Month</th>
+            <th scope="col">Payment Amount</th>
+            <th scope="col">Payment Late Fee</th>
+            <th scope="col">Select</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+      </table>`;
+      syncPayMonthAdminMirrors();
     }
 
     function getPayModalSelectedYmsForSave(){
@@ -5197,7 +5218,7 @@
       const payMonthSingle = document.getElementById("payMonthFieldSingle");
       const payMonthMulti = document.getElementById("payMonthFieldMulti");
       const payBulkPanel = document.getElementById("payBulkMultiUserPanel");
-      const payAmtFieldWrap = document.getElementById("payAmountFieldWrap");
+      const payAmountLateWrap = document.getElementById("payAmountLateWrap");
       const payHist = document.getElementById("payPayHistorySection");
       const isBulk = isAdmin && !!opts.bulkPlots;
 
@@ -5216,7 +5237,7 @@
           const bulkSel = document.getElementById("payBulkSingleMonth");
           if (bulkSel) populateFyMonthSelect(bulkSel, "admin");
           populatePayBulkPlotRowsTable();
-          if (payAmtFieldWrap) payAmtFieldWrap.style.display = "none";
+          if (payAmountLateWrap) payAmountLateWrap.style.display = "none";
           if (payHist) payHist.style.display = "none";
         } else {
           if (payPlotField) payPlotField.style.display = "";
@@ -5224,7 +5245,7 @@
           if (payMonthSingle) payMonthSingle.style.display = "none";
           if (payMonthMulti) payMonthMulti.style.display = "";
           populatePayMonthAdminCheckboxes();
-          if (payAmtFieldWrap) payAmtFieldWrap.style.display = "";
+          if (payAmountLateWrap) payAmountLateWrap.style.display = "";
           if (payHist) payHist.style.display = "";
         }
       } else {
@@ -5232,13 +5253,14 @@
         if (payBulkPanel) payBulkPanel.style.display = "none";
         if (payMonthSingle) payMonthSingle.style.display = "";
         if (payMonthMulti) payMonthMulti.style.display = "none";
-        if (payAmtFieldWrap) payAmtFieldWrap.style.display = "";
+        if (payAmountLateWrap) payAmountLateWrap.style.display = "";
         if (payHist) payHist.style.display = "";
         populateFyMonthSelect(document.getElementById("payMonthSelect"), "user");
       }
 
       document.getElementById("payAmount").value = "350";
       document.getElementById("payLateFee").value = "";
+      try { syncPayMonthAdminMirrors(); } catch {}
 
       document.getElementById("payTitle").textContent = isBulk ? "Add Multiple User Payment" : "Add Payment";
 
@@ -5252,7 +5274,7 @@
         if (reqBtn) reqBtn.style.display = "none";
         if (noteEl){
           noteEl.textContent = isBulk
-            ? "Pick one month, tick plots in the table, set each amount, set late fee if needed, then Save. One payment row per plot for that month."
+            ? "Pick one month, tick plots in the table, set each amount and payment late fee per row, then Save. One payment row per plot for that month."
             : "Select one plot, then tick one or more FY months. The same payment amount and late fee apply to each selected month. Saving posts immediately and removes matching owner approval requests.";
         }
       } else {
@@ -5394,23 +5416,24 @@
           setErr(document.getElementById("payErr"), "Please choose a month.");
           return;
         }
-        const lateFee = toMoneyNumber(document.getElementById("payLateFee").value);
         const rows = [];
         document.querySelectorAll("input.payBulkPlotCb:checked").forEach(cb => {
           const pn = norm(cb.getAttribute("data-plot"));
           if (!pn) return;
           const tr = cb.closest("tr");
           const inp = tr && tr.querySelector("input.payBulkPlotAmt");
+          const lateInp = tr && tr.querySelector("input.payBulkPlotLate");
           const amt = inp ? toMoneyNumber(inp.value) : 0;
-          rows.push({ plotNo: pn, amount: amt });
+          const lateFee = lateInp ? toMoneyNumber(lateInp.value) : 0;
+          rows.push({ plotNo: pn, amount: amt, lateFee });
         });
         if (!rows.length){
           setErr(document.getElementById("payErr"), "Please tick at least one plot.");
           return;
         }
-        for (const {plotNo, amount} of rows){
+        for (const {plotNo, amount, lateFee} of rows){
           if (amount <= 0 && lateFee <= 0){
-            setErr(document.getElementById("payErr"), `Plot ${plotNo}: enter amount or set payment late fee above.`);
+            setErr(document.getElementById("payErr"), `Plot ${plotNo}: enter amount or payment late fee for that row.`);
             return;
           }
           if (hasAnyPaymentForMonth(plotNo, ym)){
@@ -5425,7 +5448,7 @@
               alert("Unable to add entries: could not load server state. Check COLLECTION_API_URL.");
               return;
             }
-            for (const {plotNo, amount} of rows){
+            for (const {plotNo, amount, lateFee} of rows){
               const sr = await portalServerAddPayment(plotNo, ym, amount, lateFee);
               if (!sr.ok){
                 const e = sr.detail?.error || sr.error || "";
@@ -5444,7 +5467,7 @@
           })();
           return;
         }
-        for (const {plotNo, amount} of rows){
+        for (const {plotNo, amount, lateFee} of rows){
           const ent = [...paymentsLoadEntries(plotNo)];
           ent.push({ ym, amount, lateFee, by: "admin", source: "admin", at: Date.now() });
           paymentsSaveEntries(plotNo, ent);
@@ -5454,7 +5477,7 @@
         updateMaintenanceCollectionCards();
         populatePayBulkPlotRowsTable();
         try {
-          for (const {plotNo, amount} of rows){
+          for (const {plotNo, amount, lateFee} of rows){
             const row = allRows.find(r => plotNoOfRow(r) === String(plotNo)) || null;
             const ownerName = row ? (norm(row["Name of Owner 1"]) || norm(row["Name of Owner 2"]) || norm(row["Name of Owner 3"])) : "";
             const mobile = row ? (digitsOnly(row["Primary Contact Number"]) || digitsOnly(row["Alternate Number"])) : "";
@@ -6298,6 +6321,15 @@
 
       document.getElementById("payCloseBtn").addEventListener("click", () => showBackdrop("payBackdrop", false));
       document.getElementById("paySaveBtn").addEventListener("click", savePaymentsFromModal);
+      (function wirePayMonthMirrorSync(){
+        if (globalThis.__insPayMonthMirrorSync) return;
+        globalThis.__insPayMonthMirrorSync = true;
+        const sync = () => { try { syncPayMonthAdminMirrors(); } catch {} };
+        const pa = document.getElementById("payAmount");
+        const pl = document.getElementById("payLateFee");
+        if (pa) pa.addEventListener("input", sync);
+        if (pl) pl.addEventListener("input", sync);
+      })();
       const payRequestApproveBtn = document.getElementById("payRequestApproveBtn");
       if (payRequestApproveBtn) payRequestApproveBtn.addEventListener("click", submitPaymentApprovalRequest);
       if (!globalThis.__insPayMonthGuard){
