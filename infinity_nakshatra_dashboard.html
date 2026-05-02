@@ -221,15 +221,24 @@
       flex-direction:column;
       gap:6px;
     }
-    .payMonthCheckboxHost label{
+    .payMonthCheckboxHost label.payMonthCbRow{
       display:flex;
-      align-items:flex-start;
-      gap:8px;
+      flex-direction:row;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      width:100%;
       font-size:12px;
       cursor:pointer;
       line-height:1.3;
+      color:var(--text);
     }
-    .payMonthCheckboxHost input{flex-shrink:0; margin-top:2px;}
+    .payMonthCheckboxHost label.payMonthCbRow .payMonthCbLabel{
+      flex:1;
+      min-width:0;
+      text-align:left;
+    }
+    .payMonthCheckboxHost label.payMonthCbRow input.payMonthCb{flex-shrink:0; margin:0;}
     .payMonthCheckboxHost label{color:var(--text);}
     .payBulkPlotTableWrap{
       max-height:min(280px, 42vh);
@@ -1613,30 +1622,6 @@
             <label for="payMonthSelect">Choose month (FY)</label>
             <select id="payMonthSelect"></select>
           </div>
-          <div class="field adminOnly" id="payMonthFieldMulti" style="display:none;">
-            <span class="mcDdLabel" style="display:block; margin-bottom:2px;">Choose month(s) (FY)</span>
-            <div class="smallNote" style="margin-top:0;">Tick one or more months. The same payment amount and late fee below apply to <b>each</b> selected month.</div>
-            <div id="payMonthCheckboxHost" class="payMonthCheckboxHost" role="group" aria-label="Months for payment"></div>
-          </div>
-
-          <div class="field adminOnly" id="payBulkMultiUserPanel" style="display:none;">
-            <label for="payBulkSingleMonth">Month (FY) for all selected plots</label>
-            <select id="payBulkSingleMonth" aria-label="Single month for bulk plot payments"></select>
-            <div class="smallNote" style="margin-top:6px;">Tick one or more plots below. Each row has its own amount; <b>Payment late fee</b> (under this table) applies to <b>each</b> selected plot for this month.</div>
-            <div class="payBulkPlotTableWrap">
-              <table class="payBulkPlotTable">
-                <thead>
-                  <tr>
-                    <th style="width:40px;">Sel</th>
-                    <th>Plot</th>
-                    <th>Name</th>
-                    <th style="min-width:88px;">Amount</th>
-                  </tr>
-                </thead>
-                <tbody id="payBulkPlotRows"></tbody>
-              </table>
-            </div>
-          </div>
 
           <div class="kvGrid" id="payAmountLateWrap">
             <div class="field" id="payAmountFieldWrap" style="margin-top:0;">
@@ -1646,6 +1631,34 @@
             <div class="field" style="margin-top:0;">
               <label for="payLateFee">Payment late fee</label>
               <input id="payLateFee" inputmode="numeric" autocomplete="off" placeholder="0" />
+            </div>
+          </div>
+
+          <div class="field adminOnly" id="payMonthFieldMulti" style="display:none;">
+            <span class="mcDdLabel" style="display:block; margin-bottom:2px;">Choose month(s) (FY)</span>
+            <div class="smallNote" style="margin-top:0;">Tick one or more months. The same payment amount and late fee above apply to <b>each</b> selected month.</div>
+            <div id="payMonthCheckboxHost" class="payMonthCheckboxHost" role="group" aria-label="Months for payment"></div>
+          </div>
+
+          <div class="field adminOnly" id="payBulkMultiUserPanel" style="display:none;">
+            <label for="payBulkSingleMonth">Month (FY) for all selected plots</label>
+            <select id="payBulkSingleMonth" aria-label="Single month for bulk plot payments"></select>
+            <div class="smallNote" style="margin-top:6px;">Tick rows below. Each row has its own amount; <b>Payment late fee</b> (above) applies to <b>each</b> selected plot for this month.</div>
+            <div class="payBulkPlotTableWrap">
+              <table class="payBulkPlotTable">
+                <thead>
+                  <tr>
+                    <th>Plot No.</th>
+                    <th>Name</th>
+                    <th>Month</th>
+                    <th style="min-width:88px;">Amount</th>
+                    <th>Primary Contact Number</th>
+                    <th>Group Status</th>
+                    <th style="width:72px;">Select</th>
+                  </tr>
+                </thead>
+                <tbody id="payBulkPlotRows"></tbody>
+              </table>
             </div>
           </div>
           <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
@@ -5075,6 +5088,10 @@
       tb.innerHTML = pairs.map(([plotKey, row]) => {
         const name = norm(row["Name of Owner 1"]) || norm(row["Name of Owner 2"]) || norm(row["Name of Owner 3"]) || "—";
         const plotNo = String(plotKey);
+        const ymLabel = ym ? fyLabelForYm(ym) : "—";
+        const primaryRaw = digitsOnly(row["Primary Contact Number"]) || norm(row["Primary Contact Number"]);
+        const primaryDisp = primaryRaw ? primaryRaw : "—";
+        const gstatDisp = groupStatusRaw(row) || "—";
         let dis = "";
         let paidHint = "";
         if (ym){
@@ -5085,12 +5102,15 @@
           }
         }
         return `<tr>
-          <td><input type="checkbox" class="payBulkPlotCb" data-plot="${escapeHtml(plotNo)}" ${dis} aria-label="Select plot ${escapeHtml(plotNo)}" /></td>
           <td>${escapeHtml(plotNo)}</td>
           <td>${escapeHtml(name)}${paidHint}</td>
+          <td>${escapeHtml(ymLabel)}</td>
           <td><input type="number" class="payBulkPlotAmt" data-plot="${escapeHtml(plotNo)}" value="350" inputmode="numeric" autocomplete="off" /></td>
+          <td>${escapeHtml(primaryDisp)}</td>
+          <td>${escapeHtml(gstatDisp)}</td>
+          <td><input type="checkbox" class="payBulkPlotCb" data-plot="${escapeHtml(plotNo)}" ${dis} aria-label="Select plot ${escapeHtml(plotNo)}" /></td>
         </tr>`;
-      }).join("") || `<tr><td colspan="4">No plot rows in sheet.</td></tr>`;
+      }).join("") || `<tr><td colspan="7">No plot rows in sheet.</td></tr>`;
     }
 
     function populatePayMonthAdminCheckboxes(){
@@ -5104,9 +5124,9 @@
         const has = toMoneyNumber(sums.amount) > 0 || toMoneyNumber(sums.lateFee) > 0;
         const dis = has ? "disabled" : "";
         const hint = has ? " <span style=\"color:var(--muted); font-weight:700;\">(already recorded)</span>" : "";
-        return `<label>
+        return `<label class="payMonthCbRow">
+          <span class="payMonthCbLabel">${escapeHtml(s.label)}${hint}</span>
           <input type="checkbox" class="payMonthCb" value="${escapeHtml(s.ym)}" ${dis} />
-          <span>${escapeHtml(s.label)}${hint}</span>
         </label>`;
       }).join("");
     }
@@ -5390,7 +5410,7 @@
         }
         for (const {plotNo, amount} of rows){
           if (amount <= 0 && lateFee <= 0){
-            setErr(document.getElementById("payErr"), `Plot ${plotNo}: enter amount or set late fee below.`);
+            setErr(document.getElementById("payErr"), `Plot ${plotNo}: enter amount or set payment late fee above.`);
             return;
           }
           if (hasAnyPaymentForMonth(plotNo, ym)){
