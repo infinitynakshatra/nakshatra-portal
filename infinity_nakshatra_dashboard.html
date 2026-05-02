@@ -230,6 +230,19 @@
       line-height:1.3;
     }
     .payMonthCheckboxHost input{flex-shrink:0; margin-top:2px;}
+    .payMonthCheckboxHost label{color:var(--text);}
+    .payBulkPlotTableWrap{
+      max-height:min(280px, 42vh);
+      overflow:auto;
+      margin-top:8px;
+      border:1px solid var(--border);
+      border-radius:10px;
+    }
+    .payBulkPlotTable{width:100%; border-collapse:collapse; font-size:13px;}
+    .payBulkPlotTable th,
+    .payBulkPlotTable td{padding:6px 8px; text-align:left; border-bottom:1px solid var(--border); vertical-align:middle;}
+    .payBulkPlotTable th{font-size:11px; color:var(--muted);}
+    .payBulkPlotTable input.payBulkPlotAmt{width:100%; min-width:72px; max-width:120px;}
     .modalPayAdd .field input,
     .modalPayAdd .field select{
       padding:7px 10px;
@@ -1606,8 +1619,27 @@
             <div id="payMonthCheckboxHost" class="payMonthCheckboxHost" role="group" aria-label="Months for payment"></div>
           </div>
 
-          <div class="kvGrid">
-            <div class="field" style="margin-top:0;">
+          <div class="field adminOnly" id="payBulkMultiUserPanel" style="display:none;">
+            <label for="payBulkSingleMonth">Month (FY) for all selected plots</label>
+            <select id="payBulkSingleMonth" aria-label="Single month for bulk plot payments"></select>
+            <div class="smallNote" style="margin-top:6px;">Tick one or more plots below. Each row has its own amount; <b>Payment late fee</b> (under this table) applies to <b>each</b> selected plot for this month.</div>
+            <div class="payBulkPlotTableWrap">
+              <table class="payBulkPlotTable">
+                <thead>
+                  <tr>
+                    <th style="width:40px;">Sel</th>
+                    <th>Plot</th>
+                    <th>Name</th>
+                    <th style="min-width:88px;">Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="payBulkPlotRows"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="kvGrid" id="payAmountLateWrap">
+            <div class="field" id="payAmountFieldWrap" style="margin-top:0;">
               <label for="payAmount">Payment amount</label>
               <input id="payAmount" inputmode="numeric" autocomplete="off" placeholder="350" value="350" />
             </div>
@@ -1623,6 +1655,7 @@
           <div class="err" id="payErr"></div>
         </div>
 
+        <div id="payPayHistorySection">
         <table>
           <thead>
             <tr>
@@ -1633,6 +1666,7 @@
           </thead>
           <tbody id="payRows"></tbody>
         </table>
+        </div>
       </div>
     </div>
   </div>
@@ -4192,10 +4226,15 @@
       const u = readSession();
       if (u && u.role === "user") refreshUserView();
       if (document.getElementById("payBackdrop")?.classList.contains("show")){
-        const curPlot = norm(document.getElementById("paySaveBtn")?.dataset?.plot);
-        if (curPlot === plotNo){
-          renderPaymentsTable(plotNo);
-          if (norm(document.getElementById("paySaveBtn")?.dataset?.role) === "admin") populatePayMonthAdminCheckboxes();
+        const ps = document.getElementById("paySaveBtn");
+        if (ps?.dataset?.payFlow === "adminBulkPlots"){
+          populatePayBulkPlotRowsTable();
+        } else {
+          const curPlot = norm(ps?.dataset?.plot);
+          if (curPlot === plotNo){
+            renderPaymentsTable(plotNo);
+            if (norm(ps?.dataset?.role) === "admin") populatePayMonthAdminCheckboxes();
+          }
         }
       }
     }
@@ -4981,9 +5020,15 @@
 
     /** Updates subtitle, summary, payment table, and month guard when plot changes in Add Payment modal. */
     function refreshAddPaymentModalPlotUI(plotNo, role){
+      const saveBtn = document.getElementById("paySaveBtn");
+      if (role === "admin" && saveBtn?.dataset?.payFlow === "adminBulkPlots"){
+        document.getElementById("paySub").textContent = "One FY month • multiple plots — tick rows and save.";
+        const sum = document.getElementById("paySummary");
+        if (sum) sum.innerHTML = "";
+        return;
+      }
       const isAdmin = role === "admin";
       const p = norm(plotNo);
-      const saveBtn = document.getElementById("paySaveBtn");
       if (saveBtn) saveBtn.dataset.plot = p;
       const owners = p ? plotOwnersLabelForPlot(p) : "";
       document.getElementById("paySub").textContent =
@@ -5010,6 +5055,44 @@
       selectEl.innerHTML = slots.map(s => `<option value="${escapeHtml(s.ym)}">${escapeHtml(s.label)}</option>`).join("");
     }
 
+    function getAdminBulkPlotRowPairs(){
+      const m = new Map();
+      for (const r of allRows || []){
+        const p = plotNoOfRow(r);
+        const pk = norm(p);
+        if (!pk) continue;
+        if (!m.has(pk)) m.set(pk, r);
+      }
+      return [...m.keys()].sort((a, b) => Number(a) - Number(b) || String(a).localeCompare(String(b))).map(k => [k, m.get(k)]);
+    }
+
+    function populatePayBulkPlotRowsTable(){
+      const tb = document.getElementById("payBulkPlotRows");
+      if (!tb) return;
+      const ymSel = document.getElementById("payBulkSingleMonth");
+      const ym = ymSel ? normalizePortalYm(norm(ymSel.value)) : "";
+      const pairs = getAdminBulkPlotRowPairs();
+      tb.innerHTML = pairs.map(([plotKey, row]) => {
+        const name = norm(row["Name of Owner 1"]) || norm(row["Name of Owner 2"]) || norm(row["Name of Owner 3"]) || "—";
+        const plotNo = String(plotKey);
+        let dis = "";
+        let paidHint = "";
+        if (ym){
+          const sums = sumEntriesForYm(paymentsLoadEntries(plotNo), ym);
+          if (toMoneyNumber(sums.amount) > 0 || toMoneyNumber(sums.lateFee) > 0){
+            dis = "disabled";
+            paidHint = ` <span style="color:var(--muted); font-size:11px;">(already paid)</span>`;
+          }
+        }
+        return `<tr>
+          <td><input type="checkbox" class="payBulkPlotCb" data-plot="${escapeHtml(plotNo)}" ${dis} aria-label="Select plot ${escapeHtml(plotNo)}" /></td>
+          <td>${escapeHtml(plotNo)}</td>
+          <td>${escapeHtml(name)}${paidHint}</td>
+          <td><input type="number" class="payBulkPlotAmt" data-plot="${escapeHtml(plotNo)}" value="350" inputmode="numeric" autocomplete="off" /></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="4">No plot rows in sheet.</td></tr>`;
+    }
+
     function populatePayMonthAdminCheckboxes(){
       const host = document.getElementById("payMonthCheckboxHost");
       if (!host) return;
@@ -5031,6 +5114,10 @@
     function getPayModalSelectedYmsForSave(){
       const saveBtn = document.getElementById("paySaveBtn");
       const role = saveBtn?.dataset.role || "";
+      if (role === "admin" && saveBtn?.dataset?.payFlow === "adminBulkPlots"){
+        const v = norm(document.getElementById("payBulkSingleMonth")?.value);
+        return v ? [normalizePortalYm(v)] : [];
+      }
       if (role === "admin"){
         const host = document.getElementById("payMonthCheckboxHost");
         if (!host) return [];
@@ -5089,35 +5176,64 @@
 
       const payMonthSingle = document.getElementById("payMonthFieldSingle");
       const payMonthMulti = document.getElementById("payMonthFieldMulti");
+      const payBulkPanel = document.getElementById("payBulkMultiUserPanel");
+      const payAmtFieldWrap = document.getElementById("payAmountFieldWrap");
+      const payHist = document.getElementById("payPayHistorySection");
+      const isBulk = isAdmin && !!opts.bulkPlots;
+
+      const saveBtn = document.getElementById("paySaveBtn");
+      if (saveBtn){
+        saveBtn.dataset.role = role;
+        saveBtn.dataset.payFlow = isAdmin ? (isBulk ? "adminBulkPlots" : "adminMultiMonth") : "";
+      }
+
       if (isAdmin){
-        if (payMonthSingle) payMonthSingle.style.display = "none";
-        if (payMonthMulti) payMonthMulti.style.display = "";
-        populatePayMonthAdminCheckboxes();
+        if (isBulk){
+          if (payPlotField) payPlotField.style.display = "none";
+          if (payMonthSingle) payMonthSingle.style.display = "none";
+          if (payMonthMulti) payMonthMulti.style.display = "none";
+          if (payBulkPanel) payBulkPanel.style.display = "";
+          const bulkSel = document.getElementById("payBulkSingleMonth");
+          if (bulkSel) populateFyMonthSelect(bulkSel, "admin");
+          populatePayBulkPlotRowsTable();
+          if (payAmtFieldWrap) payAmtFieldWrap.style.display = "none";
+          if (payHist) payHist.style.display = "none";
+        } else {
+          if (payPlotField) payPlotField.style.display = "";
+          if (payBulkPanel) payBulkPanel.style.display = "none";
+          if (payMonthSingle) payMonthSingle.style.display = "none";
+          if (payMonthMulti) payMonthMulti.style.display = "";
+          populatePayMonthAdminCheckboxes();
+          if (payAmtFieldWrap) payAmtFieldWrap.style.display = "";
+          if (payHist) payHist.style.display = "";
+        }
       } else {
+        if (payPlotField) payPlotField.style.display = "none";
+        if (payBulkPanel) payBulkPanel.style.display = "none";
         if (payMonthSingle) payMonthSingle.style.display = "";
         if (payMonthMulti) payMonthMulti.style.display = "none";
+        if (payAmtFieldWrap) payAmtFieldWrap.style.display = "";
+        if (payHist) payHist.style.display = "";
         populateFyMonthSelect(document.getElementById("payMonthSelect"), "user");
       }
 
       document.getElementById("payAmount").value = "350";
       document.getElementById("payLateFee").value = "";
 
-      document.getElementById("payTitle").textContent = opts.multiEntry ? "Add Multiple User Payment" : "Add Payment";
+      document.getElementById("payTitle").textContent = isBulk ? "Add Multiple User Payment" : "Add Payment";
 
-      const saveBtn = document.getElementById("paySaveBtn");
       const reqBtn = document.getElementById("payRequestApproveBtn");
       const noteEl = document.getElementById("payAddFlowNote");
-      saveBtn.dataset.role = role;
       refreshAddPaymentModalPlotUI(actualPlot, role);
       showBackdrop("payBackdrop", true);
 
-      if (isAdmin){
+      if (isAdmin && saveBtn){
         saveBtn.style.display = "";
         if (reqBtn) reqBtn.style.display = "none";
         if (noteEl){
-          noteEl.textContent = opts.multiEntry
-            ? "Select multiple FY months using the checkboxes. The same amount and late fee are saved for each selected month. Saving posts immediately and clears matching owner approval requests."
-            : "Select one or more FY months using the checkboxes (e.g. a 6‑month lump sum). The same amount and late fee apply to each selected month. Saving posts immediately and removes any owner approval request for the same plot and month.";
+          noteEl.textContent = isBulk
+            ? "Pick one month, tick plots in the table, set each amount, set late fee if needed, then Save. One payment row per plot for that month."
+            : "Select one plot, then tick one or more FY months. The same payment amount and late fee apply to each selected month. Saving posts immediately and removes matching owner approval requests.";
         }
       } else {
         saveBtn.style.display = "none";
@@ -5246,9 +5362,99 @@
     function savePaymentsFromModal(){
       setErr(document.getElementById("payErr"), "");
       const saveBtn = document.getElementById("paySaveBtn");
-      const role = saveBtn.dataset.role || "admin";
+      const role = saveBtn?.dataset.role || "admin";
       if (role === "user"){
         setErr(document.getElementById("payErr"), "Owners cannot save directly. Use Send for Admin Approval.");
+        return;
+      }
+
+      if (saveBtn?.dataset?.payFlow === "adminBulkPlots"){
+        const ym = normalizePortalYm(norm(document.getElementById("payBulkSingleMonth")?.value));
+        if (!ym){
+          setErr(document.getElementById("payErr"), "Please choose a month.");
+          return;
+        }
+        const lateFee = toMoneyNumber(document.getElementById("payLateFee").value);
+        const rows = [];
+        document.querySelectorAll("input.payBulkPlotCb:checked").forEach(cb => {
+          const pn = norm(cb.getAttribute("data-plot"));
+          if (!pn) return;
+          const tr = cb.closest("tr");
+          const inp = tr && tr.querySelector("input.payBulkPlotAmt");
+          const amt = inp ? toMoneyNumber(inp.value) : 0;
+          rows.push({ plotNo: pn, amount: amt });
+        });
+        if (!rows.length){
+          setErr(document.getElementById("payErr"), "Please tick at least one plot.");
+          return;
+        }
+        for (const {plotNo, amount} of rows){
+          if (amount <= 0 && lateFee <= 0){
+            setErr(document.getElementById("payErr"), `Plot ${plotNo}: enter amount or set late fee below.`);
+            return;
+          }
+          if (hasAnyPaymentForMonth(plotNo, ym)){
+            alert(`Plot ${plotNo} already has a payment for this month. Untick that row first.`);
+            return;
+          }
+        }
+        if (isServerEnabled()){
+          void (async () => {
+            const st = await ensureServerStateLoaded();
+            if (!st.ok){
+              alert("Unable to add entries: could not load server state. Check COLLECTION_API_URL.");
+              return;
+            }
+            for (const {plotNo, amount} of rows){
+              const sr = await portalServerAddPayment(plotNo, ym, amount, lateFee);
+              if (!sr.ok){
+                const e = sr.detail?.error || sr.error || "";
+                alert(`Plot ${plotNo}: ${String(e || "failed")}. Stopped; earlier rows may have saved.`);
+                await portalServerFetchState();
+                updateMaintenanceCollectionCards();
+                populatePayBulkPlotRowsTable();
+                return;
+              }
+              ensureAdminFyIncludesYm(ym);
+            }
+            await portalServerFetchState();
+            updateMaintenanceCollectionCards();
+            populatePayBulkPlotRowsTable();
+            alert(rows.length === 1 ? "Payment added for 1 plot." : `Payments added for ${rows.length} plots.`);
+          })();
+          return;
+        }
+        for (const {plotNo, amount} of rows){
+          const ent = [...paymentsLoadEntries(plotNo)];
+          ent.push({ ym, amount, lateFee, by: "admin", source: "admin", at: Date.now() });
+          paymentsSaveEntries(plotNo, ent);
+          paymentsPendingClearForPlotYm(plotNo, ym);
+        }
+        renderAdminPendingApprovalPanel();
+        updateMaintenanceCollectionCards();
+        populatePayBulkPlotRowsTable();
+        try {
+          for (const {plotNo, amount} of rows){
+            const row = allRows.find(r => plotNoOfRow(r) === String(plotNo)) || null;
+            const ownerName = row ? (norm(row["Name of Owner 1"]) || norm(row["Name of Owner 2"]) || norm(row["Name of Owner 3"])) : "";
+            const mobile = row ? (digitsOnly(row["Primary Contact Number"]) || digitsOnly(row["Alternate Number"])) : "";
+            const groupStatus = row ? groupStatusRaw(row) : "";
+            postCollectionEntryToSheet({
+              atIso: new Date().toISOString(),
+              plotNo: String(plotNo),
+              ym: String(ym),
+              monthLabel: fyLabelForYm(ym),
+              amount: Number(amount) || 0,
+              lateFee: Number(lateFee) || 0,
+              role: "admin",
+              ownerName: ownerName || "",
+              mobile: mobile || "",
+              groupStatus: groupStatus || "",
+              userAgent: navigator.userAgent || "",
+              note: "admin_portal_save_bulk"
+            });
+          }
+        } catch {}
         return;
       }
 
@@ -5906,7 +6112,7 @@
           alert("Admin login required.");
           return;
         }
-        openAddPaymentModal("admin", "", { multiEntry: true });
+        openAddPaymentModal("admin", "", { bulkPlots: true });
       });
 
       const adminNoticeAddBtn = document.getElementById("adminNoticeAddBtn");
@@ -6079,8 +6285,14 @@
         document.getElementById("payMonthSelect").addEventListener("change", updatePayModalMonthGuard);
       }
       document.getElementById("payPlotSelect").addEventListener("change", () => {
+        if (document.getElementById("paySaveBtn")?.dataset?.payFlow === "adminBulkPlots") return;
         refreshAddPaymentModalPlotUI(norm(document.getElementById("payPlotSelect").value), "admin");
       });
+      const payBulkSingleMonth = document.getElementById("payBulkSingleMonth");
+      if (payBulkSingleMonth && !globalThis.__insPayBulkMonthWired){
+        globalThis.__insPayBulkMonthWired = true;
+        payBulkSingleMonth.addEventListener("change", () => { try { populatePayBulkPlotRowsTable(); } catch {} });
+      }
       const payPlotSelectUser = document.getElementById("payPlotSelectUser");
       if (payPlotSelectUser && !globalThis.__insPayPlotSelectUserWired){
         globalThis.__insPayPlotSelectUserWired = true;
