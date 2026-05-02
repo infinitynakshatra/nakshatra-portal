@@ -210,6 +210,26 @@
     .modalPayAdd .smallNote{margin-top:4px; font-size:11px; line-height:1.35;}
     .modalPayAdd .field{margin-top:6px; gap:4px;}
     .modalPayAdd .field label{font-size:11px;}
+    .payMonthCheckboxHost{
+      max-height:min(220px, 38vh);
+      overflow-y:auto;
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:8px 10px;
+      margin-top:6px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
+    .payMonthCheckboxHost label{
+      display:flex;
+      align-items:flex-start;
+      gap:8px;
+      font-size:12px;
+      cursor:pointer;
+      line-height:1.3;
+    }
+    .payMonthCheckboxHost input{flex-shrink:0; margin-top:2px;}
     .modalPayAdd .field input,
     .modalPayAdd .field select{
       padding:7px 10px;
@@ -1032,6 +1052,7 @@
       <div class="pillrow">
         <a class="btn adminOnly" href="https://docs.google.com/spreadsheets/d/1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA/edit?pli=1&amp;gid=1304899070#gid=1304899070" target="_blank" rel="noreferrer">Open Google Sheet</a>
         <button class="btn secondary adminOnly" id="adminAddPayBtn" type="button">Add payment</button>
+        <button class="btn secondary adminOnly" id="adminAddMultiPayBtn" type="button">Add Multiple User Payment</button>
         <a class="btn" id="whatsAppBtn" href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer">Join WhatsApp Group</a>
         <div class="profileWrap">
           <button class="profileBtn" id="profileBtn" type="button" aria-expanded="false">Profile</button>
@@ -1575,9 +1596,14 @@
             <select id="payPlotSelectUser" aria-label="Choose plot for this payment"></select>
           </div>
 
-          <div class="field">
+          <div class="field" id="payMonthFieldSingle">
             <label for="payMonthSelect">Choose month (FY)</label>
             <select id="payMonthSelect"></select>
+          </div>
+          <div class="field adminOnly" id="payMonthFieldMulti" style="display:none;">
+            <span class="mcDdLabel" style="display:block; margin-bottom:2px;">Choose month(s) (FY)</span>
+            <div class="smallNote" style="margin-top:0;">Tick one or more months. The same payment amount and late fee below apply to <b>each</b> selected month.</div>
+            <div id="payMonthCheckboxHost" class="payMonthCheckboxHost" role="group" aria-label="Months for payment"></div>
           </div>
 
           <div class="kvGrid">
@@ -4167,7 +4193,10 @@
       if (u && u.role === "user") refreshUserView();
       if (document.getElementById("payBackdrop")?.classList.contains("show")){
         const curPlot = norm(document.getElementById("paySaveBtn")?.dataset?.plot);
-        if (curPlot === plotNo) renderPaymentsTable(plotNo);
+        if (curPlot === plotNo){
+          renderPaymentsTable(plotNo);
+          if (norm(document.getElementById("paySaveBtn")?.dataset?.role) === "admin") populatePayMonthAdminCheckboxes();
+        }
       }
     }
 
@@ -4970,6 +4999,7 @@
         </div>
       `;
       renderPaymentsTable(p);
+      if (isAdmin) populatePayMonthAdminCheckboxes();
       updatePayModalMonthGuard();
     }
 
@@ -4980,12 +5010,48 @@
       selectEl.innerHTML = slots.map(s => `<option value="${escapeHtml(s.ym)}">${escapeHtml(s.label)}</option>`).join("");
     }
 
-    function openPaymentsModal(plotNo){
-      // Admin button behavior (kept name for existing event wiring)
-      openAddPaymentModal("admin", plotNo);
+    function populatePayMonthAdminCheckboxes(){
+      const host = document.getElementById("payMonthCheckboxHost");
+      if (!host) return;
+      const slots = allAdminSlotsUnion();
+      const plotNo = norm(document.getElementById("paySaveBtn")?.dataset.plot);
+      const entries = plotNo ? paymentsLoadEntries(plotNo) : [];
+      host.innerHTML = slots.map(s => {
+        const sums = sumEntriesForYm(entries, s.ym);
+        const has = toMoneyNumber(sums.amount) > 0 || toMoneyNumber(sums.lateFee) > 0;
+        const dis = has ? "disabled" : "";
+        const hint = has ? " <span style=\"color:var(--muted); font-weight:700;\">(already recorded)</span>" : "";
+        return `<label>
+          <input type="checkbox" class="payMonthCb" value="${escapeHtml(s.ym)}" ${dis} />
+          <span>${escapeHtml(s.label)}${hint}</span>
+        </label>`;
+      }).join("");
     }
 
-    function openAddPaymentModal(role, plotNo){
+    function getPayModalSelectedYmsForSave(){
+      const saveBtn = document.getElementById("paySaveBtn");
+      const role = saveBtn?.dataset.role || "";
+      if (role === "admin"){
+        const host = document.getElementById("payMonthCheckboxHost");
+        if (!host) return [];
+        const set = new Set();
+        host.querySelectorAll("input.payMonthCb:checked").forEach(cb => {
+          const y = normalizePortalYm(norm(cb.value));
+          if (y) set.add(y);
+        });
+        return [...set].sort((a, b) => String(a).localeCompare(String(b)));
+      }
+      const v = norm(document.getElementById("payMonthSelect")?.value);
+      return v ? [normalizePortalYm(v)] : [];
+    }
+
+    function openPaymentsModal(plotNo){
+      // Admin button behavior (kept name for existing event wiring)
+      openAddPaymentModal("admin", plotNo, {});
+    }
+
+    function openAddPaymentModal(role, plotNo, opts){
+      opts = opts || {};
       setErr(document.getElementById("payErr"), "");
 
       const isAdmin = role === "admin";
@@ -5021,11 +5087,22 @@
         }
       }
 
-      populateFyMonthSelect(document.getElementById("payMonthSelect"), isAdmin ? "admin" : "user");
+      const payMonthSingle = document.getElementById("payMonthFieldSingle");
+      const payMonthMulti = document.getElementById("payMonthFieldMulti");
+      if (isAdmin){
+        if (payMonthSingle) payMonthSingle.style.display = "none";
+        if (payMonthMulti) payMonthMulti.style.display = "";
+        populatePayMonthAdminCheckboxes();
+      } else {
+        if (payMonthSingle) payMonthSingle.style.display = "";
+        if (payMonthMulti) payMonthMulti.style.display = "none";
+        populateFyMonthSelect(document.getElementById("payMonthSelect"), "user");
+      }
+
       document.getElementById("payAmount").value = "350";
       document.getElementById("payLateFee").value = "";
 
-      document.getElementById("payTitle").textContent = "Add Payment";
+      document.getElementById("payTitle").textContent = opts.multiEntry ? "Add Multiple User Payment" : "Add Payment";
 
       const saveBtn = document.getElementById("paySaveBtn");
       const reqBtn = document.getElementById("payRequestApproveBtn");
@@ -5038,7 +5115,9 @@
         saveBtn.style.display = "";
         if (reqBtn) reqBtn.style.display = "none";
         if (noteEl){
-          noteEl.textContent = "Add a received maintenance entry (default 350) and optional late fee. Saving posts immediately and removes any owner approval request for the same plot and month.";
+          noteEl.textContent = opts.multiEntry
+            ? "Select multiple FY months using the checkboxes. The same amount and late fee are saved for each selected month. Saving posts immediately and clears matching owner approval requests."
+            : "Select one or more FY months using the checkboxes (e.g. a 6‑month lump sum). The same amount and late fee apply to each selected month. Saving posts immediately and removes any owner approval request for the same plot and month.";
         }
       } else {
         saveBtn.style.display = "none";
@@ -5185,9 +5264,9 @@
         return;
       }
 
-      const ym = norm(document.getElementById("payMonthSelect").value);
-      if (!ym){
-        setErr(document.getElementById("payErr"), "Please choose a month.");
+      const yms = getPayModalSelectedYmsForSave();
+      if (!yms.length){
+        setErr(document.getElementById("payErr"), role === "admin" ? "Please tick at least one month." : "Please choose a month.");
         return;
       }
 
@@ -5199,11 +5278,12 @@
       }
 
       const entries = paymentsLoadEntries(plotNo);
-      const ymAd = normalizePortalYm(ym);
-      const existing = entries.find(e => normalizePortalYm(e.ym) === ymAd);
-      if (existing){
-        alert("You have already added the payment for this specific month. You cannot add it again.");
-        return;
+      for (const ymAd of yms){
+        const existing = entries.find(e => normalizePortalYm(e.ym) === ymAd);
+        if (existing){
+          alert(`Payment already exists for month ${ymAd}. Deselect that month or remove the existing entry first.`);
+          return;
+        }
       }
       if (isServerEnabled()){
         void (async () => {
@@ -5212,34 +5292,44 @@
             alert("Unable to add entry: could not load server state. Check COLLECTION_API_URL.");
             return;
           }
-          const sr = await portalServerAddPayment(plotNo, ymAd, amount, lateFee);
-          if (!sr.ok){
-            const e = sr.detail?.error || sr.error || "";
-            if (String(e) === "already_paid"){
-              alert("You have already added the payment for this specific month. You cannot add it again.");
-            } else {
-              alert("Unable to add entry: " + String(e || "unknown"));
+          for (const ymAd of yms){
+            const sr = await portalServerAddPayment(plotNo, ymAd, amount, lateFee);
+            if (!sr.ok){
+              const e = sr.detail?.error || sr.error || "";
+              if (String(e) === "already_paid"){
+                alert(`Month ${ymAd}: already recorded. Stopped; earlier months in this batch may have been saved — refresh to verify.`);
+              } else {
+                alert(`Month ${ymAd}: unable to add — ${String(e || "unknown")}. Stopped.`);
+              }
+              await portalServerFetchState();
+              renderPaymentsTable(plotNo);
+              updateMaintenanceCollectionCards();
+              return;
             }
-            return;
+            ensureAdminFyIncludesYm(ymAd);
           }
-          // Ensure admin FY filter includes this payment month so it appears in tables/KPIs.
-          ensureAdminFyIncludesYm(ymAd);
           const fr = await portalServerFetchState();
           if (!fr.ok){
-            // Still show it locally if state refresh failed for some reason.
             const cur = paymentsLoadEntries(plotNo);
-            cur.push({ ym: ymAd, amount, lateFee, by: "admin", source: "admin", at: Date.now() });
+            for (const ymAd of yms){
+              if (!cur.find(e => normalizePortalYm(e.ym) === ymAd)){
+                cur.push({ ym: ymAd, amount, lateFee, by: "admin", source: "admin", at: Date.now() });
+              }
+            }
             paymentsSaveEntries(plotNo, cur);
           }
           renderPaymentsTable(plotNo);
           updateMaintenanceCollectionCards();
-          alert("Payment entry added successfully.");
+          alert(yms.length === 1 ? "Payment entry added successfully." : `Added ${yms.length} payment month(s) successfully.`);
         })();
         return;
       }
-      entries.push({ ym: ymAd, amount, lateFee, by: "admin", source: "admin", at: Date.now() });
-      paymentsSaveEntries(plotNo, entries);
-      paymentsPendingClearForPlotYm(plotNo, ymAd);
+      const next = [...entries];
+      for (const ymAd of yms){
+        next.push({ ym: ymAd, amount, lateFee, by: "admin", source: "admin", at: Date.now() });
+        paymentsPendingClearForPlotYm(plotNo, ymAd);
+      }
+      paymentsSaveEntries(plotNo, next);
       renderAdminPendingApprovalPanel();
 
       // keep save context updated if admin changed plot select
@@ -5254,21 +5344,23 @@
         const ownerName = row ? (norm(row["Name of Owner 1"]) || norm(row["Name of Owner 2"]) || norm(row["Name of Owner 3"])) : "";
         const mobile = row ? (digitsOnly(row["Primary Contact Number"]) || digitsOnly(row["Alternate Number"])) : "";
         const groupStatus = row ? groupStatusRaw(row) : "";
-        const entry = {
-          atIso: new Date().toISOString(),
-          plotNo: String(plotNo),
-          ym: String(ymAd),
-          monthLabel: fyLabelForYm(ymAd),
-          amount: Number(amount) || 0,
-          lateFee: Number(lateFee) || 0,
-          role: String(role),
-          ownerName: ownerName || "",
-          mobile: mobile || "",
-          groupStatus: groupStatus || "",
-          userAgent: navigator.userAgent || "",
-          note: "admin_portal_save"
-        };
-        postCollectionEntryToSheet(entry);
+        for (const ymAd of yms){
+          const entry = {
+            atIso: new Date().toISOString(),
+            plotNo: String(plotNo),
+            ym: String(ymAd),
+            monthLabel: fyLabelForYm(ymAd),
+            amount: Number(amount) || 0,
+            lateFee: Number(lateFee) || 0,
+            role: String(role),
+            ownerName: ownerName || "",
+            mobile: mobile || "",
+            groupStatus: groupStatus || "",
+            userAgent: navigator.userAgent || "",
+            note: "admin_portal_save"
+          };
+          postCollectionEntryToSheet(entry);
+        }
       } catch {}
     }
 
@@ -5805,7 +5897,16 @@
           alert("Admin login required.");
           return;
         }
-        openAddPaymentModal("admin", "");
+        openAddPaymentModal("admin", "", {});
+      });
+      const adminAddMultiPayBtn = document.getElementById("adminAddMultiPayBtn");
+      if (adminAddMultiPayBtn) adminAddMultiPayBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){
+          alert("Admin login required.");
+          return;
+        }
+        openAddPaymentModal("admin", "", { multiEntry: true });
       });
 
       const adminNoticeAddBtn = document.getElementById("adminNoticeAddBtn");
