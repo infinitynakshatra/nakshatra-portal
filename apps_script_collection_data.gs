@@ -35,6 +35,9 @@ const PORTAL_PENDING_SHEET = "portal_pending_requests";
 const PORTAL_TICKETS_SHEET = "portal_tickets";
 const PORTAL_NOTICES_SHEET = "portal_notices";
 const PORTAL_AUDIT_SHEET = "portal_audit";
+/** Single-row JSON for society banking/UPI (shared across devices). */
+const PORTAL_BANKING_SHEET = "portal_banking_config";
+const PORTAL_BANKING_HEADERS = ["key", "jsonPayload"];
 
 const PORTAL_PAYMENTS_HEADERS = ["id","atIso","plotNo","ym","amount","lateFee","by","source","note","requesterMobile"];
 const PORTAL_PENDING_HEADERS = ["id","plotNo","ym","amount","lateFee","requesterMobile","requestedAt"];
@@ -126,6 +129,42 @@ function mergePortalPaymentsDedupe_(portalRows, collectionRows) {
 
 function invalidatePortalStateCache_() {
   try { CacheService.getScriptCache().remove("portal_state_v1"); } catch (e) {}
+}
+
+function sanitizeBankingPayload_(data) {
+  var keys = ["primaryAccountHolder", "secondaryAccountHolder", "beneficiaryName", "bankName", "accountNumber", "accountType", "ifsc", "upiId", "guidelines", "qrDataUrl"];
+  var o = {};
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    o[k] = String(data && data[k] != null ? data[k] : "").trim();
+  }
+  if (o.ifsc) o.ifsc = o.ifsc.toUpperCase();
+  return o;
+}
+
+function readPortalBankingObject_(ss) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_BANKING_SHEET, PORTAL_BANKING_HEADERS);
+  if (sh.getLastRow() < 2) return null;
+  var cell = sh.getRange(2, 2).getValue();
+  var s = String(cell || "").trim();
+  if (!s) return null;
+  try {
+    var o = JSON.parse(s);
+    return o && typeof o === "object" ? sanitizeBankingPayload_(o) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function writePortalBankingObject_(ss, data) {
+  var obj = sanitizeBankingPayload_(data);
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_BANKING_SHEET, PORTAL_BANKING_HEADERS);
+  var payload = JSON.stringify(obj);
+  if (payload.length > 48000) return { ok: false, error: "banking_payload_too_large" };
+  var row = ["default", payload];
+  if (sh.getLastRow() < 2) sh.appendRow(row);
+  else sh.getRange(2, 1, 1, 2).setValues([row]);
+  return { ok: true };
 }
 
 function audit_(ss, actor, action, detailObj) {
@@ -242,7 +281,9 @@ function getPortalState_(ss) {
     var cached = cache.get("portal_state_v1");
     if (cached) {
       try {
-        return JSON.parse(cached);
+        var cachedOut = JSON.parse(cached);
+        cachedOut.banking = readPortalBankingObject_(ss);
+        return cachedOut;
       } catch (eParse) {
         try {
           cache.remove("portal_state_v1");
@@ -274,10 +315,19 @@ function getPortalState_(ss) {
     var colPay = paymentsFromCollectionData_(ss);
     out.payments = mergePortalPaymentsDedupe_(out.payments, colPay);
   } catch (eM) {}
+  out.banking = readPortalBankingObject_(ss);
   try {
+    // Cache payments/pending/tickets/notices only (banking can be large; always merged fresh from sheet on cache hit).
+    var cachePayload = {
+      ok: out.ok,
+      payments: out.payments,
+      pending: out.pending,
+      tickets: out.tickets,
+      notices: out.notices
+    };
     // Longer TTL avoids a burst of concurrent /state recomputes returning subtly different payloads;
     // mutations still call invalidatePortalStateCache_().
-    CacheService.getScriptCache().put("portal_state_v1", JSON.stringify(out), 120);
+    CacheService.getScriptCache().put("portal_state_v1", JSON.stringify(cachePayload), 120);
   } catch (e1) {}
   return out;
 }
@@ -315,6 +365,7 @@ function doGet() {
     ensureSheetWithHeaders_(ss, PORTAL_TICKETS_SHEET, PORTAL_TICKETS_HEADERS);
     ensureSheetWithHeaders_(ss, PORTAL_NOTICES_SHEET, PORTAL_NOTICES_HEADERS);
     ensureSheetWithHeaders_(ss, PORTAL_AUDIT_SHEET, PORTAL_AUDIT_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_BANKING_SHEET, PORTAL_BANKING_HEADERS);
     return json_({ ok: true, service: "Infinity Nakshatra portal backend", now: nowIso_() }, 200);
   } catch (err) {
     return json_({ ok: false, error: String(err && err.message ? err.message : err) }, 500);
@@ -809,6 +860,16 @@ function doPost(e) {
       audit_(ss, actorD, "deleteNotice", { id:idD, removed:removedN });
       invalidatePortalStateCache_();
       return json_({ ok:true, removed:removedN }, 200);
+    }
+    if (action === "saveBanking") {
+      var actorB = String(data.actor || "admin").trim();
+      var bankingIn = data.banking;
+      if (!bankingIn || typeof bankingIn !== "object") return json_({ ok:false, error:"banking object required" }, 400);
+      var wr = writePortalBankingObject_(ss, bankingIn);
+      if (!wr.ok) return json_(wr, 400);
+      audit_(ss, actorB, "saveBanking", { ok: true });
+      invalidatePortalStateCache_();
+      return json_({ ok:true }, 200);
     }
 
     if (action === "bulk") {
