@@ -1639,13 +1639,13 @@
                 <thead>
                   <tr>
                     <th>Plot No.</th>
+                    <th style="width:72px;">Select</th>
                     <th>Name</th>
                     <th>Month</th>
                     <th style="min-width:88px;">Amount</th>
                     <th style="min-width:72px;">Payment Late Fee</th>
                     <th>Primary Contact Number</th>
                     <th>Group Status</th>
-                    <th style="width:72px;">Select</th>
                   </tr>
                 </thead>
                 <tbody id="payBulkPlotRows"></tbody>
@@ -5118,13 +5118,13 @@
         }
         return `<tr>
           <td>${escapeHtml(plotNo)}</td>
+          <td><input type="checkbox" class="payBulkPlotCb" data-plot="${escapeHtml(plotNo)}" ${dis} aria-label="Select plot ${escapeHtml(plotNo)}" /></td>
           <td>${escapeHtml(name)}${paidHint}</td>
           <td>${escapeHtml(ymLabel)}</td>
           <td><input type="number" class="payBulkPlotAmt" data-plot="${escapeHtml(plotNo)}" value="350" inputmode="numeric" autocomplete="off" ${dis} /></td>
           <td><input type="number" class="payBulkPlotLate" data-plot="${escapeHtml(plotNo)}" value="" inputmode="numeric" autocomplete="off" placeholder="0" ${dis} /></td>
           <td>${escapeHtml(primaryDisp)}</td>
           <td>${escapeHtml(gstatDisp)}</td>
-          <td><input type="checkbox" class="payBulkPlotCb" data-plot="${escapeHtml(plotNo)}" ${dis} aria-label="Select plot ${escapeHtml(plotNo)}" /></td>
         </tr>`;
       }).join("") || `<tr><td colspan="8">No plot rows in sheet.</td></tr>`;
     }
