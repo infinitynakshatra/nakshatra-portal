@@ -4942,12 +4942,12 @@
         return;
       }
       let tableFont = "helvetica";
+      let buf = null;
       try {
         const fontUrls = [
           "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts@main/unhinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf",
           "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts@main/hinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf"
         ];
-        let buf = null;
         for (const fontUrl of fontUrls){
           try {
             const res = await fetch(fontUrl, { mode: "cors" });
@@ -4966,6 +4966,22 @@
         }
       } catch {
         /* keep helvetica */
+      }
+
+      let canvasNameFontStack = '"Noto Sans Devanagari", "Noto Sans", ui-sans-serif, sans-serif';
+      let canvasFontBlobUrl = "";
+      if (buf && typeof FontFace !== "undefined" && document.fonts){
+        let blobUrl = "";
+        try {
+          blobUrl = URL.createObjectURL(new Blob([buf], { type: "font/ttf" }));
+          const ff = new FontFace("NakshatraPdfDeva", `url(${blobUrl})`);
+          await ff.load();
+          document.fonts.add(ff);
+          canvasNameFontStack = '"NakshatraPdfDeva", "Noto Sans Devanagari", "Noto Sans", sans-serif';
+          canvasFontBlobUrl = blobUrl;
+        } catch {
+          if (blobUrl) try { URL.revokeObjectURL(blobUrl); } catch {}
+        }
       }
 
       const nameColFont = tableFont === "NotoSansDevanagari" ? "NotoSansDevanagari" : "helvetica";
@@ -4990,7 +5006,71 @@
         d.text(subLine, cx, 10, { align: "center" });
       }
 
-      const amtColEnd = 3 + slots.length;
+      const firstMonthCol = 3;
+      const afterMonthCol = 3 + slots.length;
+
+      const namePdfCanvas = document.createElement("canvas");
+      const namePdfCtx = namePdfCanvas.getContext("2d");
+
+      function sixMonthPdfDrawNameCell(doc, cell, rawName){
+        if (!namePdfCtx || !cell) return;
+        const name = String(rawName ?? "").trim();
+        if (!name) return;
+        const x = cell.x;
+        const y = cell.y;
+        const width = cell.width;
+        const height = cell.height;
+        const inset = 0.1;
+        const ix = x + inset;
+        const iy = y + inset;
+        const iw = Math.max(0.1, width - inset * 2);
+        const ih = Math.max(0.1, height - inset * 2);
+        doc.setFillColor(255, 255, 255);
+        doc.rect(ix, iy, iw, ih, "F");
+        const dpr = Math.min(2, typeof window !== "undefined" && window.devicePixelRatio ? window.devicePixelRatio : 1);
+        const pxPerMm = 96 / 25.4;
+        const cssW = iw * pxPerMm;
+        const cssH = ih * pxPerMm;
+        const pxW = Math.max(32, Math.ceil(cssW * dpr));
+        const pxH = Math.max(12, Math.ceil(cssH * dpr));
+        namePdfCanvas.width = pxW;
+        namePdfCanvas.height = pxH;
+        namePdfCtx.setTransform(1, 0, 0, 1, 0, 0);
+        namePdfCtx.scale(dpr, dpr);
+        namePdfCtx.fillStyle = "#ffffff";
+        namePdfCtx.fillRect(0, 0, cssW, cssH);
+        namePdfCtx.fillStyle = "#141414";
+        const baseFontPx = Math.max(5, fs * (96 / 72));
+        let fpx = baseFontPx;
+        const padX = 1.5;
+        const maxW = Math.max(4, cssW - padX * 2);
+        function applyFont(){
+          namePdfCtx.font = `400 ${fpx}px ${canvasNameFontStack}`;
+        }
+        applyFont();
+        while (fpx > 5 && namePdfCtx.measureText(name).width > maxW){
+          fpx -= 0.3;
+          applyFont();
+        }
+        namePdfCtx.textBaseline = "middle";
+        namePdfCtx.textAlign = "left";
+        if (namePdfCtx.measureText(name).width <= maxW){
+          namePdfCtx.fillText(name, padX, cssH / 2);
+        } else {
+          namePdfCtx.save();
+          namePdfCtx.beginPath();
+          namePdfCtx.rect(padX, 0, maxW, cssH);
+          namePdfCtx.clip();
+          namePdfCtx.fillText(name, padX, cssH / 2);
+          namePdfCtx.restore();
+        }
+        const png = namePdfCanvas.toDataURL("image/png");
+        try {
+          doc.addImage(png, "PNG", ix, iy, iw, ih);
+        } catch {
+          /* ignore draw failure */
+        }
+      }
 
       const tableOpts = (bodySlice, includeFoot, marginBottom) => ({
         startY: 12,
@@ -5029,15 +5109,27 @@
         },
         columnStyles,
         didParseCell(data){
+          if (data.section === "body" && data.column.index === 1 && namePdfCtx){
+            data.cell.text = [];
+          }
           if (data.section !== "body") return;
           const col = data.column.index;
-          if (col < 3 || col > amtColEnd) return;
+          if (col < firstMonthCol || col >= afterMonthCol) return;
           const t = data.cell.text;
           const raw = Array.isArray(t) ? t.join("") : String(t ?? "");
           const n = parseInt(String(raw).replace(/[^\d-]/g, ""), 10);
           if (!Number.isFinite(n)) return;
           if (n === 350) data.cell.styles.fillColor = [214, 255, 214];
           else if (n === 0) data.cell.styles.fillColor = [255, 222, 222];
+        },
+        didDrawCell(data){
+          if (data.section !== "body" || data.column.index !== 1 || !namePdfCtx) return;
+          let raw = data.cell.raw;
+          if ((raw == null || raw === "") && typeof data.row?.index === "number"){
+            const rowArr = bodySlice[data.row.index];
+            if (rowArr && rowArr.length > 1) raw = rowArr[1];
+          }
+          sixMonthPdfDrawNameCell(doc, data.cell, raw != null ? raw : "");
         }
       });
 
@@ -5067,6 +5159,7 @@
       );
 
       doc.save(`Six-Month-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
+      if (canvasFontBlobUrl) try { URL.revokeObjectURL(canvasFontBlobUrl); } catch {}
     }
 
     function updateMaintenanceCollectionCards(){
