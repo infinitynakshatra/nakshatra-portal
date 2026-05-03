@@ -4878,7 +4878,13 @@
       const { jsPDF } = jsp;
       const rangeA = sixMonthReportColumnLabel(slots[0]);
       const rangeB = sixMonthReportColumnLabel(slots[slots.length - 1]);
-      const todayStr = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+      const footerDateTimeStr = new Date().toLocaleString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
 
       const head = [["Plot No.", "Name", "Primary Contact", ...slots.map(sixMonthReportColumnLabel), "Total"]];
       const body = [];
@@ -4911,7 +4917,7 @@
       const tableW = pageW - margin * 2;
       const fixed = 7 + 48 + 22 + 14;
       const mo = Math.max(11, (tableW - fixed) / 6);
-      const colW = { 0: 7, 1: 48, 2: 22, 3: mo, 4: mo, 5: mo, 6: mo, 7: mo, 8: mo, 9: 14 };
+      const colWidths = [7, 48, 22, mo, mo, mo, mo, mo, mo, 14];
 
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       if (typeof doc.autoTable !== "function"){
@@ -4931,8 +4937,15 @@
         /* keep helvetica */
       }
 
-      const fs = 6.4;
-      const pad = 0.52;
+      const nameColFont = tableFont === "NotoSansDevanagari" ? "NotoSansDevanagari" : "helvetica";
+      const columnStyles = {};
+      colWidths.forEach((cellWidth, i) => {
+        columnStyles[i] = { cellWidth, font: i === 1 ? nameColFont : "helvetica" };
+      });
+
+      /* Slightly compact so ~51 body rows + header fit one landscape A4 page (avoids autoTable splitting mid-section). */
+      const fs = 6.15;
+      const pad = 0.46;
       const subLine = `Six Month Transaction Summary Report (${rangeA} To ${rangeB})`;
 
       function drawTitles(d){
@@ -4944,9 +4957,9 @@
         d.text(subLine, cx, 10, { align: "center" });
       }
 
-      const tableOpts = (bodySlice, includeFoot) => ({
+      const tableOpts = (bodySlice, includeFoot, marginBottom) => ({
         startY: 12,
-        margin: { left: margin, right: margin, top: 12 },
+        margin: { left: margin, right: margin, top: 12, bottom: marginBottom },
         tableWidth: tableW,
         head: head,
         body: bodySlice,
@@ -4954,7 +4967,7 @@
         showFoot: includeFoot ? "lastPage" : "never",
         theme: "plain",
         styles: {
-          font: tableFont,
+          font: "helvetica",
           fontStyle: "normal",
           fontSize: fs,
           cellPadding: pad,
@@ -4964,39 +4977,48 @@
           valign: "middle"
         },
         headStyles: {
-          font: tableFont,
-          fontStyle: "normal",
+          font: "helvetica",
+          fontStyle: "bold",
           fillColor: [245, 245, 245],
           textColor: 15,
           fontSize: fs + 0.35,
           cellPadding: pad
         },
         footStyles: {
-          font: tableFont,
-          fontStyle: "normal",
+          font: "helvetica",
+          fontStyle: "bold",
           fillColor: [236, 248, 236],
           textColor: 15,
           fontSize: fs,
           cellPadding: pad
         },
-        columnStyles: colW
+        columnStyles
       });
 
       drawTitles(doc);
-      doc.autoTable(tableOpts(body.slice(0, 54), false));
+      doc.autoTable(tableOpts(body.slice(0, 49), false, 8));
 
       doc.addPage();
       drawTitles(doc);
-      doc.autoTable(tableOpts(body.slice(54, 109), true));
+      doc.autoTable(tableOpts(body.slice(49, 100), false, 8));
+
+      doc.addPage();
+      drawTitles(doc);
+      doc.autoTable(tableOpts(body.slice(100, 109), true, 18));
 
       const np = doc.internal.getNumberOfPages();
       doc.setPage(np);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(5.8);
+      doc.setFontSize(10);
       const fy = (doc.lastAutoTable && typeof doc.lastAutoTable.finalY === "number")
-        ? Math.min(doc.lastAutoTable.finalY + 2.5, pageH - 3)
-        : pageH - 4;
-      doc.text(`Total Amount Received as of ${todayStr}: ${Math.round(grandTotal)}`, cx, fy, { align: "center" });
+        ? Math.min(doc.lastAutoTable.finalY + 5, pageH - 4)
+        : pageH - 6;
+      doc.text(
+        `Total Amount Received As of ${footerDateTimeStr} : Rs. ${Math.round(grandTotal)}`,
+        cx,
+        fy,
+        { align: "center" }
+      );
 
       doc.save(`Six-Month-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
     }
