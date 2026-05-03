@@ -4824,8 +4824,10 @@
       const lateFeeEl = document.getElementById("lateFeeReceived");
       if (!expectedEl || !receivedEl || !pendingEl || !lateFeeEl) return;
 
-      // Prevent KPI flicker to 0 while CSV reload is in progress.
-      if (csvLoading) return;
+      // Avoid overwriting KPIs with empty math only on the *first* load (no rows yet).
+      // During CSV refresh we still have the previous allRows — keep KPIs updated so server
+      // payment merges and modals stay in sync (portal fetch can finish while csvLoading is true).
+      if (csvLoading && !(Array.isArray(allRows) && allRows.length)) return;
 
       const selectedYms = getMcSelectedYms();
       // Received/lateFee should reflect actual payments even if the plot is not "eligible"
@@ -6409,6 +6411,7 @@
         if (sess && sess.role === "admin"){
           setStats();
           applyFilters();
+          try { updateMaintenanceCollectionCards(); } catch {}
         }
       }
 
