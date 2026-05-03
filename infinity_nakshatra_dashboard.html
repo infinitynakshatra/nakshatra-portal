@@ -1198,7 +1198,7 @@
         </div>
         <div class="mcCollectionFootnote sub">
           <span id="adminMcFyMetaNote" class="mono">—</span>
-          <span> • Due date: <strong>10th</strong> of each month. Expected and lists use registered owners with primary contact when available; otherwise sold plots (non-unsold) with Plot No.</span>
+          <span> • Due date: <strong>10th</strong> of each month. Expected and lists use registered owners with primary contact when available; otherwise sold plots (non-unsold); if none match, every row with Plot No. (one per plot).</span>
         </div>
       </div>
     </div>
@@ -4817,14 +4817,23 @@
       return plotRows.filter(r => isAddedInGroupRow(r) && !!digitsOnly(r["Primary Contact Number"]));
     }
 
-    /** Plot rows for admin maintenance KPIs + pending/done lists: strict rule, else sold (non-unsold) rows with Plot No. */
+    /** Plot rows for admin maintenance KPIs + pending/done lists: strict; else sold plots; else any row with Plot No. (deduped). */
     function maintenanceCollectionPlotRows(){
       const strict = eligiblePlotRowsForCollection();
       if (strict.length) return strict;
-      return allRows.filter(r => {
-        if (norm(r["Plot No."]) === "") return false;
-        return soldKey(r["Sold/Unsold"]) !== "unsold";
-      });
+      const withPlot = (allRows || []).filter(r => norm(plotNoOfRow(r)) !== "");
+      const dedupe = (rows) => {
+        const m = new Map();
+        for (const r of rows){
+          const p = norm(plotNoOfRow(r));
+          if (p) m.set(p, r);
+        }
+        return [...m.values()];
+      };
+      const soldLike = withPlot.filter(r => soldKey(r["Sold/Unsold"]) !== "unsold");
+      if (soldLike.length) return dedupe(soldLike);
+      if (withPlot.length) return dedupe(withPlot);
+      return [];
     }
 
     function updateMaintenanceCollectionCards(){
