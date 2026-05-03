@@ -4,6 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Infinity Nakshatra Society • Society Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
     :root{
       --bg0:#081219;
@@ -1065,6 +1068,7 @@
         <a class="btn adminOnly" href="https://docs.google.com/spreadsheets/d/1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA/edit?pli=1&amp;gid=1304899070#gid=1304899070" target="_blank" rel="noreferrer">Open Google Sheet</a>
         <button class="btn secondary adminOnly" id="adminAddPayBtn" type="button">Add payment</button>
         <button class="btn secondary adminOnly" id="adminAddMultiPayBtn" type="button">Add Multiple User Payment</button>
+        <button class="btn secondary tiny adminOnly" id="adminSixMonthReportBtn" type="button" title="PDF: six months of received amounts per plot">Download report</button>
         <a class="btn" id="whatsAppBtn" href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer">Join WhatsApp Group</a>
         <div class="profileWrap">
           <button class="profileBtn" id="profileBtn" type="button" aria-expanded="false">Profile</button>
@@ -4836,6 +4840,123 @@
       return [];
     }
 
+    /** Optional letterhead PNG beside this HTML (same folder as the portal). */
+    const SIX_MONTH_REPORT_LETTERHEAD_PNG = "assets/transaction_report_letterhead.png";
+
+    function sixMonthReportColumnLabel(slot){
+      return `${slot.shortMonth}-${String(slot.calendarYear).slice(-2)}`;
+    }
+
+    function getSixMonthReportSlots(){
+      const years = getAdminFyMayYears();
+      const y0 = years.length ? years[0] : SOCIETY_FY_START_MAY_YEAR;
+      return buildIndianFYSlots(y0).slice(0, 6);
+    }
+
+    function ensureHtml2PdfLoaded(){
+      return new Promise((resolve, reject) => {
+        if (globalThis.html2pdf) return resolve();
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+        s.crossOrigin = "anonymous";
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error("html2pdf"));
+        document.head.appendChild(s);
+      });
+    }
+
+    async function downloadSixMonthTransactionReportPdf(){
+      try {
+        await ensureHtml2PdfLoaded();
+      } catch {
+        alert("Could not load PDF helper. Check your network and try again.");
+        return;
+      }
+      const slots = getSixMonthReportSlots();
+      if (!slots.length){
+        alert("No FY months available for this report.");
+        return;
+      }
+      const plotRows = maintenanceCollectionPlotRows().sort((a, b) => Number(plotNoOfRow(a)) - Number(plotNoOfRow(b)) || String(plotNoOfRow(a)).localeCompare(String(plotNoOfRow(b))));
+      const colSums = slots.map(() => 0);
+      let grandTotal = 0;
+      const td = "border:1px solid #ccc;padding:5px 7px;";
+      const th = `${td}background:#e8f0ea;font-weight:700;font-size:10px;text-align:left;`;
+      const headCols = ["Plot No.", "Name", "Primary Contact Number", ...slots.map(sixMonthReportColumnLabel), "Total"];
+      const headHtml = `<tr>${headCols.map(c => `<th style="${th}">${escapeHtml(c)}</th>`).join("")}</tr>`;
+      const bodyRows = [];
+      for (const r of plotRows){
+        const plotNo = plotNoOfRow(r);
+        const entries = paymentsLoadEntries(plotNo);
+        const name = norm(r["Name of Owner 1"]) || norm(r["Name of Owner 2"]) || norm(r["Name of Owner 3"]) || "";
+        const pc = digitsOnly(r["Primary Contact Number"]) || norm(r["Primary Contact Number"]) || "";
+        const cells = [
+          `<td style="${td}">${escapeHtml(plotNo)}</td>`,
+          `<td style="${td}">${escapeHtml(name)}</td>`,
+          `<td style="${td}">${escapeHtml(pc)}</td>`
+        ];
+        let rowSum = 0;
+        slots.forEach((slot, i) => {
+          const v = Math.round(sumEntriesForYm(entries, slot.ym).amount);
+          colSums[i] += v;
+          rowSum += v;
+          cells.push(`<td style="${td}text-align:right;">${escapeHtml(String(v))}</td>`);
+        });
+        grandTotal += rowSum;
+        cells.push(`<td style="${td}text-align:right;font-weight:700;">${escapeHtml(String(Math.round(rowSum)))}</td>`);
+        bodyRows.push(`<tr>${cells.join("")}</tr>`);
+      }
+      const totalCells = [
+        `<td style="${td}font-weight:800;background:#eef6f0;">Total</td>`,
+        `<td style="${td};background:#eef6f0;"></td>`,
+        `<td style="${td};background:#eef6f0;"></td>`
+      ];
+      slots.forEach((_, i) => {
+        totalCells.push(`<td style="${td}text-align:right;font-weight:800;background:#eef6f0;">${escapeHtml(String(colSums[i]))}</td>`);
+      });
+      totalCells.push(`<td style="${td}text-align:right;font-weight:800;background:#eef6f0;">${escapeHtml(String(Math.round(grandTotal)))}</td>`);
+      const todayStr = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+      const el = document.createElement("div");
+      el.setAttribute("data-six-month-pdf", "1");
+      el.style.cssText = "box-sizing:border-box;width:794px;padding:14px 20px 28px;background:#fff;color:#111;font-family:'Noto Sans Devanagari',system-ui,sans-serif;font-size:11px;line-height:1.35;";
+      el.innerHTML = `
+        <div style="margin-bottom:10px;border-bottom:2px solid #1a1a1a;padding-bottom:8px;">
+          <img id="sixMoRptHdrImg" src="${escapeHtml(SIX_MONTH_REPORT_LETTERHEAD_PNG)}" alt="" style="width:100%;height:auto;display:block;object-fit:contain;max-height:132px;" />
+          <div id="sixMoRptHdrFb" style="display:none;background:linear-gradient(90deg,#8bc34a,#dcedc8);padding:12px 14px;border-radius:8px;border:1px solid #558b2f;">
+            <div style="text-align:center;font-size:17px;font-weight:800;">इन्फिनिटी नक्षत्र सोसायटी</div>
+            <div style="text-align:center;font-size:11px;margin-top:6px;">गट नं. ४१/अ, मौजे - शिरसवाडी, पुणे ग्रामीण, तालुका - हवेली, जिल्हा - पुणे, महाराष्ट्र - ४१२२०७</div>
+          </div>
+        </div>
+        <h2 style="margin:10px 0 10px;font-size:15px;font-weight:800;text-align:center;">Six Month Transaction Summary Report</h2>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead>${headHtml}</thead>
+          <tbody>${bodyRows.join("")}<tr>${totalCells.join("")}</tr></tbody>
+        </table>
+        <div style="margin-top:16px;font-size:12px;font-weight:700;">Total Amount Received as of ${escapeHtml(todayStr)}: ${escapeHtml(String(Math.round(grandTotal)))}</div>
+      `;
+      const hi = el.querySelector("#sixMoRptHdrImg");
+      if (hi){
+        hi.addEventListener("error", () => {
+          hi.style.display = "none";
+          const fb = el.querySelector("#sixMoRptHdrFb");
+          if (fb) fb.style.display = "block";
+        });
+      }
+      document.body.appendChild(el);
+      const opt = {
+        margin: [10, 10, 16, 10],
+        filename: `Six-Month-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`,
+        image: { type: "jpeg", quality: 0.94 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "pt", format: "a4", orientation: "portrait" }
+      };
+      try {
+        await globalThis.html2pdf().set(opt).from(el).save();
+      } finally {
+        el.remove();
+      }
+    }
+
     function updateMaintenanceCollectionCards(){
       const expectedEl = document.getElementById("mcExpected");
       const receivedEl = document.getElementById("mcReceived");
@@ -6137,6 +6258,15 @@
           btn.setAttribute("aria-expanded", "false");
         });
       })();
+
+      const adminSixMonthReportBtn = document.getElementById("adminSixMonthReportBtn");
+      if (adminSixMonthReportBtn){
+        adminSixMonthReportBtn.addEventListener("click", () => {
+          void downloadSixMonthTransactionReportPdf().catch(() => {
+            alert("Could not generate PDF. Try again or check the browser console.");
+          });
+        });
+      }
 
       const adminBankViewBtn = document.getElementById("adminBankViewBtn");
       if (adminBankViewBtn) adminBankViewBtn.addEventListener("click", openBankingViewModal);
