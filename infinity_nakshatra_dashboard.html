@@ -1198,7 +1198,7 @@
         </div>
         <div class="mcCollectionFootnote sub">
           <span id="adminMcFyMetaNote" class="mono">—</span>
-          <span> • Due date: <strong>10th</strong> of each month. Contact-missing plots are excluded from expected / pending.</span>
+          <span> • Due date: <strong>10th</strong> of each month. Expected and lists use registered owners with primary contact when available; otherwise sold plots (non-unsold) with Plot No.</span>
         </div>
       </div>
     </div>
@@ -4817,6 +4817,16 @@
       return plotRows.filter(r => isAddedInGroupRow(r) && !!digitsOnly(r["Primary Contact Number"]));
     }
 
+    /** Plot rows for admin maintenance KPIs + pending/done lists: strict rule, else sold (non-unsold) rows with Plot No. */
+    function maintenanceCollectionPlotRows(){
+      const strict = eligiblePlotRowsForCollection();
+      if (strict.length) return strict;
+      return allRows.filter(r => {
+        if (norm(r["Plot No."]) === "") return false;
+        return soldKey(r["Sold/Unsold"]) !== "unsold";
+      });
+    }
+
     function updateMaintenanceCollectionCards(){
       const expectedEl = document.getElementById("mcExpected");
       const receivedEl = document.getElementById("mcReceived");
@@ -4854,8 +4864,8 @@
           }
         }
       } else {
-        const eligible = eligiblePlotRowsForCollection();
-        for (const r of eligible){
+        const rowsRecv = maintenanceCollectionPlotRows();
+        for (const r of rowsRecv){
           const plotNo = plotNoOfRow(r);
           if (!plotNo) continue;
           const entries = paymentsLoadEntries(plotNo);
@@ -4867,9 +4877,9 @@
         }
       }
 
-      // Expected/pending still uses eligibility rules (registered + reachable primary contact).
-      const eligible2 = eligiblePlotRowsForCollection();
-      const plotsCount = eligible2.length;
+      // Expected/pending: registered+contact rows when present; otherwise sold plots with Plot No.
+      const rowsExpected = maintenanceCollectionPlotRows();
+      const plotsCount = rowsExpected.length;
       const expected = selectedYms.length * plotsCount * 350;
 
       const pending = Math.max(0, expected - received);
@@ -4884,9 +4894,9 @@
       const selectedYms = getMcSelectedYms();
       const monthsLabel = mcMonthLabelsForYms(selectedYms);
 
-      const eligible = eligiblePlotRowsForCollection();
+      const rowsList = maintenanceCollectionPlotRows();
       const items = [];
-      for (const r of eligible){
+      for (const r of rowsList){
         const plotNo = plotNoOfRow(r);
         if (!plotNo) continue;
         const entries = paymentsLoadEntries(plotNo);
@@ -4951,9 +4961,9 @@
       const selectedYms = getMcSelectedYms();
       const monthsLabel = mcMonthLabelsForYms(selectedYms);
 
-      const eligible = eligiblePlotRowsForCollection();
+      const rowsList = maintenanceCollectionPlotRows();
       const items = [];
-      for (const r of eligible){
+      for (const r of rowsList){
         const plotNo = plotNoOfRow(r);
         if (!plotNo) continue;
         const entries = paymentsLoadEntries(plotNo);
