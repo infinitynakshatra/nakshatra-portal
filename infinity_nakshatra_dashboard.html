@@ -4,9 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Infinity Nakshatra Society • Society Portal</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
     :root{
       --bg0:#081219;
@@ -1922,6 +1919,8 @@
   <!-- Robust CSV parsing (handles quoted newlines like Plot 2 phone number) -->
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <script>
     const SHEET_ID = "1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA";
     /**
@@ -4840,9 +4839,6 @@
       return [];
     }
 
-    /** Optional letterhead PNG beside this HTML (same folder as the portal). */
-    const SIX_MONTH_REPORT_LETTERHEAD_PNG = "assets/transaction_report_letterhead.png";
-
     function sixMonthReportColumnLabel(slot){
       return `${slot.shortMonth}-${String(slot.calendarYear).slice(-2)}`;
     }
@@ -4853,23 +4849,15 @@
       return buildIndianFYSlots(y0).slice(0, 6);
     }
 
-    function ensureHtml2PdfLoaded(){
-      return new Promise((resolve, reject) => {
-        if (globalThis.html2pdf) return resolve();
-        const s = document.createElement("script");
-        s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-        s.crossOrigin = "anonymous";
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error("html2pdf"));
-        document.head.appendChild(s);
-      });
+    function sheetRowForPlotNo(pn){
+      const k = String(pn);
+      return (allRows || []).find(r => plotNoOfRow(r) === k) || null;
     }
 
-    async function downloadSixMonthTransactionReportPdf(){
-      try {
-        await ensureHtml2PdfLoaded();
-      } catch {
-        alert("Could not load PDF helper. Check your network and try again.");
+    function downloadSixMonthTransactionReportPdf(){
+      const jsp = globalThis.jspdf || window.jspdf;
+      if (!jsp || !jsp.jsPDF){
+        alert("PDF library not loaded. Refresh the page and try again.");
         return;
       }
       const slots = getSixMonthReportSlots();
@@ -4877,84 +4865,97 @@
         alert("No FY months available for this report.");
         return;
       }
-      const plotRows = maintenanceCollectionPlotRows().sort((a, b) => Number(plotNoOfRow(a)) - Number(plotNoOfRow(b)) || String(plotNoOfRow(a)).localeCompare(String(plotNoOfRow(b))));
+      const { jsPDF } = jsp;
+      const rangeA = sixMonthReportColumnLabel(slots[0]);
+      const rangeB = sixMonthReportColumnLabel(slots[slots.length - 1]);
+      const todayStr = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+
+      const head = [["Plot No.", "Name", "Primary Contact", ...slots.map(sixMonthReportColumnLabel), "Total"]];
+      const body = [];
       const colSums = slots.map(() => 0);
       let grandTotal = 0;
-      const td = "border:1px solid #ccc;padding:5px 7px;";
-      const th = `${td}background:#e8f0ea;font-weight:700;font-size:10px;text-align:left;`;
-      const headCols = ["Plot No.", "Name", "Primary Contact Number", ...slots.map(sixMonthReportColumnLabel), "Total"];
-      const headHtml = `<tr>${headCols.map(c => `<th style="${th}">${escapeHtml(c)}</th>`).join("")}</tr>`;
-      const bodyRows = [];
-      for (const r of plotRows){
-        const plotNo = plotNoOfRow(r);
+      for (let p = 1; p <= 109; p++){
+        const plotNo = String(p);
+        const r = sheetRowForPlotNo(plotNo);
+        const name = r ? (norm(r["Name of Owner 1"]) || norm(r["Name of Owner 2"]) || norm(r["Name of Owner 3"]) || "") : "";
+        const pc = r ? (digitsOnly(r["Primary Contact Number"]) || norm(r["Primary Contact Number"]) || "") : "";
         const entries = paymentsLoadEntries(plotNo);
-        const name = norm(r["Name of Owner 1"]) || norm(r["Name of Owner 2"]) || norm(r["Name of Owner 3"]) || "";
-        const pc = digitsOnly(r["Primary Contact Number"]) || norm(r["Primary Contact Number"]) || "";
-        const cells = [
-          `<td style="${td}">${escapeHtml(plotNo)}</td>`,
-          `<td style="${td}">${escapeHtml(name)}</td>`,
-          `<td style="${td}">${escapeHtml(pc)}</td>`
-        ];
+        const row = [plotNo, name, pc];
         let rowSum = 0;
         slots.forEach((slot, i) => {
           const v = Math.round(sumEntriesForYm(entries, slot.ym).amount);
           colSums[i] += v;
           rowSum += v;
-          cells.push(`<td style="${td}text-align:right;">${escapeHtml(String(v))}</td>`);
+          row.push(String(v));
         });
         grandTotal += rowSum;
-        cells.push(`<td style="${td}text-align:right;font-weight:700;">${escapeHtml(String(Math.round(rowSum)))}</td>`);
-        bodyRows.push(`<tr>${cells.join("")}</tr>`);
+        row.push(String(Math.round(rowSum)));
+        body.push(row);
       }
-      const totalCells = [
-        `<td style="${td}font-weight:800;background:#eef6f0;">Total</td>`,
-        `<td style="${td};background:#eef6f0;"></td>`,
-        `<td style="${td};background:#eef6f0;"></td>`
-      ];
-      slots.forEach((_, i) => {
-        totalCells.push(`<td style="${td}text-align:right;font-weight:800;background:#eef6f0;">${escapeHtml(String(colSums[i]))}</td>`);
-      });
-      totalCells.push(`<td style="${td}text-align:right;font-weight:800;background:#eef6f0;">${escapeHtml(String(Math.round(grandTotal)))}</td>`);
-      const todayStr = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-      const el = document.createElement("div");
-      el.setAttribute("data-six-month-pdf", "1");
-      el.style.cssText = "box-sizing:border-box;width:794px;padding:14px 20px 28px;background:#fff;color:#111;font-family:'Noto Sans Devanagari',system-ui,sans-serif;font-size:11px;line-height:1.35;";
-      el.innerHTML = `
-        <div style="margin-bottom:10px;border-bottom:2px solid #1a1a1a;padding-bottom:8px;">
-          <img id="sixMoRptHdrImg" src="${escapeHtml(SIX_MONTH_REPORT_LETTERHEAD_PNG)}" alt="" style="width:100%;height:auto;display:block;object-fit:contain;max-height:132px;" />
-          <div id="sixMoRptHdrFb" style="display:none;background:linear-gradient(90deg,#8bc34a,#dcedc8);padding:12px 14px;border-radius:8px;border:1px solid #558b2f;">
-            <div style="text-align:center;font-size:17px;font-weight:800;">इन्फिनिटी नक्षत्र सोसायटी</div>
-            <div style="text-align:center;font-size:11px;margin-top:6px;">गट नं. ४१/अ, मौजे - शिरसवाडी, पुणे ग्रामीण, तालुका - हवेली, जिल्हा - पुणे, महाराष्ट्र - ४१२२०७</div>
-          </div>
-        </div>
-        <h2 style="margin:10px 0 10px;font-size:15px;font-weight:800;text-align:center;">Six Month Transaction Summary Report</h2>
-        <table style="width:100%;border-collapse:collapse;">
-          <thead>${headHtml}</thead>
-          <tbody>${bodyRows.join("")}<tr>${totalCells.join("")}</tr></tbody>
-        </table>
-        <div style="margin-top:16px;font-size:12px;font-weight:700;">Total Amount Received as of ${escapeHtml(todayStr)}: ${escapeHtml(String(Math.round(grandTotal)))}</div>
-      `;
-      const hi = el.querySelector("#sixMoRptHdrImg");
-      if (hi){
-        hi.addEventListener("error", () => {
-          hi.style.display = "none";
-          const fb = el.querySelector("#sixMoRptHdrFb");
-          if (fb) fb.style.display = "block";
+      const foot = [["Total", "", "", ...colSums.map(String), String(Math.round(grandTotal))]];
+
+      const pageW = 297;
+      const pageH = 210;
+      const margin = 3.5;
+      const cx = pageW / 2;
+      const tableW = pageW - margin * 2;
+      const fixed = 6.5 + 34 + 19 + 12;
+      const mo = Math.max(10, (tableW - fixed) / 6);
+      const colW = { 0: 6.5, 1: 34, 2: 19, 3: mo, 4: mo, 5: mo, 6: mo, 7: mo, 8: mo, 9: 12 };
+
+      let fs = 4.5;
+      let doc;
+      for (let attempt = 0; attempt < 10; attempt++){
+        doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+        if (typeof doc.autoTable !== "function"){
+          alert("PDF table module not loaded. Refresh the page and try again.");
+          return;
+        }
+        const pad = Math.max(0.1, 0.32 - (4.5 - fs) * 0.08);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.text("INFINITY NAKSHATRA SOCIETY", cx, 5.5, { align: "center" });
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "normal");
+        doc.text(`Six Month Transaction Summary Report (${rangeA} To ${rangeB})`, cx, 9.2, { align: "center" });
+
+        doc.autoTable({
+          startY: 11,
+          margin: { left: margin, right: margin, top: 11 },
+          tableWidth: tableW,
+          head: head,
+          body: body,
+          foot: foot,
+          showFoot: "lastPage",
+          theme: "plain",
+          styles: {
+            fontSize: fs,
+            cellPadding: pad,
+            lineColor: [210, 210, 210],
+            lineWidth: 0.05,
+            textColor: 25,
+            valign: "middle",
+            minCellHeight: 0.1
+          },
+          headStyles: { fillColor: [248, 248, 248], textColor: 20, fontStyle: "bold", fontSize: fs },
+          footStyles: { fillColor: [242, 248, 242], textColor: 20, fontStyle: "bold", fontSize: fs },
+          columnStyles: colW
         });
+
+        const np = doc.internal.getNumberOfPages();
+        doc.setPage(np);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(Math.max(3, fs - 0.6));
+        const fy = (doc.lastAutoTable && typeof doc.lastAutoTable.finalY === "number")
+          ? Math.min(doc.lastAutoTable.finalY + 2, pageH - 2.8)
+          : pageH - 4;
+        doc.text(`Total Amount Received as of ${todayStr}: ${Math.round(grandTotal)}`, cx, fy, { align: "center" });
+
+        if (np <= 2) break;
+        fs -= 0.32;
+        if (fs < 2.9) break;
       }
-      document.body.appendChild(el);
-      const opt = {
-        margin: [10, 10, 16, 10],
-        filename: `Six-Month-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`,
-        image: { type: "jpeg", quality: 0.94 },
-        html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: "#ffffff" },
-        jsPDF: { unit: "pt", format: "a4", orientation: "portrait" }
-      };
-      try {
-        await globalThis.html2pdf().set(opt).from(el).save();
-      } finally {
-        el.remove();
-      }
+      doc.save(`Six-Month-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
     }
 
     function updateMaintenanceCollectionCards(){
@@ -6262,9 +6263,11 @@
       const adminSixMonthReportBtn = document.getElementById("adminSixMonthReportBtn");
       if (adminSixMonthReportBtn){
         adminSixMonthReportBtn.addEventListener("click", () => {
-          void downloadSixMonthTransactionReportPdf().catch(() => {
+          try { downloadSixMonthTransactionReportPdf(); }
+          catch (e){
+            console.error(e);
             alert("Could not generate PDF. Try again or check the browser console.");
-          });
+          }
         });
       }
 
