@@ -4886,6 +4886,22 @@
         minute: "2-digit"
       });
 
+      function sheetOwnerNameForSixMonthPdf(r){
+        if (!r) return "";
+        for (const k of ["Name of Owner 1", "Name of Owner 2", "Name of Owner 3"]){
+          const v = r[k];
+          if (v == null || v === "") continue;
+          const s = String(v).replace(/\s+/g, " ").trim();
+          if (!s) continue;
+          try {
+            return s.normalize("NFC");
+          } catch {
+            return s;
+          }
+        }
+        return "";
+      }
+
       const head = [["Plot No.", "Name", "Primary Contact", ...slots.map(sixMonthReportColumnLabel), "Total"]];
       const body = [];
       const colSums = slots.map(() => 0);
@@ -4893,7 +4909,7 @@
       for (let p = 1; p <= 109; p++){
         const plotNo = String(p);
         const r = sheetRowForPlotNo(plotNo);
-        const name = r ? (norm(r["Name of Owner 1"]) || norm(r["Name of Owner 2"]) || norm(r["Name of Owner 3"]) || "") : "";
+        const name = sheetOwnerNameForSixMonthPdf(r);
         const pc = r ? (digitsOnly(r["Primary Contact Number"]) || norm(r["Primary Contact Number"]) || "") : "";
         const entries = paymentsLoadEntries(plotNo);
         const row = [plotNo, name, pc];
@@ -4915,9 +4931,10 @@
       const margin = 4;
       const cx = pageW / 2;
       const tableW = pageW - margin * 2;
-      const fixed = 7 + 48 + 22 + 14;
+      const nameColMm = 52;
+      const fixed = 7 + nameColMm + 22 + 14;
       const mo = Math.max(11, (tableW - fixed) / 6);
-      const colWidths = [7, 48, 22, mo, mo, mo, mo, mo, mo, 14];
+      const colWidths = [7, nameColMm, 22, mo, mo, mo, mo, mo, mo, 14];
 
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       if (typeof doc.autoTable !== "function"){
@@ -4926,10 +4943,24 @@
       }
       let tableFont = "helvetica";
       try {
-        const fontUrl = "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts@main/hinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf";
-        const res = await fetch(fontUrl, { mode: "cors" });
-        if (res.ok){
-          doc.addFileToVFS("NotoSansDevanagari-Regular.ttf", arrayBufferToBase64(await res.arrayBuffer()));
+        const fontUrls = [
+          "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts@main/unhinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf",
+          "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts@main/hinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf"
+        ];
+        let buf = null;
+        for (const fontUrl of fontUrls){
+          try {
+            const res = await fetch(fontUrl, { mode: "cors" });
+            if (res.ok){
+              buf = await res.arrayBuffer();
+              break;
+            }
+          } catch {
+            /* try next */
+          }
+        }
+        if (buf){
+          doc.addFileToVFS("NotoSansDevanagari-Regular.ttf", arrayBufferToBase64(buf));
           doc.addFont("NotoSansDevanagari-Regular.ttf", "NotoSansDevanagari", "normal");
           tableFont = "NotoSansDevanagari";
         }
@@ -4940,7 +4971,9 @@
       const nameColFont = tableFont === "NotoSansDevanagari" ? "NotoSansDevanagari" : "helvetica";
       const columnStyles = {};
       colWidths.forEach((cellWidth, i) => {
-        columnStyles[i] = { cellWidth, font: i === 1 ? nameColFont : "helvetica" };
+        columnStyles[i] = i === 1
+          ? { cellWidth, font: nameColFont, valign: "middle" }
+          : { cellWidth, font: "helvetica", valign: "middle" };
       });
 
       /* Slightly compact so ~51 body rows + header fit one landscape A4 page (avoids autoTable splitting mid-section). */
@@ -4956,6 +4989,8 @@
         d.setFontSize(6.4);
         d.text(subLine, cx, 10, { align: "center" });
       }
+
+      const amtColEnd = 3 + slots.length;
 
       const tableOpts = (bodySlice, includeFoot, marginBottom) => ({
         startY: 12,
@@ -4992,7 +5027,18 @@
           fontSize: fs,
           cellPadding: pad
         },
-        columnStyles
+        columnStyles,
+        didParseCell(data){
+          if (data.section !== "body") return;
+          const col = data.column.index;
+          if (col < 3 || col > amtColEnd) return;
+          const t = data.cell.text;
+          const raw = Array.isArray(t) ? t.join("") : String(t ?? "");
+          const n = parseInt(String(raw).replace(/[^\d-]/g, ""), 10);
+          if (!Number.isFinite(n)) return;
+          if (n === 350) data.cell.styles.fillColor = [214, 255, 214];
+          else if (n === 0) data.cell.styles.fillColor = [255, 222, 222];
+        }
       });
 
       drawTitles(doc);
