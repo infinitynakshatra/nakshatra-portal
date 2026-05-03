@@ -4992,9 +4992,10 @@
           : { cellWidth, font: "helvetica", valign: "middle" };
       });
 
-      /* Slightly compact so ~51 body rows + header fit one landscape A4 page (avoids autoTable splitting mid-section). */
-      const fs = 6.15;
-      const pad = 0.46;
+      /* ~40 data rows + header per page (pages 1–2); page 3 holds remainder + foot. */
+      const sixMoPdfRowsPerPage = 40;
+      const fs = 7;
+      const pad = 0.55;
       const subLine = `Six Month Transaction Summary Report (${rangeA} To ${rangeB})`;
 
       function drawTitles(d){
@@ -5027,7 +5028,7 @@
         const ih = Math.max(0.1, height - inset * 2);
         doc.setFillColor(255, 255, 255);
         doc.rect(ix, iy, iw, ih, "F");
-        const dpr = Math.min(2, typeof window !== "undefined" && window.devicePixelRatio ? window.devicePixelRatio : 1);
+        const dpr = Math.min(3, typeof window !== "undefined" && window.devicePixelRatio ? window.devicePixelRatio : 1);
         const pxPerMm = 96 / 25.4;
         const cssW = iw * pxPerMm;
         const cssH = ih * pxPerMm;
@@ -5133,16 +5134,17 @@
         }
       });
 
+      const rpp = sixMoPdfRowsPerPage;
       drawTitles(doc);
-      doc.autoTable(tableOpts(body.slice(0, 49), false, 8));
+      doc.autoTable(tableOpts(body.slice(0, rpp), false, 8));
 
       doc.addPage();
       drawTitles(doc);
-      doc.autoTable(tableOpts(body.slice(49, 100), false, 8));
+      doc.autoTable(tableOpts(body.slice(rpp, rpp * 2), false, 8));
 
       doc.addPage();
       drawTitles(doc);
-      doc.autoTable(tableOpts(body.slice(100, 109), true, 18));
+      doc.autoTable(tableOpts(body.slice(rpp * 2, body.length), true, 18));
 
       const np = doc.internal.getNumberOfPages();
       doc.setPage(np);
