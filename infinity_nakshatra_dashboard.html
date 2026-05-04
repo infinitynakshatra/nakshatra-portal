@@ -1422,7 +1422,7 @@
           <div class="row">
             <div>
               <strong>Your plot details</strong>
-              <div class="smallNote">Rows where your mobile matches <span class="mono">Primary Contact Number</span> or <span class="mono">Alternate Number</span> in the Google Sheet. If you own more than one plot, each appears below. Use <b>Update</b> next to those numbers to change them in this browser (Plot No. required); the Google Sheet is not updated automatically.</div>
+              <div class="smallNote">Rows where your mobile matches <span class="mono">Primary Contact Number</span> or <span class="mono">Alternate Number</span> in the Google Sheet. If you own more than one plot, each appears below.</div>
             </div>
           </div>
           <div id="userDetails" class="smallNote" style="margin-top:12px;">Loading…</div>
@@ -6063,14 +6063,7 @@
         const title = pno ? `Plot ${escapeHtml(pno)}` : `Linked row ${idx + 1} (no Plot No.)`;
         const rowsHtml = cols.map(h => {
           const v = norm(row[h]);
-          let valueHtml = v ? escapeHtml(v) : "";
-          if (h === COL_PRIMARY_CONTACT || h === COL_ALTERNATE_NUMBER){
-            if (pno){
-              valueHtml += ` <button type="button" class="btn secondary tiny" data-user-contact-edit="1" data-plot-no="${escapeHtml(pno)}">Update</button>`;
-            } else {
-              valueHtml += ` <span class="smallNote" style="margin-left:6px;">(Add <span class="mono">Plot No.</span> in the sheet to enable updates.)</span>`;
-            }
-          }
+          const valueHtml = v ? escapeHtml(v) : "";
           return `<tr><td style="color:var(--muted); width: 240px;">${escapeHtml(h)}</td><td>${valueHtml}</td></tr>`;
         }).join("");
         return `
