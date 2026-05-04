@@ -1350,6 +1350,33 @@
 
       <div class="userGuideBanner" id="userGuideBanner"></div>
 
+      <div class="mcRow" id="userInboxRow" style="margin-top:12px;">
+        <div class="mcRowInner" style="align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
+          <div class="mcBrand">
+            <h3 style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              Notifications
+              <span class="pill" id="userInboxBadge" style="display:none; font-weight:900;">0</span>
+            </h3>
+            <div class="smallNote">Admins: payment decisions, new notices, and banking / UPI updates appear here.</div>
+          </div>
+          <button class="btn secondary tiny" id="userInboxMarkReadBtn" type="button" style="align-self:flex-start;">Mark all read</button>
+        </div>
+        <div class="scroll-x" style="overflow:auto; max-height:min(240px, 40vh); margin-top:10px;">
+          <table class="adminDirTable">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Subject</th>
+                <th>Message</th>
+              </tr>
+            </thead>
+            <tbody id="userInboxTbody">
+              <tr><td colspan="3">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <div class="mcRow" id="userNoticesRow" style="margin-top:12px;">
         <div class="mcRowInner">
           <div class="mcBrand">
@@ -2252,7 +2279,7 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], banking: null };
+    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], banking: null, inbox: [] };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
@@ -2269,7 +2296,12 @@
       if (!isServerEnabled()) return { ok:false, skipped:true };
       if (portalServerStateFetchInFlight) return portalServerStateFetchInFlight;
       portalServerStateFetchInFlight = (async () => {
-      const r = await appsScriptPostJson({ apiKey: COLLECTION_API_KEY, action: "state" });
+      const sessFetch = readSession();
+      const stateBody = { apiKey: COLLECTION_API_KEY, action: "state" };
+      if (sessFetch && sessFetch.role === "user" && sessFetch.userId){
+        stateBody.forUserMobile = String(sessFetch.userId);
+      }
+      const r = await appsScriptPostJson(stateBody);
       if (r.skipped) return { ok:false, skipped:true };
       if (!r.ok) return { ok:false, error: r.error };
       let j;
@@ -2307,9 +2339,11 @@
         pending: Array.isArray(j.pending) ? j.pending : [],
         tickets: Array.isArray(j.tickets) ? j.tickets : [],
         notices: Array.isArray(j.notices) ? j.notices : [],
-        banking: (j.banking !== undefined && j.banking !== null && typeof j.banking === "object") ? j.banking : null
+        banking: (j.banking !== undefined && j.banking !== null && typeof j.banking === "object") ? j.banking : null,
+        inbox: Array.isArray(j.inbox) ? j.inbox : []
       };
       renderNotices();
+      renderUserInbox();
       // Refresh UI that depends on payments/pending after server state arrives.
       try {
         renderAdminPendingApprovalPanel();
@@ -2317,7 +2351,7 @@
         renderUserGuideBanner();
         if (document.getElementById("bankViewBackdrop")?.classList.contains("show")) fillBankViewModal();
         const sess = readSession();
-        if (sess && sess.role === "user") refreshUserPaymentsOnly();
+        if (sess && sess.role === "user") refreshUserView();
         // If these modals are open, refresh them too.
         if (document.getElementById("pendingBackdrop")?.classList.contains("show")) openPendingModal();
         if (document.getElementById("doneBackdrop")?.classList.contains("show")) openDoneOwnersModal();
@@ -4194,6 +4228,17 @@
           await portalServerFetchState();
           renderAdminPendingApprovalPanel();
           updateMaintenanceCollectionCards();
+          applyFilters();
+          if (document.getElementById("payBackdrop")?.classList.contains("show")){
+            const ps = document.getElementById("paySaveBtn");
+            if (ps?.dataset?.payFlow === "adminBulkPlots"){
+              populatePayBulkPlotRowsTable();
+            } else {
+              const curPlot = norm(ps?.dataset?.plot);
+              if (curPlot) renderPaymentsTable(curPlot);
+              if (norm(ps?.dataset?.role) === "admin") populatePayMonthAdminCheckboxes();
+            }
+          }
           const s = readSession();
           if (s && s.role === "user") refreshUserView();
         })();
@@ -4283,6 +4328,20 @@
           }
           await portalServerFetchState();
           renderAdminPendingApprovalPanel();
+          updateMaintenanceCollectionCards();
+          applyFilters();
+          if (document.getElementById("payBackdrop")?.classList.contains("show")){
+            const ps = document.getElementById("paySaveBtn");
+            if (ps?.dataset?.payFlow === "adminBulkPlots"){
+              populatePayBulkPlotRowsTable();
+            } else {
+              const curPlot = norm(ps?.dataset?.plot);
+              if (curPlot) renderPaymentsTable(curPlot);
+              if (norm(ps?.dataset?.role) === "admin") populatePayMonthAdminCheckboxes();
+            }
+          }
+          const srej = readSession();
+          if (srej && srej.role === "user") refreshUserView();
         })();
         return;
       }
@@ -6274,6 +6333,63 @@
         document.getElementById("userPayRows").innerHTML = `<tr><td colspan="2">—</td></tr>`;
         if (payChart){ payChart.destroy(); payChart = null; }
       }
+      renderUserInbox();
+    }
+
+    function renderUserInbox(){
+      const tbody = document.getElementById("userInboxTbody");
+      const badge = document.getElementById("userInboxBadge");
+      if (!tbody) return;
+      if (!portalServerState.loaded || !isServerEnabled() || !Array.isArray(portalServerState.inbox)){
+        tbody.innerHTML = `<tr><td colspan="3">—</td></tr>`;
+        if (badge){ badge.style.display = "none"; badge.textContent = "0"; }
+        return;
+      }
+      const rows = portalServerState.inbox.filter(it => it && String(it.id || "").trim());
+      const unread = rows.filter(it => !norm(it.readAt)).length;
+      if (badge){
+        if (unread > 0){
+          badge.textContent = String(unread);
+          badge.style.display = "inline-flex";
+        } else {
+          badge.style.display = "none";
+          badge.textContent = "0";
+        }
+      }
+      if (!rows.length){
+        tbody.innerHTML = `<tr><td colspan="3">No notifications yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = rows.slice(0, 50).map(it => {
+        const when = it.atIso ? escapeHtml(String(it.atIso).replace("T", " ").slice(0, 19)) : "—";
+        const subj = escapeHtml(norm(it.title) || norm(it.kind) || "—");
+        const body = escapeHtml(norm(it.body) || "");
+        const unr = !norm(it.readAt) ? ` <span class="smallNote" style="color:var(--accent);">(new)</span>` : "";
+        return `<tr data-inbox-id="${escapeHtml(String(it.id))}">
+          <td class="mono">${when}${unr}</td>
+          <td><b>${subj}</b></td>
+          <td>${body}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    async function portalServerMarkInboxRead(ids){
+      const sess = readSession();
+      if (!sess || sess.role !== "user" || !sess.userId) return { ok:false, skipped:true };
+      const idList = (ids || []).map(String).filter(Boolean);
+      if (!idList.length) return { ok:false, skipped:true };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "markUserInboxRead",
+        forUserMobile: String(sess.userId),
+        ids: idList
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "failed" };
+      return { ok:true };
     }
 
     function reduceBrowserFieldSuggestions(el){
