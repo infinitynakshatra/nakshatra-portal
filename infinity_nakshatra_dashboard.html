@@ -4488,6 +4488,17 @@
       return paymentsMigrateLegacyTextToEntries(plotNo, s);
     }
 
+    /**
+     * One payment line’s money: if amount and lateFee are the same positive value (mirrored columns), count once.
+     */
+    function directoryPaymentLineTotal_(e){
+      if (!e) return 0;
+      const a = toMoneyNumber(e.amount);
+      const lf = toMoneyNumber(e.lateFee);
+      if (a > 0 && lf > 0 && Math.abs(a - lf) < 0.005) return a;
+      return a + lf;
+    }
+
     function bestPaymentMetaForYm_(entries, ym){
       const want = normalizePortalYm(ym);
       let bestAt = -1;
@@ -4506,8 +4517,31 @@
     }
 
     /**
+     * Strongest single row for a month (max directory line money; tie-break by newer at).
+     * Avoids summing duplicate localStorage rows for the same month (that summed to 2× vs the sheet).
+     */
+    function bestMoneyEntryForYm_(entries, ym){
+      const want = normalizePortalYm(ym);
+      let best = null;
+      let bestVal = -1;
+      let bestAt = -1;
+      for (const e of entries || []){
+        if (!e || normalizePortalYm(e.ym) !== want) continue;
+        const v = directoryPaymentLineTotal_(e);
+        const at = Number(e.at) || 0;
+        if (v <= 0) continue;
+        if (v > bestVal || (Math.abs(v - bestVal) < 0.005 && at >= bestAt)){
+          bestVal = v;
+          bestAt = at;
+          best = e;
+        }
+      }
+      return best;
+    }
+
+    /**
      * For the same plot+month, combine server sheet state with this browser's localStorage.
-     * Uses max(amount+lateFee) when both sides have money so mirrored rows are not double-counted.
+     * Compares each side using the best single row for that month (not a sum), then picks server vs local by that total.
      */
     function mergeServerLocalPaymentEntryLists_(serverEntries, localEntries){
       const ymSet = new Set();
@@ -4516,38 +4550,34 @@
       const yms = [...ymSet].sort((a, b) => String(a).localeCompare(String(b)));
       const out = [];
       for (const ym of yms){
-        const s = sumEntriesForYm(serverEntries, ym);
-        const l = sumEntriesForYm(localEntries, ym);
-        const ts = toMoneyNumber(s.amount) + toMoneyNumber(s.lateFee);
-        const tl = toMoneyNumber(l.amount) + toMoneyNumber(l.lateFee);
-        let amount = 0;
-        let lateFee = 0;
-        let winner = "server";
+        const sBest = bestMoneyEntryForYm_(serverEntries, ym);
+        const lBest = bestMoneyEntryForYm_(localEntries, ym);
+        const ts = sBest ? directoryPaymentLineTotal_(sBest) : 0;
+        const tl = lBest ? directoryPaymentLineTotal_(lBest) : 0;
         if (tl <= 0 && ts <= 0) continue;
+        let winner = "server";
+        let pick = null;
         if (tl <= 0){
           winner = "server";
-          amount = toMoneyNumber(s.amount);
-          lateFee = toMoneyNumber(s.lateFee);
+          pick = sBest;
         } else if (ts <= 0){
           winner = "local";
-          amount = toMoneyNumber(l.amount);
-          lateFee = toMoneyNumber(l.lateFee);
+          pick = lBest;
         } else if (tl > ts){
           winner = "local";
-          amount = toMoneyNumber(l.amount);
-          lateFee = toMoneyNumber(l.lateFee);
+          pick = lBest;
         } else {
           winner = "server";
-          amount = toMoneyNumber(s.amount);
-          lateFee = toMoneyNumber(s.lateFee);
+          pick = sBest;
         }
+        if (!pick) continue;
         const meta = winner === "local"
           ? bestPaymentMetaForYm_(localEntries, ym)
           : bestPaymentMetaForYm_(serverEntries, ym);
         out.push({
           ym: String(ym),
-          amount,
-          lateFee,
+          amount: toMoneyNumber(pick.amount),
+          lateFee: toMoneyNumber(pick.lateFee),
           by: meta.by,
           source: meta.source,
           at: meta.at
@@ -4587,18 +4617,6 @@
         if (p1 === m || (alt && alt === m)) plots.add(p);
       }
       return [...plots];
-    }
-
-    /**
-     * Admin directory only: money for one payment line. If amount and lateFee are the same positive value
-     * (common data/merge mirror), count once — fixes 2× totals (e.g. 700 vs 350).
-     */
-    function directoryPaymentLineTotal_(e){
-      if (!e) return 0;
-      const a = toMoneyNumber(e.amount);
-      const lf = toMoneyNumber(e.lateFee);
-      if (a > 0 && lf > 0 && Math.abs(a - lf) < 0.005) return a;
-      return a + lf;
     }
 
     /** Max directory line total per calendar month for a list of payment rows. */
