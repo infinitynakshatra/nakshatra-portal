@@ -697,6 +697,50 @@
     .topbar .title p{color:var(--muted); font-size:13px;}
     .pillrow{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
     .pillrow .profileWrap{margin-left:auto;}
+    /* Top bar actions: one text size (same as former .btn.tiny “Download report”) + icon-only WA / profile */
+    #adminRoot .topbar .pillrow > .btn,
+    #adminRoot .topbar .pillrow > a.btn:not(.topbarIconLink),
+    #userRoot .topbar .pillrow > .btn,
+    #userRoot .topbar .pillrow > a.btn:not(.topbarIconLink){
+      font-size:11px;
+      padding:6px 10px;
+      border-radius:9px;
+    }
+    #adminRoot .topbar .pillrow > .btn.secondary,
+    #userRoot .topbar .pillrow > .btn.secondary{
+      box-shadow:none;
+    }
+    #adminRoot .topbar .pillrow > a.btn.topbarIconLink,
+    #userRoot .topbar .pillrow > a.btn.topbarIconLink{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:8px 12px;
+      min-width:44px;
+      min-height:44px;
+      line-height:0;
+    }
+    #adminRoot .topbar .pillrow > a.btn.topbarIconLink img,
+    #userRoot .topbar .pillrow > a.btn.topbarIconLink img{
+      width:22px;
+      height:22px;
+      object-fit:contain;
+      display:block;
+    }
+    #adminRoot .topbar .pillrow .profileBtn.topbarIconOnly,
+    #userRoot .topbar .pillrow .profileBtn.topbarIconOnly{
+      padding:8px 12px;
+      min-width:44px;
+      min-height:44px;
+      font-size:0;
+      gap:0;
+    }
+    #adminRoot .topbar .pillrow .profileBtn.topbarIconOnly img,
+    #userRoot .topbar .pillrow .profileBtn.topbarIconOnly img{
+      width:22px;
+      height:22px;
+      object-fit:contain;
+    }
     .userGuideBanner{
       margin:0 0 14px;
       padding:14px 18px;
@@ -1128,13 +1172,13 @@
         </div>
       </div>
       <div class="pillrow">
-        <a class="btn adminOnly" href="https://docs.google.com/spreadsheets/d/1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA/edit?pli=1&amp;gid=1304899070#gid=1304899070" target="_blank" rel="noreferrer">Open Google Sheet</a>
-        <button class="btn secondary adminOnly" id="adminAddPayBtn" type="button">Add payment</button>
+        <a class="btn adminOnly" href="https://docs.google.com/spreadsheets/d/1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA/edit?pli=1&amp;gid=1304899070#gid=1304899070" target="_blank" rel="noreferrer">Google Sheet</a>
+        <button class="btn secondary adminOnly" id="adminAddPayBtn" type="button">Add Payment</button>
         <button class="btn secondary adminOnly" id="adminAddMultiPayBtn" type="button">Add Multiple User Payment</button>
-        <button class="btn secondary tiny adminOnly" id="adminSixMonthReportBtn" type="button" title="PDF: six months of received amounts per plot">Download report</button>
-        <a class="btn" id="whatsAppBtn" href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer">Join WhatsApp Group</a>
+        <button class="btn secondary adminOnly" id="adminSixMonthReportBtn" type="button" title="PDF: six months of received amounts per plot">Download Report</button>
+        <a class="btn topbarIconLink" id="whatsAppBtn" href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer" aria-label="Join WhatsApp Group"><img src="assets/whatsapp.png" width="22" height="22" alt="" /></a>
         <div class="profileWrap">
-          <button class="profileBtn" id="profileBtn" type="button" aria-expanded="false">Profile</button>
+          <button class="profileBtn topbarIconOnly" id="profileBtn" type="button" aria-expanded="false" aria-label="Profile"><img src="assets/user.png" width="22" height="22" alt="" /></button>
           <div class="profilePanel" id="profilePanel" role="menu" aria-label="Profile menu">
             <div class="profileName" id="profileName">Admin</div>
             <div class="profileSub" id="profileSub">—</div>
@@ -1426,10 +1470,10 @@
         </div>
         <div class="pillrow">
           <button class="btn secondary" id="userBankViewBtn" type="button" data-i18n="user.btn.bank">Account & UPI Details</button>
-          <button class="btn secondary" id="userAddPayBtn" type="button" data-i18n="user.btn.addPayment">Add payment</button>
-          <a class="btn" href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer" data-i18n="user.btn.whatsapp">Join WhatsApp Group</a>
+          <button class="btn secondary" id="userAddPayBtn" type="button" data-i18n="user.btn.addPayment">Add Payment</button>
+          <a class="btn topbarIconLink" id="userWhatsAppBtn" href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer" aria-label="Join WhatsApp Group"><img src="assets/whatsapp.png" width="22" height="22" alt="" /></a>
           <div class="profileWrap">
-            <button class="profileBtn" id="userProfileBtn" type="button" aria-expanded="false" data-i18n="user.btn.profile">Profile</button>
+            <button class="profileBtn topbarIconOnly" id="userProfileBtn" type="button" aria-expanded="false" aria-label="Profile"><img src="assets/user.png" width="22" height="22" alt="" /></button>
             <div class="profilePanel" id="userProfilePanel" role="menu" aria-label="Profile menu">
               <div class="profileName" id="userProfileName">Owner</div>
               <div class="profileSub" id="userProfileSub">—</div>
@@ -3196,7 +3240,7 @@
       en: {
         "user.tagline": "Owner Portal • You can view all details related to your plot, including paid and pending maintenance amounts.",
         "user.btn.bank": "Account & UPI Details",
-        "user.btn.addPayment": "Add payment",
+        "user.btn.addPayment": "Add Payment",
         "user.btn.whatsapp": "Join WhatsApp Group",
         "user.btn.profile": "Profile",
         "user.btn.changePw": "Change password",
@@ -3223,10 +3267,20 @@
     function applyUserLanguage(){
       const tag = document.getElementById("userTagline");
       if (tag) tag.textContent = t("user.tagline");
+      const skipI18nTextIds = new Set(["userWhatsAppBtn", "userProfileBtn"]);
       document.querySelectorAll("[data-i18n]").forEach(el => {
         const k = el.getAttribute("data-i18n");
-        if (k) el.textContent = t(k);
+        if (!k || skipI18nTextIds.has(el.id)) return;
+        el.textContent = t(k);
       });
+      const waLabel = t("user.btn.whatsapp");
+      const prLabel = t("user.btn.profile");
+      const waAdmin = document.getElementById("whatsAppBtn");
+      if (waAdmin) waAdmin.setAttribute("aria-label", waLabel);
+      const waUser = document.getElementById("userWhatsAppBtn");
+      if (waUser) waUser.setAttribute("aria-label", waLabel);
+      const prUser = document.getElementById("userProfileBtn");
+      if (prUser) prUser.setAttribute("aria-label", prLabel);
     }
     function defaultBankingConfig(){
       return {
@@ -3944,7 +3998,7 @@
         const pb = document.getElementById("profileBtn");
         const pn = document.getElementById("profileName");
         const ps = document.getElementById("profileSub");
-        if (pb) pb.textContent = "Profile";
+        if (pb) pb.setAttribute("aria-label", "Profile");
         if (pn) pn.textContent = "Admin";
         if (ps) ps.textContent = "Signed in as Admin";
         document.getElementById("subtitle").textContent = "Maintenance Management • Admin Dashboard (linked to Google Sheet)";
@@ -3967,7 +4021,7 @@
         const upb = document.getElementById("userProfileBtn");
         const upn = document.getElementById("userProfileName");
         const ups = document.getElementById("userProfileSub");
-        if (upb) upb.textContent = t("user.btn.profile");
+        if (upb) upb.setAttribute("aria-label", t("user.btn.profile"));
         if (upn) upn.textContent = "Owner";
         if (ups) ups.textContent = `Signed in: ${sess.userId}`;
         applyUserLanguage();
