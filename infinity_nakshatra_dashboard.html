@@ -736,10 +736,21 @@
       gap:0;
     }
     #adminRoot .topbar .pillrow .profileBtn.topbarIconOnly img,
-    #userRoot .topbar .pillrow .profileBtn.topbarIconOnly img{
+    #userRoot .topbar     .pillrow .profileBtn.topbarIconOnly img{
       width:22px;
       height:22px;
       object-fit:contain;
+    }
+    .ownerAccessCell{white-space:nowrap; vertical-align:middle;}
+    .ownerAccessSelect{
+      max-width:7.5rem;
+      font-size:11px;
+      font-weight:700;
+      padding:5px 6px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.16);
+      background:rgba(10,31,45,0.85);
+      color:var(--text);
     }
     .userGuideBanner{
       margin:0 0 14px;
@@ -2473,11 +2484,107 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], banking: null, inbox: [], projectDocs: [], serviceContacts: [] };
+    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], banking: null, inbox: [], projectDocs: [], serviceContacts: [], ownerAccess: {} };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
     }
+
+    const LS_OWNER_ACCESS = "ins_owner_access_v1";
+    /** Synthetic column key for Plot Owners Directory (never from CSV). */
+    const OWNER_ACCESS_COL = "__PORTAL_OWNER_ACCESS__";
+
+    function sanitizeOwnerAccessMap_(obj){
+      const out = {};
+      if (!obj || typeof obj !== "object") return out;
+      for (const [k, v] of Object.entries(obj)){
+        const d = digitsOnly(String(k));
+        if (d.length < 10 || d.length > 15) continue;
+        if (String(v).toLowerCase() === "deny") out[d] = "deny";
+      }
+      return out;
+    }
+
+    function ownerAccessLoadMerged(){
+      try {
+        let local = {};
+        const raw = localStorage.getItem(LS_OWNER_ACCESS);
+        if (raw){
+          const o = JSON.parse(raw);
+          if (o && o.byMobile && typeof o.byMobile === "object") local = sanitizeOwnerAccessMap_(o.byMobile);
+        }
+        if (portalServerState.loaded && isServerEnabled()){
+          const srv = sanitizeOwnerAccessMap_(portalServerState.ownerAccess || {});
+          return { ...local, ...srv };
+        }
+        return local;
+      } catch {
+        return {};
+      }
+    }
+
+    function isOwnerLoginBlocked(mobileDigits){
+      const d = digitsOnly(String(mobileDigits || ""));
+      if (d.length < 10) return false;
+      return ownerAccessLoadMerged()[d] === "deny";
+    }
+
+    function ownerAccessPersistLocalSparse(sparseDenyMap){
+      const clean = sanitizeOwnerAccessMap_(sparseDenyMap);
+      try {
+        localStorage.setItem(LS_OWNER_ACCESS, JSON.stringify({ v: 1, byMobile: clean }));
+      } catch {
+        console.warn("owner access local save failed");
+      }
+    }
+
+    async function portalServerSaveOwnerAccessSparse(sparseDenyMap){
+      if (!isServerEnabled()) return { ok:true, skipped:true };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "saveOwnerAccess",
+        actor: "admin",
+        byMobile: sanitizeOwnerAccessMap_(sparseDenyMap)
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed" };
+      return { ok:true };
+    }
+
+    function ownerAccessSelectCellHtml(mobRaw){
+      const mob = digitsOnly(mobRaw);
+      if (mob.length < 10){
+        return `<td class="ownerAccessCell"><span class="smallNote">—</span></td>`;
+      }
+      const denied = ownerAccessLoadMerged()[mob] === "deny";
+      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="Owner portal login: Allow or Deny">
+        <option value="allow" ${denied ? "" : "selected"}>Allow</option>
+        <option value="deny" ${denied ? "selected" : ""}>Deny</option>
+      </select></td>`;
+    }
+
+    async function onOwnerPortalAccessChange(mobileDigits, value){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return;
+      const d = digitsOnly(String(mobileDigits || ""));
+      if (d.length < 10) return;
+      const merged = { ...ownerAccessLoadMerged() };
+      if (value === "deny") merged[d] = "deny";
+      else delete merged[d];
+      const sparse = sanitizeOwnerAccessMap_(merged);
+      ownerAccessPersistLocalSparse(sparse);
+      if (portalServerState.loaded) portalServerState.ownerAccess = { ...sparse };
+      const sr = await portalServerSaveOwnerAccessSparse(sparse);
+      if (!sr.ok && !sr.skipped){
+        console.warn("Owner access server sync failed", sr.error || sr);
+      }
+      if (isServerEnabled() && sr.ok) await portalServerFetchState();
+      applyFilters();
+    }
+
     function serverPaymentsKey(plotNo){ return norm(plotNo); }
     function serverPaymentsLoad(plotNo){
       return portalServerState.paymentsByPlot.get(serverPaymentsKey(plotNo)) || [];
@@ -2536,8 +2643,20 @@
         banking: (j.banking !== undefined && j.banking !== null && typeof j.banking === "object") ? j.banking : null,
         inbox: Array.isArray(j.inbox) ? j.inbox : [],
         projectDocs: Array.isArray(j.projectDocs) ? j.projectDocs : [],
-        serviceContacts: Array.isArray(j.serviceContacts) ? j.serviceContacts : []
+        serviceContacts: Array.isArray(j.serviceContacts) ? j.serviceContacts : [],
+        ownerAccess: (j.ownerAccess && typeof j.ownerAccess === "object" && !Array.isArray(j.ownerAccess)) ? j.ownerAccess : {}
       };
+      try {
+        const sessKick = readSession();
+        if (sessKick && sessKick.role === "user" && isOwnerLoginBlocked(sessKick.userId)){
+          if (payChart){
+            try { payChart.destroy(); } catch {}
+            payChart = null;
+          }
+          showLogin();
+          setErr(document.getElementById("loginErr"), "Your access is blocked by an administrator. Contact the society office.");
+        }
+      } catch {}
       renderNotices();
       renderUserInbox();
       renderProjectDocsTables();
@@ -4084,6 +4203,11 @@
         return;
       }
 
+      if (isOwnerLoginBlocked(userId)){
+        setErr(document.getElementById("loginErr"), "Your access is blocked by an administrator. Contact the society office.");
+        return;
+      }
+
       if (!await pwGetHash(userId)) await pwSet(userId, password);
 
       if (!(await pwVerify(userId, password))){
@@ -5151,6 +5275,10 @@
       displayHeaders = sheetHeaders.slice();
       if (!displayHeaders.includes(ADD_PAYMENT_COL)) displayHeaders.push(ADD_PAYMENT_COL);
       if (!displayHeaders.includes(SEE_PAYMENT_COL)) displayHeaders.push(SEE_PAYMENT_COL);
+      const pIdx = displayHeaders.indexOf("Plot No.");
+      if (pIdx >= 0 && !displayHeaders.includes(OWNER_ACCESS_COL)){
+        displayHeaders.splice(pIdx + 1, 0, OWNER_ACCESS_COL);
+      }
     }
 
     function ownerPlotsFilterValue(){
@@ -5164,6 +5292,7 @@
         hdr.innerHTML = `<tr>
           <th>Owner name</th>
           <th>Plot number(s)</th>
+          <th>Access</th>
           <th>Primary contact number</th>
           <th>${escapeHtml(ADD_PAYMENT_COL)}</th>
           <th>${escapeHtml(SEE_PAYMENT_COL)}</th>
@@ -5174,7 +5303,7 @@
         hdr.innerHTML = "";
         return;
       }
-      hdr.innerHTML = `<tr>${displayHeaders.map(h => `<th>${escapeHtml(h)}</th>`).join("")}</tr>`;
+      hdr.innerHTML = `<tr>${displayHeaders.map(h => `<th>${escapeHtml(h === OWNER_ACCESS_COL ? "Access" : h)}</th>`).join("")}</tr>`;
     }
 
     function rowHaystack(r){
@@ -5276,7 +5405,7 @@
       showingCount.textContent = rows.length;
 
       const ownerPlotsFilter = ownerPlotsFilterValue();
-      const colCount = ownerPlotsFilter === "multi" ? 5 : Math.max(displayHeaders.length, 1);
+      const colCount = ownerPlotsFilter === "multi" ? 6 : Math.max(displayHeaders.length, 1);
 
       if (ownerPlotsFilter !== "multi" && !displayHeaders.length){
         tbody.innerHTML = `<tr><td colspan="${colCount}">No columns detected yet.</td></tr>`;
@@ -5321,6 +5450,7 @@
           return `<tr>
             <td>${escapeHtml(name)}</td>
             <td>${plotLinksCell}</td>
+            ${ownerAccessSelectCellHtml(pc)}
             <td>${pc ? escapeHtml(pc) : ""}</td>
             <td><button class="btn secondary" type="button" data-addpayplot="${escapeHtml(firstPlot)}" ${addDis}>Click</button></td>
             <td><button class="btn secondary" type="button" data-seepayplot="${escapeHtml(firstPlot)}" ${seeDis}>Click</button></td>
@@ -5332,6 +5462,9 @@
       tbody.innerHTML = rows.map(r => {
         const plotNo = plotNoOfRow(r);
         const tds = displayHeaders.map(h => {
+          if (h === OWNER_ACCESS_COL){
+            return ownerAccessSelectCellHtml(r["Primary Contact Number"]);
+          }
           if (h === ADD_PAYMENT_COL){
             const disabled = !plotNo ? "disabled" : "";
             return `<td><button class="btn secondary" type="button" data-addpayplot="${escapeHtml(plotNo)}" ${disabled}>Click</button></td>`;
@@ -7361,6 +7494,18 @@
           return;
         }
       });
+      (function wireOwnerAccessSelect(){
+        const tbody = document.getElementById("rows");
+        if (!tbody || globalThis.__insOwnerAccessSelectWired) return;
+        globalThis.__insOwnerAccessSelectWired = true;
+        tbody.addEventListener("change", (ev) => {
+          const sel = ev.target && ev.target.closest ? ev.target.closest("select[data-owner-access]") : null;
+          if (!sel) return;
+          const mob = sel.getAttribute("data-owner-access");
+          if (!mob) return;
+          void onOwnerPortalAccessChange(mob, sel.value);
+        });
+      })();
     }
 
     function loadCsv(){
