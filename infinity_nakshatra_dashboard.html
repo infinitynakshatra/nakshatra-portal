@@ -4349,7 +4349,7 @@
     }
 
     function userSumFootDefault(){
-      return `${fyViewLabelFromMayYear(getOwnerMayYear())} • Due ${FY_DUE_DAY}th of each month. Expected and pending apply only when your plot is registered in the group with a primary contact on file (same rule as the society collection view).`;
+      return `${fyViewLabelFromMayYear(getOwnerMayYear())} • Due ${FY_DUE_DAY}th of each month. Expected is ${MC_PER_MONTH} × 12 for the active FY; pending is expected minus payments recorded for those months.`;
     }
 
     function updateUserPaymentSummaryFromRows(rows){
@@ -4373,7 +4373,6 @@
       let totalLate = 0;
       let totalExpected = 0;
       let totalPending = 0;
-      let anyEligible = false;
       for (const row of rows){
         const pno = plotNoOfRow(row);
         if (!pno) continue;
@@ -4387,9 +4386,7 @@
         }
         totalReceived += receivedHist;
         totalLate += lateHist;
-        const eligible = isAddedInGroupRow(row) && !!digitsOnly(row["Primary Contact Number"]);
-        if (eligible){
-          anyEligible = true;
+        if (ymsAct.length){
           const exp = ymsAct.length * MC_PER_MONTH;
           let recvAct = 0;
           for (const ym of ymsAct){
@@ -4399,20 +4396,24 @@
           totalPending += Math.max(0, exp - recvAct);
         }
       }
+      const showMcTotals = plotNos.length > 0 && ymsAct.length > 0;
       const recvEl = document.getElementById("userSumReceived");
       const expEl = document.getElementById("userSumExpected");
       const pendEl = document.getElementById("userSumPending");
       const lateEl = document.getElementById("userSumLate");
       if (recvEl) recvEl.textContent = String(Math.round(totalReceived));
       if (lateEl) lateEl.textContent = String(Math.round(totalLate));
-      if (expEl) expEl.textContent = anyEligible ? String(Math.round(totalExpected)) : "—";
-      if (pendEl) pendEl.textContent = anyEligible ? String(Math.round(totalPending)) : "—";
+      if (expEl) expEl.textContent = showMcTotals ? String(Math.round(totalExpected)) : "—";
+      if (pendEl) pendEl.textContent = showMcTotals ? String(Math.round(totalPending)) : "—";
       if (foot){
         const multi = plotNos.length > 1;
         const fyL = fyViewLabelFromMayYear(getOwnerMayYear());
-        foot.textContent = !anyEligible
-          ? `${fyL} • Due ${FY_DUE_DAY}th. Expected/pending show “—” until each listed plot is added in the group with a primary contact on file.`
-          : `${fyL} • Due ${FY_DUE_DAY}th of each month${multi ? " • Totals combine every plot linked to your mobile" : ` • Expected is ${MC_PER_MONTH} × 12 months for this FY`}. Received and late fee include all FYs through this portal FY; expected and pending use the active FY only.`;
+        const nMo = ymsAct.length;
+        if (!plotNos.length) foot.textContent = userSumFootDefault();
+        else if (!ymsAct.length) foot.textContent = `${fyL} • FY months not configured.`;
+        else {
+          foot.textContent = `${fyL} • Due ${FY_DUE_DAY}th of each month${multi ? " • Totals combine every plot linked to your mobile" : ` • Expected is ${MC_PER_MONTH} × ${nMo} months for this FY`}. Received and late fee include all FYs through this portal FY; expected and pending use the active FY only.`;
+        }
       }
     }
 
