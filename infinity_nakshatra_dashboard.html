@@ -1273,6 +1273,34 @@
       </div>
     </div>
 
+    <div class="grid" style="margin-top:12px;">
+      <div class="cardWide" id="adminServiceContactsSection">
+        <div class="row">
+          <div>
+            <strong>Service Contacts</strong>
+            <div class="smallNote">Phone, email, or vendor contacts for owners (plumber, electrician, society office, etc.). Shown on the owner portal. Syncs like project documents when the collection server is configured.</div>
+          </div>
+          <button class="btn secondary adminOnly" type="button" id="serviceContactAddBtn">Add contact</button>
+        </div>
+        <div class="scroll-x" style="overflow:auto; margin-top:12px; max-height:min(380px, 52vh);">
+          <table class="adminDirTable">
+            <thead>
+              <tr>
+                <th>Sr. No.</th>
+                <th>Contact name</th>
+                <th>Contact</th>
+                <th>Service details</th>
+                <th class="adminOnly">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="adminServiceContactsTbody">
+              <tr><td colspan="5">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <div class="grid">
       <div class="cardWide">
         <div class="row">
@@ -1444,6 +1472,32 @@
       </div>
     </div>
 
+    <div class="grid" style="margin-top:12px;">
+      <div class="cardWide" id="userServiceContactsSection">
+        <div class="row">
+          <div>
+            <strong>Service contacts</strong>
+            <div class="smallNote">Same list as the admin portal. When the collection server is configured, this list is synced for every device.</div>
+          </div>
+        </div>
+        <div class="scroll-x" style="overflow:auto; margin-top:12px; max-height:min(380px, 52vh);">
+          <table class="adminDirTable">
+            <thead>
+              <tr>
+                <th>Sr. No.</th>
+                <th>Contact name</th>
+                <th>Contact</th>
+                <th>Service details</th>
+              </tr>
+            </thead>
+            <tbody id="userServiceContactsTbody">
+              <tr><td colspan="4">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
       <div class="grid">
         <div class="cardWide">
           <div class="row">
@@ -1481,6 +1535,35 @@
             </table>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="serviceContactBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="serviceContactModalTitle" style="width:min(560px, 96vw);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="serviceContactModalTitle">Add service contact</div>
+          <div class="modalSub">Admin only — Sr. No. is assigned automatically in the table.</div>
+        </div>
+        <button class="btn secondary" id="serviceContactModalCloseBtn" type="button">Close</button>
+      </div>
+      <input type="hidden" id="serviceContactEditId" value="" />
+      <div class="field">
+        <label for="serviceContactName">Contact name</label>
+        <input id="serviceContactName" type="text" autocomplete="off" placeholder="e.g. Society office" />
+      </div>
+      <div class="field">
+        <label for="serviceContactValue">Contact</label>
+        <input id="serviceContactValue" type="text" autocomplete="off" placeholder="Phone, email, or other reach-out" />
+      </div>
+      <div class="field">
+        <label for="serviceContactDetails">Service details</label>
+        <textarea id="serviceContactDetails" rows="3" autocomplete="off" placeholder="What they help with, timing, notes…"></textarea>
+      </div>
+      <div class="err" id="serviceContactErr"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn" id="serviceContactSaveBtn" type="button">Save</button>
       </div>
     </div>
   </div>
@@ -1970,6 +2053,7 @@
     const LS_BANKING_KEY = "ins_society_banking_v1";
     /** Shared project documents (admin-managed; same browser for demo). */
     const LS_PROJECT_DOCS = "ins_project_docs_v1";
+    const LS_SERVICE_CONTACTS = "ins_service_contacts_v1";
     /** Per-login keys: which doc ids this user has "liked" (toggle). */
     const LS_DOC_USER_LIKES = "ins_doc_user_likes_v1";
     /** Admin "Months in scope" selection (multi-select). */
@@ -2279,7 +2363,7 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], banking: null, inbox: [], projectDocs: [] };
+    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], banking: null, inbox: [], projectDocs: [], serviceContacts: [] };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
@@ -2341,11 +2425,13 @@
         notices: Array.isArray(j.notices) ? j.notices : [],
         banking: (j.banking !== undefined && j.banking !== null && typeof j.banking === "object") ? j.banking : null,
         inbox: Array.isArray(j.inbox) ? j.inbox : [],
-        projectDocs: Array.isArray(j.projectDocs) ? j.projectDocs : []
+        projectDocs: Array.isArray(j.projectDocs) ? j.projectDocs : [],
+        serviceContacts: Array.isArray(j.serviceContacts) ? j.serviceContacts : []
       };
       renderNotices();
       renderUserInbox();
       renderProjectDocsTables();
+      renderServiceContactsTables();
       // Refresh UI that depends on payments/pending after server state arrives.
       try {
         renderAdminPendingApprovalPanel();
@@ -2738,6 +2824,7 @@
         refreshUserView();
       }
       renderProjectDocsTables();
+      renderServiceContactsTables();
     }
 
     async function postPortalSheetRowUpdate(plotNo, updates){
@@ -3366,6 +3453,209 @@
       })();
     }
 
+    function makeServiceContactId(){
+      return `svc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+    }
+
+    function mapServiceContactsArray_(rows){
+      return (Array.isArray(rows) ? rows : []).map(r => ({
+        id: String(r.id || ""),
+        contactName: norm(r.contactName),
+        contact: norm(r.contact),
+        serviceDetails: norm(r.serviceDetails),
+        createdAt: Number(r.createdAt) || 0
+      })).filter(r => r.id && r.contactName);
+    }
+
+    function serviceContactsLoad(){
+      try {
+        let localRows = [];
+        const raw = localStorage.getItem(LS_SERVICE_CONTACTS);
+        if (raw){
+          const o = JSON.parse(raw);
+          const arr = Array.isArray(o?.contacts) ? o.contacts : [];
+          localRows = mapServiceContactsArray_(arr);
+        }
+        if (portalServerState.loaded && isServerEnabled()){
+          const sd = portalServerState.serviceContacts;
+          const serverRows = mapServiceContactsArray_(sd);
+          if (serverRows.length) return { v: 1, contacts: serverRows };
+          if (localRows.length){
+            const sess = readSession();
+            if (sess && sess.role === "admin" && !globalThis.__insServiceContactsMigrated){
+              globalThis.__insServiceContactsMigrated = true;
+              void (async () => {
+                const sr = await portalServerSaveServiceContacts(localRows);
+                if (sr.ok) await portalServerFetchState();
+              })();
+            }
+            return { v: 1, contacts: localRows };
+          }
+          return { v: 1, contacts: [] };
+        }
+        return { v: 1, contacts: localRows };
+      } catch {
+        return { v: 1, contacts: [] };
+      }
+    }
+
+    async function portalServerSaveServiceContacts(contacts){
+      if (!isServerEnabled()) return { ok:false, skipped:true };
+      const sess = readSession();
+      const actor = sess?.role === "admin" ? "admin" : (sess?.role === "user" ? String(sess?.userId || "user") : "portal");
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "saveServiceContacts",
+        actor,
+        contacts: contacts || []
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed" };
+      return { ok:true };
+    }
+
+    function serviceContactsSave(store){
+      try {
+        localStorage.setItem(LS_SERVICE_CONTACTS, JSON.stringify({ v: 1, contacts: store.contacts || [] }));
+      } catch {
+        alert("Could not save service contacts (storage may be full).");
+        return;
+      }
+      if (portalServerState.loaded && isServerEnabled()){
+        portalServerState.serviceContacts = mapServiceContactsArray_(store.contacts || []);
+      }
+      void (async () => {
+        if (!isServerEnabled()) return;
+        const sr = await portalServerSaveServiceContacts(store.contacts || []);
+        if (!sr.ok){
+          console.warn("Service contacts server sync failed", sr.error || sr);
+          return;
+        }
+        await portalServerFetchState();
+      })();
+    }
+
+    function renderServiceContactsTables(){
+      const adminBody = document.getElementById("adminServiceContactsTbody");
+      const userBody = document.getElementById("userServiceContactsTbody");
+      const store = serviceContactsLoad();
+      const list = [...store.contacts].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      const contactCellHtml = (c) => {
+        const t = norm(c);
+        if (!t) return "—";
+        const low = t.toLowerCase();
+        if (low.startsWith("http://") || low.startsWith("https://")){
+          return `<a href="${escapeHtml(t)}" target="_blank" rel="noopener noreferrer">${escapeHtml(t)}</a>`;
+        }
+        const digits = t.replace(/\D/g, "");
+        if (digits.length >= 10 && digits.length <= 15 && /^[\d\s\-+().]+$/.test(t)){
+          return `<a href="tel:${escapeHtml(digits)}">${escapeHtml(t)}</a>`;
+        }
+        return escapeHtml(t);
+      };
+      const buildRows = (includeActions) => {
+        if (!list.length){
+          const msg = includeActions
+            ? "No contacts yet. Use <b>Add contact</b>."
+            : "No contacts yet.";
+          return `<tr><td colspan="${includeActions ? 5 : 4}">${msg}</td></tr>`;
+        }
+        return list.map((row, idx) => {
+          const no = idx + 1;
+          const det = row.serviceDetails ? escapeHtml(row.serviceDetails) : "—";
+          const actions = includeActions
+            ? `<td class="docActionsCell">
+                 <button type="button" class="btn secondary tiny" data-svc-edit="${escapeHtml(String(row.id))}">Edit</button>
+                 <button type="button" class="btn danger tiny" data-svc-delete="${escapeHtml(String(row.id))}">Delete</button>
+               </td>`
+            : "";
+          return `<tr>
+            <td>${no}</td>
+            <td class="docNameCell">${escapeHtml(row.contactName)}</td>
+            <td>${contactCellHtml(row.contact)}</td>
+            <td class="docDetailsCell" title="${escapeHtml(row.serviceDetails)}">${det}</td>
+            ${actions}
+          </tr>`;
+        }).join("");
+      };
+      if (adminBody) adminBody.innerHTML = buildRows(true);
+      if (userBody) userBody.innerHTML = buildRows(false);
+    }
+
+    function openServiceContactModal(editId){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin"){
+        alert("Only an admin can add or edit service contacts.");
+        return;
+      }
+      setErr(document.getElementById("serviceContactErr"), "");
+      document.getElementById("serviceContactEditId").value = editId ? String(editId) : "";
+      document.getElementById("serviceContactModalTitle").textContent = editId ? "Edit service contact" : "Add service contact";
+      if (editId){
+        const r = serviceContactsLoad().contacts.find(x => String(x.id) === String(editId));
+        document.getElementById("serviceContactName").value = r ? r.contactName : "";
+        document.getElementById("serviceContactValue").value = r ? r.contact : "";
+        document.getElementById("serviceContactDetails").value = r ? r.serviceDetails : "";
+      } else {
+        document.getElementById("serviceContactName").value = "";
+        document.getElementById("serviceContactValue").value = "";
+        document.getElementById("serviceContactDetails").value = "";
+      }
+      showBackdrop("serviceContactBackdrop", true);
+    }
+
+    function saveServiceContactFromModal(){
+      const errEl = document.getElementById("serviceContactErr");
+      setErr(errEl, "");
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return;
+      const contactName = norm(document.getElementById("serviceContactName").value);
+      const contact = norm(document.getElementById("serviceContactValue").value);
+      const serviceDetails = norm(document.getElementById("serviceContactDetails").value);
+      const editId = norm(document.getElementById("serviceContactEditId").value);
+      if (!contactName){
+        setErr(errEl, "Enter a contact name.");
+        return;
+      }
+      if (!contact){
+        setErr(errEl, "Enter contact details (phone, email, etc.).");
+        return;
+      }
+      const store = serviceContactsLoad();
+      if (editId){
+        const r = store.contacts.find(x => String(x.id) === String(editId));
+        if (r){
+          r.contactName = contactName;
+          r.contact = contact;
+          r.serviceDetails = serviceDetails;
+        }
+      } else {
+        store.contacts.push({
+          id: makeServiceContactId(),
+          contactName,
+          contact,
+          serviceDetails,
+          createdAt: Date.now()
+        });
+      }
+      serviceContactsSave(store);
+      showBackdrop("serviceContactBackdrop", false);
+      renderServiceContactsTables();
+    }
+
+    function deleteServiceContactById(id){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return;
+      if (!confirm("Delete this service contact?")) return;
+      const store = serviceContactsLoad();
+      store.contacts = store.contacts.filter(r => String(r.id) !== String(id));
+      serviceContactsSave(store);
+      renderServiceContactsTables();
+    }
+
     function docUserLikesLoad(){
       try {
         const raw = localStorage.getItem(LS_DOC_USER_LIKES);
@@ -3600,6 +3890,7 @@
           updateMaintenanceCollectionCards();
         }).catch(() => {});
         renderProjectDocsTables();
+        renderServiceContactsTables();
         return;
       }
 
@@ -3621,6 +3912,7 @@
           refreshUserView();
         }).catch(() => {});
         renderProjectDocsTables();
+        renderServiceContactsTables();
         return;
       }
 
@@ -6817,6 +7109,24 @@
         });
       }
 
+      const serviceContactAddBtn = document.getElementById("serviceContactAddBtn");
+      if (serviceContactAddBtn) serviceContactAddBtn.addEventListener("click", () => openServiceContactModal(null));
+      const serviceContactModalCloseBtn = document.getElementById("serviceContactModalCloseBtn");
+      if (serviceContactModalCloseBtn) serviceContactModalCloseBtn.addEventListener("click", () => showBackdrop("serviceContactBackdrop", false));
+      const serviceContactSaveBtn = document.getElementById("serviceContactSaveBtn");
+      if (serviceContactSaveBtn) serviceContactSaveBtn.addEventListener("click", saveServiceContactFromModal);
+
+      const adminServiceContactsTbody = document.getElementById("adminServiceContactsTbody");
+      if (adminServiceContactsTbody && !globalThis.__insAdminSvcContactsWired){
+        globalThis.__insAdminSvcContactsWired = true;
+        adminServiceContactsTbody.addEventListener("click", (ev) => {
+          const ed = ev.target.closest("[data-svc-edit]");
+          if (ed){ openServiceContactModal(ed.getAttribute("data-svc-edit")); return; }
+          const del = ev.target.closest("[data-svc-delete]");
+          if (del) deleteServiceContactById(del.getAttribute("data-svc-delete"));
+        });
+      }
+
       document.getElementById("userLogoutBtn").addEventListener("click", logout);
       document.getElementById("userChangePwBtn").addEventListener("click", () => {
         const sess = readSession();
@@ -6995,6 +7305,7 @@
       await ensureDefaultPasswords();
       wireUI();
       renderProjectDocsTables();
+      renderServiceContactsTables();
       renderAdminPendingApprovalPanel();
 
       const sess = readSession();
