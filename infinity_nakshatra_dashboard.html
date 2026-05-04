@@ -1218,36 +1218,36 @@
     <div class="statsRow statsRow5">
       <div class="statMini">
         <div class="statMiniTop">
-          <h3>Total Plots</h3>
-          <div class="big" id="totalPlots">—</div>
+        <h3>Total Plots</h3>
+        <div class="big" id="totalPlots">—</div>
         </div>
         <div class="sub">Total Plots</div>
       </div>
       <div class="statMini">
         <div class="statMiniTop">
           <h3>Sold Plots</h3>
-          <div class="big" id="soldPlots">—</div>
+        <div class="big" id="soldPlots">—</div>
         </div>
         <div class="sub">Total Sold Plots</div>
       </div>
       <div class="statMini statMiniUnsold adminOnly">
         <div class="statMiniTop">
           <h3>Unsold Plots</h3>
-          <div class="big" id="unsoldPlots">—</div>
+        <div class="big" id="unsoldPlots">—</div>
         </div>
         <div class="sub">Total Unsold Plots</div>
       </div>
       <div class="statMini">
         <div class="statMiniTop">
-          <h3>Contact Missing</h3>
-          <div class="big" id="contactMissing">—</div>
+        <h3>Contact Missing</h3>
+        <div class="big" id="contactMissing">—</div>
         </div>
         <div class="sub">Contacts are not available</div>
       </div>
       <div class="statMini">
         <div class="statMiniTop">
           <h3>Registered Plot Owners</h3>
-          <div class="big" id="registeredPlots">—</div>
+        <div class="big" id="registeredPlots">—</div>
         </div>
         <div class="sub">Registered Owners with Portal</div>
       </div>
@@ -3444,24 +3444,24 @@
       };
     }
     function mergeBankingFromObject_(o, base){
-      const rawGuide = norm(o.guidelines);
-      const guidelines =
+        const rawGuide = norm(o.guidelines);
+        const guidelines =
         !rawGuide || rawGuide === LEGACY_BANKING_GUIDE || rawGuide === LEGACY_BANKING_GUIDE_V2
-          ? defaultBankingGuide()
-          : rawGuide;
-      return {
-        ...base,
+            ? defaultBankingGuide()
+            : rawGuide;
+        return {
+          ...base,
         primaryAccountHolder: norm(o.primaryAccountHolder),
         secondaryAccountHolder: norm(o.secondaryAccountHolder),
-        beneficiaryName: norm(o.beneficiaryName),
-        bankName: norm(o.bankName),
-        accountNumber: norm(o.accountNumber),
+          beneficiaryName: norm(o.beneficiaryName),
+          bankName: norm(o.bankName),
+          accountNumber: norm(o.accountNumber),
         accountType: norm(o.accountType),
-        ifsc: norm(o.ifsc),
-        upiId: norm(o.upiId),
-        qrDataUrl: norm(o.qrDataUrl),
-        guidelines
-      };
+          ifsc: norm(o.ifsc),
+          upiId: norm(o.upiId),
+          qrDataUrl: norm(o.qrDataUrl),
+          guidelines
+        };
     }
     function loadBankingFromLocalStorage_(){
       const base = defaultBankingConfig();
@@ -3640,12 +3640,12 @@
 
     function mapProjectDocsArray_(docs){
       return (Array.isArray(docs) ? docs : []).map(d => ({
-        id: String(d.id || ""),
-        name: norm(d.name),
-        details: norm(d.details),
-        url: norm(d.url),
-        likeCount: Math.max(0, Number(d.likeCount) || 0),
-        createdAt: Number(d.createdAt) || 0
+            id: String(d.id || ""),
+            name: norm(d.name),
+            details: norm(d.details),
+            url: norm(d.url),
+            likeCount: Math.max(0, Number(d.likeCount) || 0),
+            createdAt: Number(d.createdAt) || 0
       })).filter(d => d.id && d.name);
     }
 
@@ -6034,13 +6034,13 @@
       } else {
         const rowsRecv = maintenanceCollectionPlotRows();
         for (const r of rowsRecv){
-          const plotNo = plotNoOfRow(r);
-          if (!plotNo) continue;
-          const entries = paymentsLoadEntries(plotNo);
-          for (const ym of selectedYms){
-            const sums = sumEntriesForYm(entries, ym);
-            received += sums.amount;
-            lateFee += sums.lateFee;
+        const plotNo = plotNoOfRow(r);
+        if (!plotNo) continue;
+        const entries = paymentsLoadEntries(plotNo);
+        for (const ym of selectedYms){
+          const sums = sumEntriesForYm(entries, ym);
+          received += sums.amount;
+          lateFee += sums.lateFee;
           }
         }
       }
@@ -6687,14 +6687,14 @@
       for (const row of adminMonthRows){
         if (row.amount <= 0 && row.lateFee <= 0){
           setErr(document.getElementById("payErr"), `Month ${row.ym}: enter payment amount or payment late fee.`);
-          return;
+        return;
         }
       }
 
       const entries = paymentsLoadEntries(plotNo);
       for (const row of adminMonthRows){
         const existing = entries.find(e => normalizePortalYm(e.ym) === row.ym);
-        if (existing){
+      if (existing){
           alert(`Payment already exists for month ${row.ym}. Deselect that month or remove the existing entry first.`);
           return;
         }
@@ -6712,7 +6712,7 @@
               const e = sr.detail?.error || sr.error || "";
               if (String(e) === "already_paid"){
                 alert(`Month ${row.ym}: already recorded. Stopped; earlier months in this batch may have been saved — refresh to verify.`);
-              } else {
+      } else {
                 alert(`Month ${row.ym}: unable to add — ${String(e || "unknown")}. Stopped.`);
               }
               await portalServerFetchState();
@@ -6759,21 +6759,21 @@
         const mobile = row ? (digitsOnly(row["Primary Contact Number"]) || digitsOnly(row["Alternate Number"])) : "";
         const groupStatus = row ? groupStatusRaw(row) : "";
         for (const mrow of adminMonthRows){
-          const entry = {
-            atIso: new Date().toISOString(),
-            plotNo: String(plotNo),
+        const entry = {
+          atIso: new Date().toISOString(),
+          plotNo: String(plotNo),
             ym: String(mrow.ym),
             monthLabel: fyLabelForYm(mrow.ym),
             amount: Number(mrow.amount) || 0,
             lateFee: Number(mrow.lateFee) || 0,
-            role: String(role),
-            ownerName: ownerName || "",
-            mobile: mobile || "",
-            groupStatus: groupStatus || "",
+          role: String(role),
+          ownerName: ownerName || "",
+          mobile: mobile || "",
+          groupStatus: groupStatus || "",
             userAgent: navigator.userAgent || "",
             note: "admin_portal_save"
-          };
-          postCollectionEntryToSheet(entry);
+        };
+        postCollectionEntryToSheet(entry);
         }
       } catch {}
     }
@@ -7623,10 +7623,10 @@
         if (!confirm(`Remove saved payment entries for Plot ${plot} for: ${monthsLabel} ?`)) return;
         void (async () => {
           await removePaymentEntriesForPlotMonths(plot, yms);
-          updateMaintenanceCollectionCards();
-          openDoneOwnersModal();
-          const sess = readSession();
-          if (sess && sess.role === "user") refreshUserView();
+        updateMaintenanceCollectionCards();
+        openDoneOwnersModal();
+        const sess = readSession();
+        if (sess && sess.role === "user") refreshUserView();
         })();
       });
 
@@ -7675,10 +7675,10 @@
         portalDataSheetGid = null;
         csvLoading = false;
         __insPopBackendLoading();
-        const sess = readSession();
-        if (sess && sess.role === "admin"){
-          setStats();
-          applyFilters();
+          const sess = readSession();
+          if (sess && sess.role === "admin"){
+            setStats();
+            applyFilters();
           try { updateMaintenanceCollectionCards(); } catch {}
         }
       }
@@ -7703,11 +7703,11 @@
               csvLoading = false;
               finalizeCsvLoad_(mapped, gid);
               __insPopBackendLoading();
-            } else {
+          } else {
               tryNext();
-            }
-          },
-          error: (err) => {
+          }
+        },
+        error: (err) => {
             if (gi >= gids.length) showCsvFailure(err || "network / parse error");
             else tryNext();
           }
