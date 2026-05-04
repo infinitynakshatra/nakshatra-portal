@@ -189,6 +189,63 @@
     .payPendingActions{display:flex; flex-direction:row; flex-wrap:nowrap; gap:6px; align-items:center; white-space:nowrap;}
     .docDetailsCell{max-width:min(320px, 38vw); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
     .docNameCell{font-weight:800;}
+    /* Service contacts — compact Sr./Contact; full wrapped Service details (user + admin tables) */
+    .serviceContactsTable{
+      table-layout:fixed;
+      width:100%;
+    }
+    .serviceContactsTable thead th,
+    .serviceContactsTable tbody td{
+      vertical-align:top;
+    }
+    .serviceContactsTable thead th:nth-child(1),
+    .serviceContactsTable tbody td.svcSrCell{
+      width:2rem;
+      max-width:2.75rem;
+      min-width:0 !important;
+      box-sizing:border-box;
+      text-align:center;
+      padding:6px 4px;
+      white-space:nowrap;
+    }
+    .serviceContactsTable thead th:nth-child(2),
+    .serviceContactsTable tbody td.svcNameCell{
+      width:22%;
+      min-width:0 !important;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+    }
+    .serviceContactsTable thead th:nth-child(3),
+    .serviceContactsTable tbody td.svcContactCell{
+      width:24%;
+      max-width:7.75rem;
+      min-width:0 !important;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+    }
+    .serviceContactsTable tbody td.svcDetailsCell{
+      min-width:0 !important;
+      white-space:normal;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+      overflow:visible;
+      line-height:1.4;
+    }
+    .serviceContactsTable tbody td.docActionsCell{
+      width:6.5rem;
+      min-width:6.25rem !important;
+      max-width:7.5rem;
+      white-space:nowrap;
+      vertical-align:middle;
+    }
+    .serviceContactsTable .svcContactCell a{
+      word-break:break-all;
+    }
+    @media (max-width: 520px){
+      .serviceContactsTable thead th:nth-child(1){ font-size:10px; padding:6px 2px; }
+      .serviceContactsTable thead th:nth-child(3),
+      .serviceContactsTable tbody td.svcContactCell{ max-width:6.25rem; }
+    }
     /* Add Payment — same shell as See Payment, compact body */
     .modalPayAdd{
       width:min(920px, 96vw) !important;
@@ -1283,7 +1340,7 @@
           <button class="btn secondary adminOnly" type="button" id="serviceContactAddBtn">Add contact</button>
         </div>
         <div class="scroll-x" style="overflow:auto; margin-top:12px; max-height:min(380px, 52vh);">
-          <table class="adminDirTable">
+          <table class="adminDirTable serviceContactsTable">
             <thead>
               <tr>
                 <th>Sr. No.</th>
@@ -1481,7 +1538,7 @@
           </div>
         </div>
         <div class="scroll-x" style="overflow:auto; margin-top:12px; max-height:min(380px, 52vh);">
-          <table class="adminDirTable">
+          <table class="adminDirTable serviceContactsTable">
             <thead>
               <tr>
                 <th>Sr. No.</th>
@@ -3573,10 +3630,10 @@
                </td>`
             : "";
           return `<tr>
-            <td>${no}</td>
-            <td class="docNameCell">${escapeHtml(row.contactName)}</td>
-            <td>${contactCellHtml(row.contact)}</td>
-            <td class="docDetailsCell" title="${escapeHtml(row.serviceDetails)}">${det}</td>
+            <td class="svcSrCell">${no}</td>
+            <td class="docNameCell svcNameCell">${escapeHtml(row.contactName)}</td>
+            <td class="svcContactCell">${contactCellHtml(row.contact)}</td>
+            <td class="svcDetailsCell" title="${escapeHtml(row.serviceDetails)}">${det}</td>
             ${actions}
           </tr>`;
         }).join("");
