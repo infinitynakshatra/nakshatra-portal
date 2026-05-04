@@ -2512,7 +2512,9 @@
       for (const [k, v] of Object.entries(obj)){
         const d = digitsOnly(String(k));
         if (d.length < 10 || d.length > 15) continue;
-        if (String(v).toLowerCase() === "deny") out[d] = "deny";
+        const s = String(v).toLowerCase();
+        if (s === "deny") out[d] = "deny";
+        else if (s === "allow") out[d] = "allow";
       }
       return out;
     }
@@ -2536,9 +2538,17 @@
     }
 
     function isOwnerLoginBlocked(mobileDigits){
+      return effectiveOwnerAccessDenied_(mobileDigits);
+    }
+
+    /** Explicit deny / allow overrides portal default (default: Deny if total paid is 0, else Allow). */
+    function effectiveOwnerAccessDenied_(mobileDigits){
       const d = digitsOnly(String(mobileDigits || ""));
       if (d.length < 10) return false;
-      return ownerAccessLoadMerged()[d] === "deny";
+      const ex = ownerAccessLoadMerged()[d];
+      if (ex === "deny") return true;
+      if (ex === "allow") return false;
+      return totalAmountPaidForOwnerMobileDigits_(d) <= 0;
     }
 
     function ownerAccessPersistLocalSparse(sparseDenyMap){
@@ -2571,8 +2581,8 @@
       if (mob.length < 10){
         return `<td class="ownerAccessCell"><span class="smallNote">—</span></td>`;
       }
-      const denied = ownerAccessLoadMerged()[mob] === "deny";
-      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="Owner portal login: Allow or Deny">
+      const denied = effectiveOwnerAccessDenied_(mob);
+      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="Default: Deny if total paid is 0, Allow if paid; override here.">
         <option value="allow" ${denied ? "" : "selected"}>Allow</option>
         <option value="deny" ${denied ? "selected" : ""}>Deny</option>
       </select></td>`;
@@ -2585,7 +2595,11 @@
       if (d.length < 10) return;
       const merged = { ...ownerAccessLoadMerged() };
       if (value === "deny") merged[d] = "deny";
-      else delete merged[d];
+      else {
+        const paid = totalAmountPaidForOwnerMobileDigits_(d);
+        if (paid <= 0) merged[d] = "allow";
+        else delete merged[d];
+      }
       const sparse = sanitizeOwnerAccessMap_(merged);
       ownerAccessPersistLocalSparse(sparse);
       if (portalServerState.loaded) portalServerState.ownerAccess = { ...sparse };
@@ -4576,51 +4590,35 @@
     }
 
     /**
-     * Best single-row total (amount+lateFee) for a month on one side (directory column only).
-     * Uses max within that side so duplicate rows for the same ym do not add up.
+     * Admin directory only: money for one payment line. If amount and lateFee are the same positive value
+     * (common data/merge mirror), count once — fixes 2× totals (e.g. 700 vs 350).
      */
-    function maxCombinedPaymentForYm_(entries, ym){
-      const want = normalizePortalYm(ym);
-      let best = 0;
-      for (const e of entries || []){
-        if (!e || normalizePortalYm(e.ym) !== want) continue;
-        const v = toMoneyNumber(e.amount) + toMoneyNumber(e.lateFee);
-        if (v > best) best = v;
-      }
-      return best;
+    function directoryPaymentLineTotal_(e){
+      if (!e) return 0;
+      const a = toMoneyNumber(e.amount);
+      const lf = toMoneyNumber(e.lateFee);
+      if (a > 0 && lf > 0 && Math.abs(a - lf) < 0.005) return a;
+      return a + lf;
     }
 
     /**
-     * Per-plot total for admin directory only.
-     * When server has a payment for a month, use server (deduped by max-per-ym) so mirrored / inflated local rows cannot win at 2×.
-     * If server has no row for that month, use local (max-per-ym).
+     * Per-plot total for admin directory: merged server/local entries (same as See Payment), then one line per month
+     * (max within month) using directoryPaymentLineTotal_.
      */
     function totalAmountPaidForPlotOnly_(plotNo){
       const p = norm(String(plotNo || ""));
       if (!p) return 0;
-      const localEntries = paymentsParseLocalStoredEntries(p);
-      let serverMapped = [];
-      if (portalServerState.loaded && isServerEnabled()){
-        serverMapped = (serverPaymentsLoad(p) || []).map(e => ({
-          ym: String(e.ym),
-          amount: toMoneyNumber(e.amount),
-          lateFee: toMoneyNumber(e.lateFee),
-          by: norm(e.by || ""),
-          source: norm(e.source || ""),
-          at: Number(e.at) || 0
-        }));
+      const entries = paymentsLoadEntries(p);
+      const byYm = new Map();
+      for (const e of entries){
+        const ym = normalizePortalYm(String(e.ym || ""));
+        if (!ym) continue;
+        const v = directoryPaymentLineTotal_(e);
+        if (v <= 0) continue;
+        byYm.set(ym, Math.max(byYm.get(ym) || 0, v));
       }
-      const ymSet = new Set();
-      for (const e of serverMapped) if (e && e.ym) ymSet.add(normalizePortalYm(e.ym));
-      for (const e of localEntries) if (e && e.ym) ymSet.add(normalizePortalYm(e.ym));
       let total = 0;
-      for (const ym of [...ymSet].sort((a, b) => String(a).localeCompare(String(b)))){
-        const ts = maxCombinedPaymentForYm_(serverMapped, ym);
-        const tl = maxCombinedPaymentForYm_(localEntries, ym);
-        if (tl <= 0 && ts <= 0) continue;
-        if (ts > 0) total += ts;
-        else total += tl;
-      }
+      for (const v of byYm.values()) total += v;
       return total;
     }
 
@@ -4640,7 +4638,7 @@
       }
       const t = totalAmountPaidForOwnerMobileDigits_(mob);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="Per plot: server amount when present for a month, else local; duplicate rows for the same month count once">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="All plots for this contact: same rules as Total Amount Paid (per plot), merged payments, one count per month">${escapeHtml(disp)}</td>`;
     }
 
     function totalAmountPaidCellHtmlForPlot_(plotNo){
@@ -4650,7 +4648,7 @@
       }
       const t = totalAmountPaidForPlotOnly_(p);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="This plot: server amount when present for a month, else local; duplicate same-month rows count once">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="Merged payments for this plot; duplicate months use max line; identical amount+lateFee counts once">${escapeHtml(disp)}</td>`;
     }
 
     function paymentsSaveEntries(plotNo, entries){
