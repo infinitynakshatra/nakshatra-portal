@@ -4601,24 +4601,42 @@
       return a + lf;
     }
 
-    /**
-     * Per-plot total for admin directory: merged server/local entries (same as See Payment), then one line per month
-     * (max within month) using directoryPaymentLineTotal_.
-     */
-    function totalAmountPaidForPlotOnly_(plotNo){
-      const p = norm(String(plotNo || ""));
-      if (!p) return 0;
-      const entries = paymentsLoadEntries(p);
+    /** Max directory line total per calendar month for a list of payment rows. */
+    function totalAmountPaidByYmMap_(entries){
       const byYm = new Map();
-      for (const e of entries){
+      for (const e of entries || []){
         const ym = normalizePortalYm(String(e.ym || ""));
         if (!ym) continue;
         const v = directoryPaymentLineTotal_(e);
         if (v <= 0) continue;
         byYm.set(ym, Math.max(byYm.get(ym) || 0, v));
       }
+      return byYm;
+    }
+
+    /**
+     * Per-plot total for admin directory: each month uses the sheet-backed /state value when Apps Script is on and that
+     * month exists there (portal_payments + collection_data merged on server); otherwise merged browser storage. Avoids
+     * doubling server+local and matches sheet totals.
+     */
+    function totalAmountPaidForPlotOnly_(plotNo){
+      const p = norm(String(plotNo || ""));
+      if (!p) return 0;
+      const merged = paymentsLoadEntries(p);
+      const mergedByYm = totalAmountPaidByYmMap_(merged);
+      if (!portalServerState.loaded || !isServerEnabled()){
+        let total = 0;
+        for (const v of mergedByYm.values()) total += v;
+        return total;
+      }
+      const srv = serverPaymentsLoad(p) || [];
+      const serverByYm = totalAmountPaidByYmMap_(srv);
+      const allYm = new Set([...serverByYm.keys(), ...mergedByYm.keys()]);
       let total = 0;
-      for (const v of byYm.values()) total += v;
+      for (const ym of allYm){
+        if (serverByYm.has(ym)) total += serverByYm.get(ym) || 0;
+        else total += mergedByYm.get(ym) || 0;
+      }
       return total;
     }
 
@@ -4638,7 +4656,7 @@
       }
       const t = totalAmountPaidForOwnerMobileDigits_(mob);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="All plots for this contact: same rules as Total Amount Paid (per plot), merged payments, one count per month">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="All plots for this contact: per month, sheet (/state) total when available, else browser; matches portal_payments / collection_data">${escapeHtml(disp)}</td>`;
     }
 
     function totalAmountPaidCellHtmlForPlot_(plotNo){
@@ -4648,7 +4666,7 @@
       }
       const t = totalAmountPaidForPlotOnly_(p);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="Merged payments for this plot; duplicate months use max line; identical amount+lateFee counts once">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="Per month: sheet (/state) amount when set, else merged local; same merge as portal_payments + collection_data on server">${escapeHtml(disp)}</td>`;
     }
 
     function paymentsSaveEntries(plotNo, entries){
