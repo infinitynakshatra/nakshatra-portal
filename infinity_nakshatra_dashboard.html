@@ -741,17 +741,17 @@
       height:22px;
       object-fit:contain;
     }
-    .ownerAccessCell{white-space:nowrap; vertical-align:middle; padding:2px 2px;}
+    .ownerAccessCell{white-space:nowrap; vertical-align:middle; padding:3px 3px;}
     .ownerAccessSelect{
       box-sizing:border-box;
-      max-width:2.5rem;
-      width:2.5rem;
+      max-width:3.35rem;
+      width:3.35rem;
       min-width:0;
-      font-size:8px;
+      font-size:10px;
       font-weight:700;
-      padding:0;
-      line-height:1.1;
-      border-radius:3px;
+      padding:1px 2px;
+      line-height:1.2;
+      border-radius:5px;
       border:1px solid rgba(255,255,255,0.16);
       background:rgba(10,31,45,0.85);
       color:var(--text);
@@ -2681,6 +2681,8 @@
         if (document.getElementById("bankViewBackdrop")?.classList.contains("show")) fillBankViewModal();
         const sess = readSession();
         if (sess && sess.role === "user") refreshUserView();
+        // Plot directory "Total Amount Paid" uses merged server/local payments; refresh when /state arrives after CSV.
+        if (sess && sess.role === "admin") applyFilters();
         // If these modals are open, refresh them too.
         if (document.getElementById("pendingBackdrop")?.classList.contains("show")) openPendingModal();
         if (document.getElementById("doneBackdrop")?.classList.contains("show")) openDoneOwnersModal();
@@ -4558,13 +4560,6 @@
       return localEntries;
     }
 
-    /** Digits used for owner totals: primary contact, else alternate if primary missing. */
-    function ownerRowMobileDigits_(r){
-      const p1 = digitsOnly(r && r[COL_PRIMARY_CONTACT]);
-      if (p1.length >= 10) return p1;
-      return digitsOnly(r && r[COL_ALTERNATE_NUMBER]);
-    }
-
     /** All plot numbers on the loaded sheet whose primary or alternate contact matches `mobDigits`. */
     function plotNosForOwnerMobileDigits_(mobDigits){
       const m = digitsOnly(String(mobDigits || ""));
@@ -4580,13 +4575,24 @@
       return [...plots];
     }
 
-    /** Sum of amount + late fee across all payment records for every linked plot (merged server/local per plot). */
+    /** Sum across every plot on the sheet that shares this mobile (used for “multiple plot” owner summary row only). */
     function totalAmountPaidForOwnerMobileDigits_(mobDigits){
       let total = 0;
       for (const plotNo of plotNosForOwnerMobileDigits_(mobDigits)){
         for (const e of paymentsLoadEntries(plotNo)){
           total += toMoneyNumber(e.amount) + toMoneyNumber(e.lateFee);
         }
+      }
+      return total;
+    }
+
+    /** Single-plot total (main directory: one row per plot — avoids repeating the same combined total on every row). */
+    function totalAmountPaidForPlotOnly_(plotNo){
+      const p = norm(String(plotNo || ""));
+      if (!p) return 0;
+      let total = 0;
+      for (const e of paymentsLoadEntries(p)){
+        total += toMoneyNumber(e.amount) + toMoneyNumber(e.lateFee);
       }
       return total;
     }
@@ -4598,7 +4604,17 @@
       }
       const t = totalAmountPaidForOwnerMobileDigits_(mob);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="Total of amount + late fee on all plots linked to this contact in the loaded sheet">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="Total amount + late fee for all plots linked to this contact (merged server/local)">${escapeHtml(disp)}</td>`;
+    }
+
+    function totalAmountPaidCellHtmlForPlot_(plotNo){
+      const p = norm(String(plotNo || ""));
+      if (!p){
+        return `<td class="totalPaidCell"><span class="smallNote">—</span></td>`;
+      }
+      const t = totalAmountPaidForPlotOnly_(p);
+      const disp = String(Math.round(t));
+      return `<td class="totalPaidCell" title="Total amount + late fee recorded for this plot (merged server/local)">${escapeHtml(disp)}</td>`;
     }
 
     function paymentsSaveEntries(plotNo, entries){
@@ -5527,7 +5543,7 @@
             return ownerAccessSelectCellHtml(r["Primary Contact Number"]);
           }
           if (h === OWNER_TOTAL_PAID_COL){
-            return totalAmountPaidCellHtmlForMobile_(ownerRowMobileDigits_(r));
+            return totalAmountPaidCellHtmlForPlot_(plotNoOfRow(r));
           }
           if (h === ADD_PAYMENT_COL){
             const disabled = !plotNo ? "disabled" : "";
