@@ -4004,6 +4004,18 @@
       )));
     }
 
+    function hasPendingPaymentRequestForPlotMonth(plotNo, ym){
+      const p = norm(plotNo);
+      const want = normalizePortalYm(ym);
+      if (!p || !want) return false;
+      for (const it of paymentsPendingLoad()){
+        if (norm(it.plotNo) !== p) continue;
+        if (normalizePortalYm(it.ym) !== want) continue;
+        return true;
+      }
+      return false;
+    }
+
     function renderAdminPendingApprovalPanel(){
       const badge = document.getElementById("adminPayPendingBadge");
       const tbody = document.getElementById("adminPayPendingTableBody");
@@ -4065,6 +4077,11 @@
         reqBtn.disabled = true;
         return;
       }
+      if (hasPendingPaymentRequestForPlotMonth(plotNo, ym)){
+        setErr(errEl, "A payment approval request for this month is already pending.");
+        reqBtn.disabled = true;
+        return;
+      }
       if (hasAdminLockForMonth(plotNo, ym)){
         setErr(errEl, "This month is already recorded from the admin login. You cannot add or change it from your owner login.");
         reqBtn.disabled = true;
@@ -4093,6 +4110,7 @@
         setErr(errEl, "Please choose a month.");
         return;
       }
+      const ymCanon = normalizePortalYm(ym);
       if (isServerEnabled()){
         try { await ensureServerStateLoaded(); } catch {}
       }
@@ -4104,6 +4122,10 @@
         alert("Your entry for this month is already added by admin. You cannot add or modify it.");
         return;
       }
+      if (hasPendingPaymentRequestForPlotMonth(plotNo, ymCanon)){
+        alert("A payment approval request for this plot and month is already pending. Wait for the admin to approve or reject it.");
+        return;
+      }
       const amount = toMoneyNumber(document.getElementById("payAmount").value);
       const lateFee = toMoneyNumber(document.getElementById("payLateFee").value);
       if (amount <= 0 && lateFee <= 0){
@@ -4111,7 +4133,6 @@
         return;
       }
       const mob = norm(sess.userId);
-      const ymCanon = normalizePortalYm(ym);
 
       if (portalServerState.loaded && isServerEnabled()){
         const sr = await portalServerSubmitPaymentRequest(plotNo, ymCanon, amount, lateFee, mob);
@@ -4119,6 +4140,8 @@
           const e = sr.detail?.error || sr.error || "";
           if (String(e) === "already_paid"){
             alert("You have already added the payment for this specific month. You cannot add it again.");
+          } else if (String(e) === "pending_exists"){
+            alert("A payment approval request for this plot and month is already pending. Wait for the admin to approve or reject it.");
           } else {
             alert("Could not submit request to server. Please try again.");
           }
@@ -4133,8 +4156,7 @@
 
       const items = paymentsPendingLoad().filter(it => !(
         String(it.plotNo) === String(plotNo) &&
-        normalizePortalYm(it.ym) === ymCanon &&
-        norm(it.requesterMobile) === mob
+        normalizePortalYm(it.ym) === ymCanon
       ));
       items.push({
         id: makePaymentRequestId(),
