@@ -741,17 +741,17 @@
       height:22px;
       object-fit:contain;
     }
-    .ownerAccessCell{white-space:nowrap; vertical-align:middle; padding:3px 3px;}
+    .ownerAccessCell{white-space:nowrap; vertical-align:middle; padding:4px 4px;}
     .ownerAccessSelect{
       box-sizing:border-box;
-      max-width:3.35rem;
-      width:3.35rem;
+      max-width:3.85rem;
+      width:3.85rem;
       min-width:0;
-      font-size:10px;
+      font-size:11px;
       font-weight:700;
-      padding:1px 2px;
-      line-height:1.2;
-      border-radius:5px;
+      padding:2px 4px;
+      line-height:1.25;
+      border-radius:6px;
       border:1px solid rgba(255,255,255,0.16);
       background:rgba(10,31,45,0.85);
       color:var(--text);
@@ -4575,24 +4575,59 @@
       return [...plots];
     }
 
-    /** Sum across every plot on the sheet that shares this mobile (used for “multiple plot” owner summary row only). */
-    function totalAmountPaidForOwnerMobileDigits_(mobDigits){
+    /**
+     * Best single-row total (amount+lateFee) for a month on one side.
+     * Used for directory “Total Amount Paid” only — avoids 2× when localStorage has duplicate rows for the same ym
+     * (merge uses sumEntriesForYm per side, which can inflate local and win over server).
+     */
+    function maxCombinedPaymentForYm_(entries, ym){
+      const want = normalizePortalYm(ym);
+      let best = 0;
+      for (const e of entries || []){
+        if (!e || normalizePortalYm(e.ym) !== want) continue;
+        const v = toMoneyNumber(e.amount) + toMoneyNumber(e.lateFee);
+        if (v > best) best = v;
+      }
+      return best;
+    }
+
+    /** Per-plot total for admin directory: same month-level pick as payment merge, but max-per-side per ym (not sum). */
+    function totalAmountPaidForPlotOnly_(plotNo){
+      const p = norm(String(plotNo || ""));
+      if (!p) return 0;
+      const localEntries = paymentsParseLocalStoredEntries(p);
+      let serverMapped = [];
+      if (portalServerState.loaded && isServerEnabled()){
+        serverMapped = (serverPaymentsLoad(p) || []).map(e => ({
+          ym: String(e.ym),
+          amount: toMoneyNumber(e.amount),
+          lateFee: toMoneyNumber(e.lateFee),
+          by: norm(e.by || ""),
+          source: norm(e.source || ""),
+          at: Number(e.at) || 0
+        }));
+      }
+      const ymSet = new Set();
+      for (const e of serverMapped) if (e && e.ym) ymSet.add(normalizePortalYm(e.ym));
+      for (const e of localEntries) if (e && e.ym) ymSet.add(normalizePortalYm(e.ym));
       let total = 0;
-      for (const plotNo of plotNosForOwnerMobileDigits_(mobDigits)){
-        for (const e of paymentsLoadEntries(plotNo)){
-          total += toMoneyNumber(e.amount) + toMoneyNumber(e.lateFee);
-        }
+      for (const ym of [...ymSet].sort((a, b) => String(a).localeCompare(String(b)))){
+        const ts = maxCombinedPaymentForYm_(serverMapped, ym);
+        const tl = maxCombinedPaymentForYm_(localEntries, ym);
+        if (tl <= 0 && ts <= 0) continue;
+        if (tl <= 0) total += ts;
+        else if (ts <= 0) total += tl;
+        else if (tl > ts) total += tl;
+        else total += ts;
       }
       return total;
     }
 
-    /** Single-plot total (main directory: one row per plot — avoids repeating the same combined total on every row). */
-    function totalAmountPaidForPlotOnly_(plotNo){
-      const p = norm(String(plotNo || ""));
-      if (!p) return 0;
+    /** Sum across every plot on the sheet that shares this mobile (multiple-plot owner summary row). */
+    function totalAmountPaidForOwnerMobileDigits_(mobDigits){
       let total = 0;
-      for (const e of paymentsLoadEntries(p)){
-        total += toMoneyNumber(e.amount) + toMoneyNumber(e.lateFee);
+      for (const plotNo of plotNosForOwnerMobileDigits_(mobDigits)){
+        total += totalAmountPaidForPlotOnly_(plotNo);
       }
       return total;
     }
@@ -4604,7 +4639,7 @@
       }
       const t = totalAmountPaidForOwnerMobileDigits_(mob);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="Total amount + late fee for all plots linked to this contact (merged server/local)">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="Per plot: amount+late fee, merged server/local; duplicate rows for the same month count once (larger of server vs local)">${escapeHtml(disp)}</td>`;
     }
 
     function totalAmountPaidCellHtmlForPlot_(plotNo){
@@ -4614,7 +4649,7 @@
       }
       const t = totalAmountPaidForPlotOnly_(p);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="Total amount + late fee recorded for this plot (merged server/local)">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="This plot: amount+late fee, merged server/local; duplicate rows for the same month count once">${escapeHtml(disp)}</td>`;
     }
 
     function paymentsSaveEntries(plotNo, entries){
