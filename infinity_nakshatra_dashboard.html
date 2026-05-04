@@ -741,16 +741,25 @@
       height:22px;
       object-fit:contain;
     }
-    .ownerAccessCell{white-space:nowrap; vertical-align:middle;}
+    .ownerAccessCell{white-space:nowrap; vertical-align:middle; padding:4px 4px;}
     .ownerAccessSelect{
-      max-width:7.5rem;
-      font-size:11px;
+      max-width:4.25rem;
+      width:4.25rem;
+      font-size:10px;
       font-weight:700;
-      padding:5px 6px;
-      border-radius:8px;
+      padding:2px 3px;
+      line-height:1.2;
+      border-radius:6px;
       border:1px solid rgba(255,255,255,0.16);
       background:rgba(10,31,45,0.85);
       color:var(--text);
+    }
+    .totalPaidCell{
+      text-align:right;
+      font-variant-numeric:tabular-nums;
+      white-space:nowrap;
+      font-weight:800;
+      font-size:12px;
     }
     .userGuideBanner{
       margin:0 0 14px;
@@ -2493,6 +2502,7 @@
     const LS_OWNER_ACCESS = "ins_owner_access_v1";
     /** Synthetic column key for Plot Owners Directory (never from CSV). */
     const OWNER_ACCESS_COL = "__PORTAL_OWNER_ACCESS__";
+    const OWNER_TOTAL_PAID_COL = "__PORTAL_TOTAL_PAID__";
 
     function sanitizeOwnerAccessMap_(obj){
       const out = {};
@@ -4546,6 +4556,49 @@
       return localEntries;
     }
 
+    /** Digits used for owner totals: primary contact, else alternate if primary missing. */
+    function ownerRowMobileDigits_(r){
+      const p1 = digitsOnly(r && r[COL_PRIMARY_CONTACT]);
+      if (p1.length >= 10) return p1;
+      return digitsOnly(r && r[COL_ALTERNATE_NUMBER]);
+    }
+
+    /** All plot numbers on the loaded sheet whose primary or alternate contact matches `mobDigits`. */
+    function plotNosForOwnerMobileDigits_(mobDigits){
+      const m = digitsOnly(String(mobDigits || ""));
+      if (m.length < 10) return [];
+      const plots = new Set();
+      for (const row of (allRows || [])){
+        const p = plotNoOfRow(row);
+        if (!p) continue;
+        const p1 = digitsOnly(row[COL_PRIMARY_CONTACT]);
+        const alt = digitsOnly(row[COL_ALTERNATE_NUMBER] || "");
+        if (p1 === m || (alt && alt === m)) plots.add(p);
+      }
+      return [...plots];
+    }
+
+    /** Sum of amount + late fee across all payment records for every linked plot (merged server/local per plot). */
+    function totalAmountPaidForOwnerMobileDigits_(mobDigits){
+      let total = 0;
+      for (const plotNo of plotNosForOwnerMobileDigits_(mobDigits)){
+        for (const e of paymentsLoadEntries(plotNo)){
+          total += toMoneyNumber(e.amount) + toMoneyNumber(e.lateFee);
+        }
+      }
+      return total;
+    }
+
+    function totalAmountPaidCellHtmlForMobile_(mobRaw){
+      const mob = digitsOnly(String(mobRaw || ""));
+      if (mob.length < 10){
+        return `<td class="totalPaidCell"><span class="smallNote">—</span></td>`;
+      }
+      const t = totalAmountPaidForOwnerMobileDigits_(mob);
+      const disp = String(Math.round(t));
+      return `<td class="totalPaidCell" title="Total of amount + late fee on all plots linked to this contact in the loaded sheet">${escapeHtml(disp)}</td>`;
+    }
+
     function paymentsSaveEntries(plotNo, entries){
       const clean = (entries || []).map(e => ({
         ym: normalizePortalYm(String(e.ym)),
@@ -5279,6 +5332,10 @@
       if (pIdx >= 0 && !displayHeaders.includes(OWNER_ACCESS_COL)){
         displayHeaders.splice(pIdx + 1, 0, OWNER_ACCESS_COL);
       }
+      const aIdx = displayHeaders.indexOf(OWNER_ACCESS_COL);
+      if (aIdx >= 0 && !displayHeaders.includes(OWNER_TOTAL_PAID_COL)){
+        displayHeaders.splice(aIdx + 1, 0, OWNER_TOTAL_PAID_COL);
+      }
     }
 
     function ownerPlotsFilterValue(){
@@ -5293,6 +5350,7 @@
           <th>Owner name</th>
           <th>Plot number(s)</th>
           <th>Access</th>
+          <th>Total Amount Paid</th>
           <th>Primary contact number</th>
           <th>${escapeHtml(ADD_PAYMENT_COL)}</th>
           <th>${escapeHtml(SEE_PAYMENT_COL)}</th>
@@ -5303,7 +5361,7 @@
         hdr.innerHTML = "";
         return;
       }
-      hdr.innerHTML = `<tr>${displayHeaders.map(h => `<th>${escapeHtml(h === OWNER_ACCESS_COL ? "Access" : h)}</th>`).join("")}</tr>`;
+      hdr.innerHTML = `<tr>${displayHeaders.map(h => `<th>${escapeHtml(h === OWNER_ACCESS_COL ? "Access" : (h === OWNER_TOTAL_PAID_COL ? "Total Amount Paid" : h))}</th>`).join("")}</tr>`;
     }
 
     function rowHaystack(r){
@@ -5405,7 +5463,7 @@
       showingCount.textContent = rows.length;
 
       const ownerPlotsFilter = ownerPlotsFilterValue();
-      const colCount = ownerPlotsFilter === "multi" ? 6 : Math.max(displayHeaders.length, 1);
+      const colCount = ownerPlotsFilter === "multi" ? 7 : Math.max(displayHeaders.length, 1);
 
       if (ownerPlotsFilter !== "multi" && !displayHeaders.length){
         tbody.innerHTML = `<tr><td colspan="${colCount}">No columns detected yet.</td></tr>`;
@@ -5451,6 +5509,7 @@
             <td>${escapeHtml(name)}</td>
             <td>${plotLinksCell}</td>
             ${ownerAccessSelectCellHtml(pc)}
+            ${totalAmountPaidCellHtmlForMobile_(pc)}
             <td>${pc ? escapeHtml(pc) : ""}</td>
             <td><button class="btn secondary" type="button" data-addpayplot="${escapeHtml(firstPlot)}" ${addDis}>Click</button></td>
             <td><button class="btn secondary" type="button" data-seepayplot="${escapeHtml(firstPlot)}" ${seeDis}>Click</button></td>
@@ -5464,6 +5523,9 @@
         const tds = displayHeaders.map(h => {
           if (h === OWNER_ACCESS_COL){
             return ownerAccessSelectCellHtml(r["Primary Contact Number"]);
+          }
+          if (h === OWNER_TOTAL_PAID_COL){
+            return totalAmountPaidCellHtmlForMobile_(ownerRowMobileDigits_(r));
           }
           if (h === ADD_PAYMENT_COL){
             const disabled = !plotNo ? "disabled" : "";
