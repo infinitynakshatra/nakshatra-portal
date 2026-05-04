@@ -1422,7 +1422,7 @@
         <div class="row">
           <div>
             <strong>Project Documents</strong>
-            <div class="smallNote">Same list as the admin portal. Download files and use Like to show appreciation (once per login).</div>
+            <div class="smallNote">Same list as the admin portal. When the collection server is configured, this list is synced for every device (not only this browser). Download files and use Like to show appreciation (once per login).</div>
           </div>
         </div>
         <div class="scroll-x" style="overflow:auto; margin-top:12px; max-height:min(380px, 52vh);">
@@ -2279,7 +2279,7 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], banking: null, inbox: [] };
+    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], banking: null, inbox: [], projectDocs: [] };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
@@ -2340,10 +2340,12 @@
         tickets: Array.isArray(j.tickets) ? j.tickets : [],
         notices: Array.isArray(j.notices) ? j.notices : [],
         banking: (j.banking !== undefined && j.banking !== null && typeof j.banking === "object") ? j.banking : null,
-        inbox: Array.isArray(j.inbox) ? j.inbox : []
+        inbox: Array.isArray(j.inbox) ? j.inbox : [],
+        projectDocs: Array.isArray(j.projectDocs) ? j.projectDocs : []
       };
       renderNotices();
       renderUserInbox();
+      renderProjectDocsTables();
       // Refresh UI that depends on payments/pending after server state arrives.
       try {
         renderAdminPendingApprovalPanel();
@@ -3282,26 +3284,65 @@
       renderUserGuideBanner();
     }
 
+    function mapProjectDocsArray_(docs){
+      return (Array.isArray(docs) ? docs : []).map(d => ({
+        id: String(d.id || ""),
+        name: norm(d.name),
+        details: norm(d.details),
+        url: norm(d.url),
+        likeCount: Math.max(0, Number(d.likeCount) || 0),
+        createdAt: Number(d.createdAt) || 0
+      })).filter(d => d.id && d.name);
+    }
+
     function projectDocsLoad(){
       try {
+        let localDocs = [];
         const raw = localStorage.getItem(LS_PROJECT_DOCS);
-        if (!raw) return { v: 1, docs: [] };
-        const o = JSON.parse(raw);
-        const docs = Array.isArray(o?.docs) ? o.docs : [];
-        return {
-          v: 1,
-          docs: docs.map(d => ({
-            id: String(d.id || ""),
-            name: norm(d.name),
-            details: norm(d.details),
-            url: norm(d.url),
-            likeCount: Math.max(0, Number(d.likeCount) || 0),
-            createdAt: Number(d.createdAt) || 0
-          })).filter(d => d.id && d.name)
-        };
+        if (raw){
+          const o = JSON.parse(raw);
+          const docs = Array.isArray(o?.docs) ? o.docs : [];
+          localDocs = mapProjectDocsArray_(docs);
+        }
+        if (portalServerState.loaded && isServerEnabled()){
+          const sd = portalServerState.projectDocs;
+          const serverDocs = mapProjectDocsArray_(sd);
+          if (serverDocs.length) return { v: 1, docs: serverDocs };
+          if (localDocs.length){
+            const sess = readSession();
+            if (sess && sess.role === "admin" && !globalThis.__insProjectDocsMigrated){
+              globalThis.__insProjectDocsMigrated = true;
+              void (async () => {
+                const sr = await portalServerSaveProjectDocs(localDocs);
+                if (sr.ok) await portalServerFetchState();
+              })();
+            }
+            return { v: 1, docs: localDocs };
+          }
+          return { v: 1, docs: [] };
+        }
+        return { v: 1, docs: localDocs };
       } catch {
         return { v: 1, docs: [] };
       }
+    }
+
+    async function portalServerSaveProjectDocs(docs){
+      if (!isServerEnabled()) return { ok:false, skipped:true };
+      const sess = readSession();
+      const actor = sess?.role === "admin" ? "admin" : (sess?.role === "user" ? String(sess?.userId || "user") : "portal");
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "saveProjectDocs",
+        actor,
+        docs: docs || []
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed" };
+      return { ok:true };
     }
 
     function projectDocsSave(store){
@@ -3309,7 +3350,20 @@
         localStorage.setItem(LS_PROJECT_DOCS, JSON.stringify({ v: 1, docs: store.docs || [] }));
       } catch {
         alert("Could not save documents (storage may be full).");
+        return;
       }
+      if (portalServerState.loaded && isServerEnabled()){
+        portalServerState.projectDocs = mapProjectDocsArray_(store.docs || []);
+      }
+      void (async () => {
+        if (!isServerEnabled()) return;
+        const sr = await portalServerSaveProjectDocs(store.docs || []);
+        if (!sr.ok){
+          console.warn("Project docs server sync failed", sr.error || sr);
+          return;
+        }
+        await portalServerFetchState();
+      })();
     }
 
     function docUserLikesLoad(){
