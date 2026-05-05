@@ -441,7 +441,7 @@
     #adminMaintenanceMcRow .mcCollectionShell{
       display:flex;
       flex-direction:column;
-      gap:16px;
+      gap:10px;
     }
     #adminMaintenanceMcRow .mcCollectionHead{
       display:flex;
@@ -460,7 +460,7 @@
     #adminMaintenanceMcRow .mcKpiStrip{
       display:grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap:10px;
+      gap:6px;
     }
     #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSummary{
       grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -473,8 +473,8 @@
       #adminMaintenanceMcRow .mcKpiStrip{ grid-template-columns: 1fr; }
     }
     #adminMaintenanceMcRow .mcSubSectionTitle{
-      margin:0 0 8px;
-      font-size:11px;
+      margin:0 0 5px;
+      font-size:10px;
       font-weight:900;
       color:var(--text);
       text-transform:uppercase;
@@ -523,13 +523,26 @@
     @media (max-width: 900px){
       .expenseFormGrid{ grid-template-columns: 1fr; }
     }
-    .expenseFormActionsRow{
+    .expenseFormPaidRow{
       display:flex;
       flex-direction:row;
       flex-wrap:wrap;
+      align-items:flex-end;
       gap:10px;
+      width:100%;
+    }
+    .expenseFormPaidRow .expenseFormPaidField{
+      flex:1 1 140px;
+      min-width:0;
+      margin:0;
+    }
+    .expenseFormPaidRowBtns{
+      display:flex;
+      flex-direction:row;
+      flex-wrap:wrap;
+      gap:8px;
       align-items:center;
-      margin-top:12px;
+      flex:0 0 auto;
     }
     .expenseManageRowActions{
       display:flex;
@@ -542,24 +555,28 @@
     #adminMaintenanceMcRow .mcKpiCard{
       background:var(--surface2);
       border:1px solid var(--border);
-      border-radius:12px;
-      padding:11px 13px;
+      border-radius:10px;
+      padding:7px 10px;
       display:flex;
       flex-direction:column;
-      gap:5px;
+      gap:3px;
       min-width:0;
+      align-items:stretch;
     }
     #adminMaintenanceMcRow .mcKpiCard span{
-      font-size:11px;
+      font-size:10px;
       color:var(--muted);
       font-weight:700;
       line-height:1.2;
+      align-self:flex-start;
     }
     #adminMaintenanceMcRow .mcKpiCard b{
-      font-size:18px;
+      font-size:15px;
       font-weight:900;
       line-height:1.15;
       font-variant-numeric: tabular-nums;
+      text-align:right;
+      align-self:stretch;
     }
     #adminMaintenanceMcRow .mcFilterToolbar{
       border-radius:12px;
@@ -628,9 +645,9 @@
     #adminMaintenanceMcRow .mcCollectionMetricsWrap{
       display:flex;
       flex-direction:column;
-      gap:14px;
-      padding:14px 14px 16px;
-      border-radius:14px;
+      gap:8px;
+      padding:10px 12px 12px;
+      border-radius:12px;
       border:1px solid var(--border);
       background:var(--surface2);
     }
@@ -1444,7 +1461,7 @@
             <div class="mcKpiCard"><span>Pending/Due Amount</span><b id="mcPending">—</b></div>
             <div class="mcKpiCard"><span>Late Fee Amount</span><b id="lateFeeReceived">—</b></div>
           </div>
-          <div class="adminExpenseBlock" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+          <div class="adminExpenseBlock" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
             <h4 class="mcSubSectionTitle">Add expenses</h4>
             <div class="expenseFormGrid">
               <div class="field" style="margin:0;">
@@ -1463,16 +1480,18 @@
                 <label class="mcDdLabel" for="expenseDescInput">Description</label>
                 <input id="expenseDescInput" type="text" placeholder="Short description" autocomplete="off" />
               </div>
-              <div class="field" style="margin:0;">
-                <label class="mcDdLabel" for="expensePaidToInput">Paid to / vendor</label>
-                <input id="expensePaidToInput" type="text" placeholder="Name or reference" autocomplete="off" />
+              <div class="expenseFormPaidRow" style="grid-column:1 / -1;">
+                <div class="field expenseFormPaidField">
+                  <label class="mcDdLabel" for="expensePaidToInput">Paid to / vendor</label>
+                  <input id="expensePaidToInput" type="text" placeholder="Name or reference" autocomplete="off" />
+                </div>
+                <div class="expenseFormPaidRowBtns">
+                  <button class="btn" id="expenseSaveBtn" type="button">Save expense</button>
+                  <button class="btn secondary" id="expenseShowUpdateBtn" type="button">Show/Update Expense</button>
+                </div>
               </div>
             </div>
-            <div class="expenseFormActionsRow">
-              <button class="btn" id="expenseSaveBtn" type="button">Save expense</button>
-              <button class="btn secondary" id="expenseShowUpdateBtn" type="button">Show/Update Expense</button>
-            </div>
-            <div class="smallNote" style="margin-top:10px;">Saved to spreadsheet tab <strong>portal_expenses</strong> when Apps Script is configured.</div>
+            <div class="smallNote" style="margin-top:8px;">Saved to spreadsheet tab <strong>portal_expenses</strong> when Apps Script is configured.</div>
           </div>
         </div>
       </div>
