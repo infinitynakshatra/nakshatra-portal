@@ -523,6 +523,21 @@
     @media (max-width: 900px){
       .expenseFormGrid{ grid-template-columns: 1fr; }
     }
+    .expenseFormActionsRow{
+      display:flex;
+      flex-direction:row;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+      margin-top:12px;
+    }
+    .expenseManageRowActions{
+      display:flex;
+      flex-direction:row;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
     .accountDetailsWrap .profilePanel{min-width:200px;}
     #adminMaintenanceMcRow .mcKpiCard{
       background:var(--surface2);
@@ -1452,10 +1467,10 @@
                 <label class="mcDdLabel" for="expensePaidToInput">Paid to / vendor</label>
                 <input id="expensePaidToInput" type="text" placeholder="Name or reference" autocomplete="off" />
               </div>
-              <div class="field" style="margin:0; align-self:end; display:flex; gap:8px; flex-wrap:wrap;">
-                <button class="btn" id="expenseSaveBtn" type="button">Save expense</button>
-                <button class="btn secondary" id="expenseShowUpdateBtn" type="button">Show/Update Expense</button>
-              </div>
+            </div>
+            <div class="expenseFormActionsRow">
+              <button class="btn" id="expenseSaveBtn" type="button">Save expense</button>
+              <button class="btn secondary" id="expenseShowUpdateBtn" type="button">Show/Update Expense</button>
             </div>
             <div class="smallNote" style="margin-top:10px;">Saved to spreadsheet tab <strong>portal_expenses</strong> when Apps Script is configured.</div>
           </div>
@@ -2243,7 +2258,7 @@
   </div>
 
   <div class="backdrop" id="expenseManageBackdrop" aria-hidden="true">
-    <div class="modal modalSeePay" role="dialog" aria-modal="true" aria-labelledby="expenseManageTitle" style="width:min(720px, 96vw); max-height:min(92vh, 900px);">
+    <div class="modal modalSeePay" role="dialog" aria-modal="true" aria-labelledby="expenseManageTitle" style="width:min(960px, 98vw); max-height:min(92vh, 900px);">
       <div class="modalHead">
         <div>
           <div class="modalTitle" id="expenseManageTitle">Show / Update expenses</div>
@@ -2251,7 +2266,7 @@
         </div>
         <button class="btn secondary" id="expenseManageCloseBtn" type="button">Close</button>
       </div>
-      <div class="scroll-x" style="overflow:auto; max-height:min(240px, 38vh); margin-top:8px;">
+      <div class="scroll-x" style="overflow:auto; max-height:min(420px, 55vh); margin-top:8px;">
         <table class="adminDirTable">
           <thead>
             <tr>
@@ -2269,7 +2284,7 @@
           </tbody>
         </table>
       </div>
-      <p class="smallNote" style="margin-top:12px;">Click <b>Edit</b> on a row, adjust the fields below, then <b>Save changes</b>.</p>
+      <p class="smallNote" style="margin-top:12px;">Click <b>Edit</b> on a row, adjust the fields below, then <b>Save changes</b>. Use <b>Delete</b> to remove a row.</p>
       <input type="hidden" id="expenseManageEditId" value="" />
       <div class="expenseFormGrid" style="margin-top:10px;">
         <div class="field" style="margin:0;">
@@ -2944,6 +2959,23 @@
       let j;
       try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
       if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true };
+    }
+
+    async function portalServerDeleteExpense(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "deleteExpense",
+        actor: "admin",
+        id: String(payload.id || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "delete_failed", detail: j };
       return { ok:true };
     }
 
@@ -5478,10 +5510,22 @@
       else if (slots.length) sel.value = slots[0].ym;
     }
 
+    function expenseRowIsValid_(ex){
+      if (!ex || typeof ex !== "object") return false;
+      const id = String(ex.id || "").trim();
+      if (!id || id.toLowerCase() === "null") return false;
+      return true;
+    }
+    function expenseCellStr_(v){
+      const t = String(v ?? "").trim();
+      if (!t || t.toLowerCase() === "null") return "";
+      return t;
+    }
+
     function renderExpenseManageTable(){
       const tb = document.getElementById("expenseManageTbody");
       if (!tb) return;
-      const list = [...(portalServerState.expenses || [])].sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      const list = [...(portalServerState.expenses || [])].filter(expenseRowIsValid_).sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
       if (!list.length){
         tb.innerHTML = `<tr><td colspan="7">No expense rows yet.</td></tr>`;
         return;
@@ -5495,11 +5539,14 @@
         return `<tr>
           <td>${at}</td>
           <td>${ymLab}</td>
-          <td>${escapeHtml(String(ex.category || ""))}</td>
+          <td>${escapeHtml(expenseCellStr_(ex.category))}</td>
           <td>${escapeHtml(String(Math.round(toMoneyNumber(ex.amount))))}</td>
-          <td>${escapeHtml(String(ex.description || ""))}</td>
-          <td>${escapeHtml(String(ex.paidTo || ""))}</td>
-          <td><button type="button" class="btn secondary tiny expenseManageEditRowBtn" data-expense-id="${id}">Edit</button></td>
+          <td>${escapeHtml(expenseCellStr_(ex.description))}</td>
+          <td>${escapeHtml(expenseCellStr_(ex.paidTo))}</td>
+          <td><span class="expenseManageRowActions">
+            <button type="button" class="btn secondary tiny expenseManageEditRowBtn" data-expense-id="${id}">Edit</button>
+            <button type="button" class="btn danger tiny expenseManageDeleteRowBtn" data-expense-id="${id}">Delete</button>
+          </span></td>
         </tr>`;
       }).join("");
     }
@@ -6345,6 +6392,7 @@
       const selYmSet = new Set(selectedYms.map(y => normalizePortalYm(String(y))));
       let expensesSum = 0;
       for (const ex of portalServerState.expenses || []){
+        if (!expenseRowIsValid_(ex)) continue;
         const ymx = normalizePortalYm(String(ex.ym || ""));
         if (!selYmSet.has(ymx)) continue;
         expensesSum += toMoneyNumber(ex.amount);
@@ -7752,20 +7800,47 @@
       });
       const expenseManageTbody = document.getElementById("expenseManageTbody");
       if (expenseManageTbody) expenseManageTbody.addEventListener("click", (e) => {
+        const delBtn = e.target.closest(".expenseManageDeleteRowBtn");
+        if (delBtn){
+          const sess = readSession();
+          if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+          if (!isServerEnabled()){
+            alert("Configure COLLECTION_API_URL and API key to delete expenses.");
+            return;
+          }
+          const idDel = norm(delBtn.getAttribute("data-expense-id"));
+          if (!idDel){ return; }
+          if (!confirm("Delete this expense row? This cannot be undone.")) return;
+          const errEl = document.getElementById("expenseManageErr");
+          if (errEl) errEl.textContent = "";
+          void (async () => {
+            const dr = await portalServerDeleteExpense({ id: idDel });
+            if (!dr.ok){
+              if (errEl) errEl.textContent = dr.error || "Could not delete expense.";
+              return;
+            }
+            await portalServerFetchState();
+            updateMaintenanceCollectionCards();
+            const editingId = norm(document.getElementById("expenseManageEditId")?.value);
+            if (editingId && editingId === idDel) resetExpenseManageEdit();
+            renderExpenseManageTable();
+          })();
+          return;
+        }
         const btn = e.target.closest(".expenseManageEditRowBtn");
         if (!btn) return;
         const idRaw = btn.getAttribute("data-expense-id");
         const ex = (portalServerState.expenses || []).find(x => String(x.id) === String(idRaw));
-        if (!ex) return;
+        if (!ex || !expenseRowIsValid_(ex)) return;
         const idEl = document.getElementById("expenseManageEditId");
         if (idEl) idEl.value = String(ex.id || "");
         const ymSel = document.getElementById("expenseManageYm");
         if (ymSel) ymSel.value = normalizePortalYm(String(ex.ym || ""));
         const setv = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-        setv("expenseManageCategory", String(ex.category || ""));
+        setv("expenseManageCategory", expenseCellStr_(ex.category));
         setv("expenseManageAmount", String(Math.round(toMoneyNumber(ex.amount)) || ""));
-        setv("expenseManageDesc", String(ex.description || ""));
-        setv("expenseManagePaidTo", String(ex.paidTo || ""));
+        setv("expenseManageDesc", expenseCellStr_(ex.description));
+        setv("expenseManagePaidTo", expenseCellStr_(ex.paidTo));
         const saveBtn = document.getElementById("expenseManageSaveBtn");
         if (saveBtn) saveBtn.disabled = false;
         const err = document.getElementById("expenseManageErr");
