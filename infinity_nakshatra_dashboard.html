@@ -462,12 +462,68 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap:10px;
     }
+    #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSummary{
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
     @media (max-width: 900px){
       #adminMaintenanceMcRow .mcKpiStrip{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSummary{ grid-template-columns: 1fr; }
     }
     @media (max-width: 440px){
       #adminMaintenanceMcRow .mcKpiStrip{ grid-template-columns: 1fr; }
     }
+    #adminMaintenanceMcRow .mcSubSectionTitle{
+      margin:0 0 8px;
+      font-size:11px;
+      font-weight:900;
+      color:var(--text);
+      text-transform:uppercase;
+      letter-spacing:0.05em;
+    }
+    #adminMaintenanceMcRow .mcFilterToolbarRow{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:14px 20px;
+    }
+    #adminMaintenanceMcRow .mcFilterToolbarLeft{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:flex-end;
+      gap:12px 18px;
+    }
+    #adminMaintenanceMcRow .mcFilterToolbarLeft .mcFilterToolbarTitle{margin-bottom:0;}
+    #adminMaintenanceMcRow .mcFilterToolbarRight{
+      display:grid;
+      grid-template-columns: repeat(2, minmax(140px, 220px));
+      gap:12px 18px;
+      align-items:end;
+      margin-left:auto;
+    }
+    @media (max-width: 900px){
+      #adminMaintenanceMcRow .mcFilterToolbarRight{
+        grid-template-columns: 1fr;
+        margin-left:0;
+        width:100%;
+      }
+    }
+    #adminMaintenanceMcRow .mcFyMetaLine{
+      font-size:11px;
+      color:var(--muted);
+      margin:0;
+    }
+    .expenseFormGrid{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:12px 14px;
+      align-items:end;
+      margin-top:10px;
+    }
+    @media (max-width: 900px){
+      .expenseFormGrid{ grid-template-columns: 1fr; }
+    }
+    .accountDetailsWrap .profilePanel{min-width:200px;}
     #adminMaintenanceMcRow .mcKpiCard{
       background:var(--surface2);
       border:1px solid var(--border);
@@ -515,23 +571,29 @@
       #adminMaintenanceMcRow .mcFilterToolbarInner{ grid-template-columns: 1fr; }
     }
     #adminMaintenanceMcRow .mcFilterToolbarInner .mcDdWrap,
-    #adminMaintenanceMcRow .mcFilterToolbarInner .field{
+    #adminMaintenanceMcRow .mcFilterToolbarInner .field,
+    #adminMaintenanceMcRow .mcFilterToolbarRight .mcDdWrap,
+    #adminMaintenanceMcRow .mcFilterToolbarLeft .field{
       margin:0;
       min-width:0;
       width:100%;
     }
-    #adminMaintenanceMcRow .mcFilterToolbarInner .mcDdBtn{
+    #adminMaintenanceMcRow .mcFilterToolbarInner .mcDdBtn,
+    #adminMaintenanceMcRow .mcFilterToolbarRight .mcDdBtn{
       width:100%;
       min-width:0;
       max-width:none;
     }
-    #adminMaintenanceMcRow .mcFilterToolbarInner .field select{
+    #adminMaintenanceMcRow .mcFilterToolbarInner .field select,
+    #adminMaintenanceMcRow .mcFilterToolbarLeft .field select{
       width:100%;
       max-width:none;
       padding:8px 10px;
       font-size:13px;
     }
-    #adminMaintenanceMcRow .mcFilterToolbarInner .mcDdLabel{
+    #adminMaintenanceMcRow .mcFilterToolbarInner .mcDdLabel,
+    #adminMaintenanceMcRow .mcFilterToolbarRight .mcDdLabel,
+    #adminMaintenanceMcRow .mcFilterToolbarLeft .mcDdLabel{
       margin-bottom:6px;
       font-size:11px;
     }
@@ -696,7 +758,7 @@
     .topbar .title h1{font-size:20px;}
     .topbar .title p{color:var(--muted); font-size:13px;}
     .pillrow{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
-    .pillrow .profileWrap{margin-left:auto;}
+    .pillrow .profileWrap.topbarProfileEnd{margin-left:auto;}
     /* Top bar actions: one text size (same as former .btn.tiny “Download report”) + icon-only WA / profile */
     #adminRoot .topbar .pillrow > .btn,
     #adminRoot .topbar .pillrow > a.btn:not(.topbarIconLink),
@@ -1198,8 +1260,17 @@
         <button class="btn secondary adminOnly" id="adminAddPayBtn" type="button">Add Payment</button>
         <button class="btn secondary adminOnly" id="adminAddMultiPayBtn" type="button">Add Multiple User Payment</button>
         <button class="btn secondary adminOnly" id="adminSixMonthReportBtn" type="button" title="PDF: six months of received amounts per plot">Download Report</button>
+        <div class="profileWrap accountDetailsWrap adminOnly">
+          <button class="btn secondary" id="adminAccountDetailsBtn" type="button" aria-expanded="false" aria-haspopup="true">Account Details</button>
+          <div class="profilePanel" id="adminAccountDetailsPanel" role="menu" aria-label="Account and UPI">
+            <div class="profileActions" style="flex-direction:column; align-items:stretch;">
+              <button class="btn secondary tiny" id="adminBankViewBtn" type="button">View details</button>
+              <button class="btn secondary tiny" id="adminBankEditBtn" type="button">Update details</button>
+            </div>
+          </div>
+        </div>
         <a class="btn topbarIconLink" id="whatsAppBtn" href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer" aria-label="Join WhatsApp Group"><img src="assets/whatsapp.png" width="22" height="22" alt="" /></a>
-        <div class="profileWrap">
+        <div class="profileWrap topbarProfileEnd">
           <button class="profileBtn topbarIconOnly" id="profileBtn" type="button" aria-expanded="false" aria-label="Profile"><img src="assets/user.png" width="22" height="22" alt="" /></button>
           <div class="profilePanel" id="profilePanel" role="menu" aria-label="Profile menu">
             <div class="profileName" id="profileName">Admin</div>
@@ -1249,7 +1320,7 @@
           <h3>Registered Plot Owners</h3>
         <div class="big" id="registeredPlots">—</div>
         </div>
-        <div class="sub">Registered Owners with Portal</div>
+        <div class="sub">Unique sold owners with 10-digit primary contact (portal login ID)</div>
       </div>
     </div>
 
@@ -1285,8 +1356,7 @@
       <div class="mcCollectionShell">
         <div class="mcCollectionHead">
           <div class="mcBrand">
-            <h3>Maintenance Collection</h3>
-            <div class="smallNote" style="margin-top:4px; max-width:560px;">Use <b>Filters</b> at the top of the highlighted panel for FY scope, owner portal FY, and months. The four boxes below are <b>Received Amount</b>, <b>Expected Amount</b>, <b>Pending/Due Amount</b>, and <b>Late Fee Amount</b> for that selection.</div>
+            <h3>Maintenance Collection &amp; Expense Management</h3>
           </div>
           <div class="mcBtns">
             <button class="btn secondary tiny" id="doneOwnersBtn" type="button">Payment completed owners</button>
@@ -1296,54 +1366,77 @@
         </div>
         <div class="mcCollectionMetricsWrap adminOnly">
           <div class="mcFilterToolbar">
-            <span class="mcFilterToolbarTitle">Filters</span>
-            <div class="mcFilterToolbarInner">
-              <div class="mcDdWrap" id="mcFyDdWrap">
-                <span class="mcDdLabel">FY scope (multi-select)</span>
-                <button type="button" class="mcDdBtn" id="mcFyDdBtn" aria-expanded="false" aria-haspopup="listbox">FY…</button>
-                <div class="mcMonthPanel" id="mcFyPanel" style="display:none;" role="listbox" aria-label="Select financial years for maintenance views">
-                  <div class="mcPanelRow smallNote" style="border-bottom:none; padding-bottom:4px;">Which financial years appear in the month list. KPIs and owner lists use the month checkboxes.</div>
-                  <div class="mcMonthChecks" id="mcFyChecks"></div>
+            <div class="mcFilterToolbarRow">
+              <div class="mcFilterToolbarLeft">
+                <span class="mcFilterToolbarTitle">Filters</span>
+                <div class="field" style="margin:0; min-width:min(220px, 100%);">
+                  <label class="mcDdLabel" for="ownerPortalMayYear">Owner portal FY</label>
+                  <select id="ownerPortalMayYear" aria-label="Financial year shown on owner portal"></select>
                 </div>
               </div>
-              <div class="field">
-                <label class="mcDdLabel" for="ownerPortalMayYear">Owner portal FY</label>
-                <select id="ownerPortalMayYear" aria-label="Financial year shown on owner portal"></select>
-              </div>
-              <div class="mcDdWrap" id="mcDdWrap">
-                <span class="mcDdLabel">Months in scope</span>
-                <button type="button" class="mcDdBtn" id="mcMonthDdBtn" aria-expanded="false" aria-haspopup="listbox">Months…</button>
-                <div class="mcMonthPanel" id="mcMonthPanel" style="display:none;" role="listbox" aria-label="Select months">
-                  <div class="mcPanelRow">
-                    <label class="mcCb"><input type="checkbox" id="mcChkAll" /> <span>(All months)</span></label>
+              <div class="mcFilterToolbarRight">
+                <div class="mcDdWrap" id="mcFyDdWrap">
+                  <span class="mcDdLabel">FY scope (multi-select)</span>
+                  <button type="button" class="mcDdBtn" id="mcFyDdBtn" aria-expanded="false" aria-haspopup="listbox">FY…</button>
+                  <div class="mcMonthPanel" id="mcFyPanel" style="display:none;" role="listbox" aria-label="Select financial years for maintenance views">
+                    <div class="mcMonthChecks" id="mcFyChecks"></div>
                   </div>
-                  <div class="mcMonthChecks" id="mcMonthChecks"></div>
+                </div>
+                <div class="mcDdWrap" id="mcDdWrap">
+                  <span class="mcDdLabel">Month</span>
+                  <button type="button" class="mcDdBtn" id="mcMonthDdBtn" aria-expanded="false" aria-haspopup="listbox">Months…</button>
+                  <div class="mcMonthPanel" id="mcMonthPanel" style="display:none;" role="listbox" aria-label="Select months">
+                    <div class="mcPanelRow">
+                      <label class="mcCb"><input type="checkbox" id="mcChkAll" /> <span>(All months)</span></label>
+                    </div>
+                    <div class="mcMonthChecks" id="mcMonthChecks"></div>
+                  </div>
                 </div>
               </div>
             </div>
+            <p class="mcFyMetaLine" id="adminMcFyMetaLine"><span id="adminMcFyMetaNote" class="mono">—</span></p>
           </div>
+          <div class="mcKpiStrip mcKpiStripSummary" aria-label="Maintenance vs expenses summary">
+            <div class="mcKpiCard"><span>Maintenance collected</span><b id="mcMaintenanceCollectedSummary">—</b></div>
+            <div class="mcKpiCard"><span>Expenses</span><b id="mcExpensesSummary">—</b></div>
+            <div class="mcKpiCard"><span>Balance</span><b id="mcBalanceSummary">—</b></div>
+          </div>
+          <h4 class="mcSubSectionTitle">Maintenance Collection</h4>
           <div class="mcKpiStrip" aria-label="Collection amounts for selected months">
             <div class="mcKpiCard"><span>Received Amount</span><b id="mcReceived">—</b></div>
             <div class="mcKpiCard"><span>Expected Amount</span><b id="mcExpected">—</b></div>
             <div class="mcKpiCard"><span>Pending/Due Amount</span><b id="mcPending">—</b></div>
             <div class="mcKpiCard"><span>Late Fee Amount</span><b id="lateFeeReceived">—</b></div>
           </div>
-        </div>
-        <div class="mcCollectionFootnote sub">
-          <span id="adminMcFyMetaNote" class="mono">—</span>
-          <span> • Due date: <strong>10th</strong> of each month. Expected and lists use registered owners with primary contact when available; otherwise sold plots (non-unsold); if none match, every row with Plot No. (one per plot).</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="mcRow" id="adminBankRow">
-      <div class="mcRowInner">
-        <div class="mcBrand">
-          <h3>Account & UPI Details</h3>
-        </div>
-        <div class="mcBtns">
-          <button class="btn secondary tiny" id="adminBankViewBtn" type="button">View details</button>
-          <button class="btn secondary tiny adminOnly" id="adminBankEditBtn" type="button">Update details</button>
+          <div class="adminExpenseBlock" style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">
+            <h4 class="mcSubSectionTitle">Add expenses</h4>
+            <div class="expenseFormGrid">
+              <div class="field" style="margin:0;">
+                <label class="mcDdLabel" for="expenseYmInput">Month (FY)</label>
+                <select id="expenseYmInput" aria-label="Expense month"></select>
+              </div>
+              <div class="field" style="margin:0;">
+                <label class="mcDdLabel" for="expenseCategoryInput">Category</label>
+                <input id="expenseCategoryInput" type="text" placeholder="e.g. Security, Electricity" autocomplete="off" />
+              </div>
+              <div class="field" style="margin:0;">
+                <label class="mcDdLabel" for="expenseAmountInput">Amount</label>
+                <input id="expenseAmountInput" type="number" min="0" step="1" placeholder="0" />
+              </div>
+              <div class="field" style="margin:0; grid-column:1 / -1;">
+                <label class="mcDdLabel" for="expenseDescInput">Description</label>
+                <input id="expenseDescInput" type="text" placeholder="Short description" autocomplete="off" />
+              </div>
+              <div class="field" style="margin:0;">
+                <label class="mcDdLabel" for="expensePaidToInput">Paid to / vendor</label>
+                <input id="expensePaidToInput" type="text" placeholder="Name or reference" autocomplete="off" />
+              </div>
+              <div class="field" style="margin:0; align-self:end;">
+                <button class="btn" id="expenseSaveBtn" type="button">Save expense</button>
+              </div>
+            </div>
+            <div class="smallNote" style="margin-top:10px;">Saved to spreadsheet tab <strong>portal_expenses</strong> when Apps Script is configured.</div>
+          </div>
         </div>
       </div>
     </div>
@@ -2495,7 +2588,7 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], banking: null, inbox: [], projectDocs: [], serviceContacts: [], ownerAccess: {} };
+    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], banking: null, inbox: [], projectDocs: [], serviceContacts: [], ownerAccess: {} };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
@@ -2666,6 +2759,7 @@
         pending: Array.isArray(j.pending) ? j.pending : [],
         tickets: Array.isArray(j.tickets) ? j.tickets : [],
         notices: Array.isArray(j.notices) ? j.notices : [],
+        expenses: Array.isArray(j.expenses) ? j.expenses : [],
         banking: (j.banking !== undefined && j.banking !== null && typeof j.banking === "object") ? j.banking : null,
         inbox: Array.isArray(j.inbox) ? j.inbox : [],
         projectDocs: Array.isArray(j.projectDocs) ? j.projectDocs : [],
@@ -2727,6 +2821,27 @@
       try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
       if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
       return { ok:true };
+    }
+
+    async function portalServerAddExpense(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "addExpense",
+        actor: "admin",
+        ym: String(payload.ym || ""),
+        amount: Number(payload.amount) || 0,
+        category: String(payload.category || ""),
+        description: String(payload.description || ""),
+        paidTo: String(payload.paidTo || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true, id: j.id };
     }
 
     async function portalServerAddPayment(plotNo, ym, amount, lateFee){
@@ -5237,6 +5352,17 @@
         const set = new Set(saved.map(String));
         host.querySelectorAll(".mcYmChk").forEach(c => { c.checked = set.has(String(c.dataset.ym)); });
       }
+      refreshExpenseYmDropdown();
+    }
+
+    function refreshExpenseYmDropdown(){
+      const sel = document.getElementById("expenseYmInput");
+      if (!sel) return;
+      const slots = allAdminSlotsUnion();
+      const cur = norm(sel.value);
+      sel.innerHTML = slots.map(s => `<option value="${escapeHtml(s.ym)}">${escapeHtml(s.label)}</option>`).join("");
+      if (cur && slots.some(s => s.ym === cur)) sel.value = cur;
+      else if (slots.length) sel.value = slots[0].ym;
     }
 
     function refreshMcDdButtonLabel(){
@@ -5614,7 +5740,16 @@
       const sold = allRows.filter(r => soldKey(r["Sold/Unsold"]) === "sold").length;
       const unsold = allRows.filter(r => soldKey(r["Sold/Unsold"]) === "unsold").length;
       const missing = plotRows.filter(r => soldKey(r["Sold/Unsold"]) !== "unsold" && isContactMissingGroupStatusRow(r)).length;
-      const registered = plotRows.filter(isAddedInGroupRow).length;
+      const registered = (() => {
+        const seen = new Set();
+        for (const r of plotRows){
+          if (soldKey(r["Sold/Unsold"]) === "unsold") continue;
+          const d = digitsOnly(r["Primary Contact Number"]);
+          if (d.length < 10) continue;
+          seen.add(d);
+        }
+        return seen.size;
+      })();
       document.getElementById("totalPlots").textContent = totalPlots;
       document.getElementById("soldPlots").textContent = sold;
       document.getElementById("unsoldPlots").textContent = unsold;
@@ -6034,6 +6169,20 @@
       receivedEl.textContent = String(Math.round(received));
       pendingEl.textContent = String(Math.round(pending));
       lateFeeEl.textContent = String(Math.round(lateFee));
+
+      const selYmSet = new Set(selectedYms.map(y => normalizePortalYm(String(y))));
+      let expensesSum = 0;
+      for (const ex of portalServerState.expenses || []){
+        const ymx = normalizePortalYm(String(ex.ym || ""));
+        if (!selYmSet.has(ymx)) continue;
+        expensesSum += toMoneyNumber(ex.amount);
+      }
+      const collEl = document.getElementById("mcMaintenanceCollectedSummary");
+      const expEl = document.getElementById("mcExpensesSummary");
+      const balEl = document.getElementById("mcBalanceSummary");
+      if (collEl) collEl.textContent = String(Math.round(received));
+      if (expEl) expEl.textContent = String(Math.round(expensesSum));
+      if (balEl) balEl.textContent = String(Math.round(received - expensesSum));
     }
 
     function openPendingModal(){
@@ -7325,6 +7474,23 @@
         });
       })();
 
+      (function wireAdminAccountDetailsMenu(){
+        const btn = document.getElementById("adminAccountDetailsBtn");
+        const panel = document.getElementById("adminAccountDetailsPanel");
+        if (!btn || !panel) return;
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const open = !panel.classList.contains("show");
+          panel.classList.toggle("show", open);
+          btn.setAttribute("aria-expanded", open ? "true" : "false");
+        });
+        panel.addEventListener("click", (e) => e.stopPropagation());
+        document.addEventListener("click", () => {
+          panel.classList.remove("show");
+          btn.setAttribute("aria-expanded", "false");
+        });
+      })();
+
       const adminSixMonthReportBtn = document.getElementById("adminSixMonthReportBtn");
       if (adminSixMonthReportBtn){
         adminSixMonthReportBtn.addEventListener("click", () => {
@@ -7336,9 +7502,46 @@
       }
 
       const adminBankViewBtn = document.getElementById("adminBankViewBtn");
-      if (adminBankViewBtn) adminBankViewBtn.addEventListener("click", openBankingViewModal);
+      if (adminBankViewBtn) adminBankViewBtn.addEventListener("click", () => {
+        document.getElementById("adminAccountDetailsPanel")?.classList.remove("show");
+        document.getElementById("adminAccountDetailsBtn")?.setAttribute("aria-expanded", "false");
+        void openBankingViewModal();
+      });
       const adminBankEditBtn = document.getElementById("adminBankEditBtn");
-      if (adminBankEditBtn) adminBankEditBtn.addEventListener("click", openBankingEditModal);
+      if (adminBankEditBtn) adminBankEditBtn.addEventListener("click", () => {
+        document.getElementById("adminAccountDetailsPanel")?.classList.remove("show");
+        document.getElementById("adminAccountDetailsBtn")?.setAttribute("aria-expanded", "false");
+        void openBankingEditModal();
+      });
+      const expenseSaveBtn = document.getElementById("expenseSaveBtn");
+      if (expenseSaveBtn) expenseSaveBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        if (!isServerEnabled()){
+          alert("Configure COLLECTION_API_URL and API key to save expenses to the spreadsheet.");
+          return;
+        }
+        const ym = normalizePortalYm(String(document.getElementById("expenseYmInput")?.value || ""));
+        const amount = toMoneyNumber(document.getElementById("expenseAmountInput")?.value);
+        const category = norm(document.getElementById("expenseCategoryInput")?.value);
+        const description = norm(document.getElementById("expenseDescInput")?.value);
+        const paidTo = norm(document.getElementById("expensePaidToInput")?.value);
+        if (!ym){ alert("Choose a month."); return; }
+        if (amount <= 0){ alert("Enter a positive amount."); return; }
+        void (async () => {
+          const sr = await portalServerAddExpense({ ym, amount, category, description, paidTo });
+          if (!sr.ok){
+            alert(sr.error || "Could not save expense.");
+            return;
+          }
+          await portalServerFetchState();
+          updateMaintenanceCollectionCards();
+          const amtEl = document.getElementById("expenseAmountInput");
+          const dEl = document.getElementById("expenseDescInput");
+          if (amtEl) amtEl.value = "";
+          if (dEl) dEl.value = "";
+        })();
+      });
       const userBankViewBtn = document.getElementById("userBankViewBtn");
       if (userBankViewBtn) userBankViewBtn.addEventListener("click", openBankingViewModal);
 
