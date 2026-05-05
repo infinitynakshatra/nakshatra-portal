@@ -2695,7 +2695,7 @@
         if (document.getElementById("bankViewBackdrop")?.classList.contains("show")) fillBankViewModal();
         const sess = readSession();
         if (sess && sess.role === "user") refreshUserView();
-        // Plot directory "Total Amount Paid" uses merged server/local payments; refresh when /state arrives after CSV.
+        // Plot directory "Total Amount Paid" matches See Payment total received; refresh when /state arrives after CSV.
         if (sess && sess.role === "admin") applyFilters();
         // If these modals are open, refresh them too.
         if (document.getElementById("pendingBackdrop")?.classList.contains("show")) openPendingModal();
@@ -4619,41 +4619,20 @@
       return [...plots];
     }
 
-    /** Max directory line total per calendar month for a list of payment rows. */
-    function totalAmountPaidByYmMap_(entries){
-      const byYm = new Map();
-      for (const e of entries || []){
-        const ym = normalizePortalYm(String(e.ym || ""));
-        if (!ym) continue;
-        const v = directoryPaymentLineTotal_(e);
-        if (v <= 0) continue;
-        byYm.set(ym, Math.max(byYm.get(ym) || 0, v));
-      }
-      return byYm;
-    }
-
     /**
-     * Per-plot total for admin directory: each month uses the sheet-backed /state value when Apps Script is on and that
-     * month exists there (portal_payments + collection_data merged on server); otherwise merged browser storage. Avoids
-     * doubling server+local and matches sheet totals.
+     * Admin plot directory & access: same number as See Payment → "Total received" (sum of maintenance amount over
+     * allAdminSlotsUnion() months where amount > 0; uses paymentsLoadEntries like the modal).
      */
     function totalAmountPaidForPlotOnly_(plotNo){
       const p = norm(String(plotNo || ""));
       if (!p) return 0;
-      const merged = paymentsLoadEntries(p);
-      const mergedByYm = totalAmountPaidByYmMap_(merged);
-      if (!portalServerState.loaded || !isServerEnabled()){
-        let total = 0;
-        for (const v of mergedByYm.values()) total += v;
-        return total;
-      }
-      const srv = serverPaymentsLoad(p) || [];
-      const serverByYm = totalAmountPaidByYmMap_(srv);
-      const allYm = new Set([...serverByYm.keys(), ...mergedByYm.keys()]);
+      const slots = allAdminSlotsUnion();
+      const entries = paymentsLoadEntries(p);
       let total = 0;
-      for (const ym of allYm){
-        if (serverByYm.has(ym)) total += serverByYm.get(ym) || 0;
-        else total += mergedByYm.get(ym) || 0;
+      for (const slot of slots){
+        const sums = sumEntriesForYm(entries, slot.ym);
+        const amt = toMoneyNumber(sums.amount);
+        if (amt > 0) total += amt;
       }
       return total;
     }
@@ -4674,7 +4653,7 @@
       }
       const t = totalAmountPaidForOwnerMobileDigits_(mob);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="All plots for this contact: per month, sheet (/state) total when available, else browser; matches portal_payments / collection_data">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="Same as See Payment → Total received (admin FY scope), summed across this contact’s plots">${escapeHtml(disp)}</td>`;
     }
 
     function totalAmountPaidCellHtmlForPlot_(plotNo){
@@ -4684,7 +4663,7 @@
       }
       const t = totalAmountPaidForPlotOnly_(p);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="Per month: sheet (/state) amount when set, else merged local; same merge as portal_payments + collection_data on server">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="Same as See Payment → Total received for this plot (admin FY scope)">${escapeHtml(disp)}</td>`;
     }
 
     function paymentsSaveEntries(plotNo, entries){
@@ -5316,8 +5295,7 @@
         const chks = Array.from(document.querySelectorAll(".mcYmChk"));
         const available = new Set(chks.map(c => String(c.dataset.ym)));
         const use = saved.filter(x => available.has(String(x)));
-        const defYm = fyYmForCalendarDate(new Date());
-        chks.forEach(c => { c.checked = use.length ? use.includes(String(c.dataset.ym)) : (c.dataset.ym === defYm); });
+        chks.forEach(c => { c.checked = use.length ? use.includes(String(c.dataset.ym)) : true; });
         mcMonthFilterInitialized = true;
       }
       syncMcChkAllFromChildren();
