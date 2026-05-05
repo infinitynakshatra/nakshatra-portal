@@ -772,6 +772,19 @@
     #userRoot .topbar .pillrow > .btn.secondary{
       box-shadow:none;
     }
+    /* Account Details sits inside .accountDetailsWrap — match Download Report / other pillrow buttons */
+    #adminRoot .topbar .pillrow .accountDetailsWrap > .btn{
+      font-size:11px;
+      padding:6px 10px;
+      border-radius:9px;
+    }
+    #adminRoot .topbar .pillrow .accountDetailsWrap > .btn.secondary{
+      box-shadow:none;
+    }
+    #adminRoot .topbar .pillrow .accountDetailsWrap{
+      display:inline-flex;
+      align-items:center;
+    }
     #adminRoot .topbar .pillrow > a.btn.topbarIconLink,
     #userRoot .topbar .pillrow > a.btn.topbarIconLink{
       display:inline-flex;
@@ -1110,6 +1123,14 @@
         justify-content:center;
         min-height:44px;
       }
+      #adminRoot .pillrow .accountDetailsWrap{
+        width:100%;
+      }
+      #adminRoot .pillrow .accountDetailsWrap > .btn{
+        width:100%;
+        justify-content:center;
+        min-height:44px;
+      }
       .profileBtn{
         width:100%;
         justify-content:center;
@@ -1431,8 +1452,9 @@
                 <label class="mcDdLabel" for="expensePaidToInput">Paid to / vendor</label>
                 <input id="expensePaidToInput" type="text" placeholder="Name or reference" autocomplete="off" />
               </div>
-              <div class="field" style="margin:0; align-self:end;">
+              <div class="field" style="margin:0; align-self:end; display:flex; gap:8px; flex-wrap:wrap;">
                 <button class="btn" id="expenseSaveBtn" type="button">Save expense</button>
+                <button class="btn secondary" id="expenseShowUpdateBtn" type="button">Show/Update Expense</button>
               </div>
             </div>
             <div class="smallNote" style="margin-top:10px;">Saved to spreadsheet tab <strong>portal_expenses</strong> when Apps Script is configured.</div>
@@ -2220,6 +2242,65 @@
     </div>
   </div>
 
+  <div class="backdrop" id="expenseManageBackdrop" aria-hidden="true">
+    <div class="modal modalSeePay" role="dialog" aria-modal="true" aria-labelledby="expenseManageTitle" style="width:min(720px, 96vw); max-height:min(92vh, 900px);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="expenseManageTitle">Show / Update expenses</div>
+          <div class="modalSub">Rows from <strong>portal_expenses</strong>. Edit and save changes to the spreadsheet.</div>
+        </div>
+        <button class="btn secondary" id="expenseManageCloseBtn" type="button">Close</button>
+      </div>
+      <div class="scroll-x" style="overflow:auto; max-height:min(240px, 38vh); margin-top:8px;">
+        <table class="adminDirTable">
+          <thead>
+            <tr>
+              <th>Recorded</th>
+              <th>Month</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Description</th>
+              <th>Paid to</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="expenseManageTbody">
+            <tr><td colspan="7">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="smallNote" style="margin-top:12px;">Click <b>Edit</b> on a row, adjust the fields below, then <b>Save changes</b>.</p>
+      <input type="hidden" id="expenseManageEditId" value="" />
+      <div class="expenseFormGrid" style="margin-top:10px;">
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="expenseManageYm">Month (FY)</label>
+          <select id="expenseManageYm" aria-label="Expense month for edit"></select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="expenseManageCategory">Category</label>
+          <input id="expenseManageCategory" type="text" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="expenseManageAmount">Amount</label>
+          <input id="expenseManageAmount" type="number" min="0" step="1" />
+        </div>
+        <div class="field" style="margin:0; grid-column:1 / -1;">
+          <label class="mcDdLabel" for="expenseManageDesc">Description</label>
+          <input id="expenseManageDesc" type="text" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="expenseManagePaidTo">Paid to / vendor</label>
+          <input id="expenseManagePaidTo" type="text" autocomplete="off" />
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <button class="btn" id="expenseManageSaveBtn" type="button" disabled>Save changes</button>
+        <button class="btn secondary" id="expenseManageCancelEditBtn" type="button">Cancel edit</button>
+      </div>
+      <div class="err" id="expenseManageErr"></div>
+    </div>
+  </div>
+
   <div class="backdrop" id="projectDocBackdrop" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="projectDocModalTitle" style="width:min(560px, 96vw);">
       <div class="modalHead">
@@ -2842,6 +2923,28 @@
       try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
       if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
       return { ok:true, id: j.id };
+    }
+
+    async function portalServerUpdateExpense(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "updateExpense",
+        actor: "admin",
+        id: String(payload.id || ""),
+        ym: String(payload.ym || ""),
+        amount: Number(payload.amount) || 0,
+        category: String(payload.category || ""),
+        description: String(payload.description || ""),
+        paidTo: String(payload.paidTo || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true };
     }
 
     async function portalServerAddPayment(plotNo, ym, amount, lateFee){
@@ -5365,6 +5468,75 @@
       else if (slots.length) sel.value = slots[0].ym;
     }
 
+    function refreshExpenseManageYmDropdown(){
+      const sel = document.getElementById("expenseManageYm");
+      if (!sel) return;
+      const slots = allAdminSlotsUnion();
+      const cur = norm(sel.value);
+      sel.innerHTML = slots.map(s => `<option value="${escapeHtml(s.ym)}">${escapeHtml(s.label)}</option>`).join("");
+      if (cur && slots.some(s => s.ym === cur)) sel.value = cur;
+      else if (slots.length) sel.value = slots[0].ym;
+    }
+
+    function renderExpenseManageTable(){
+      const tb = document.getElementById("expenseManageTbody");
+      if (!tb) return;
+      const list = [...(portalServerState.expenses || [])].sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      if (!list.length){
+        tb.innerHTML = `<tr><td colspan="7">No expense rows yet.</td></tr>`;
+        return;
+      }
+      tb.innerHTML = list.map(ex => {
+        const id = escapeHtml(String(ex.id || ""));
+        const rawAt = String(ex.atIso || "");
+        const at = escapeHtml(rawAt.length >= 19 ? rawAt.slice(0, 19).replace("T", " ") : rawAt);
+        const ymCanon = normalizePortalYm(String(ex.ym || ""));
+        const ymLab = escapeHtml(fyLabelForYm(ymCanon) || ymCanon || "—");
+        return `<tr>
+          <td>${at}</td>
+          <td>${ymLab}</td>
+          <td>${escapeHtml(String(ex.category || ""))}</td>
+          <td>${escapeHtml(String(Math.round(toMoneyNumber(ex.amount))))}</td>
+          <td>${escapeHtml(String(ex.description || ""))}</td>
+          <td>${escapeHtml(String(ex.paidTo || ""))}</td>
+          <td><button type="button" class="btn secondary tiny expenseManageEditRowBtn" data-expense-id="${id}">Edit</button></td>
+        </tr>`;
+      }).join("");
+    }
+
+    function resetExpenseManageEdit(){
+      const idEl = document.getElementById("expenseManageEditId");
+      if (idEl) idEl.value = "";
+      const saveBtn = document.getElementById("expenseManageSaveBtn");
+      if (saveBtn) saveBtn.disabled = true;
+      const setv = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+      setv("expenseManageCategory", "");
+      setv("expenseManageAmount", "");
+      setv("expenseManageDesc", "");
+      setv("expenseManagePaidTo", "");
+      refreshExpenseManageYmDropdown();
+      const err = document.getElementById("expenseManageErr");
+      if (err) err.textContent = "";
+    }
+
+    async function openExpenseManageModal(){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+      if (!isServerEnabled()){
+        alert("Configure COLLECTION_API_URL and API key to load expenses from the spreadsheet.");
+        return;
+      }
+      const fr = await portalServerFetchState();
+      if (!fr.ok && !fr.skipped){
+        alert(fr.error || "Could not load expenses from server.");
+        return;
+      }
+      refreshExpenseManageYmDropdown();
+      resetExpenseManageEdit();
+      renderExpenseManageTable();
+      showBackdrop("expenseManageBackdrop", true);
+    }
+
     function refreshMcDdButtonLabel(){
       const btn = document.getElementById("mcMonthDdBtn");
       if (!btn) return;
@@ -7541,6 +7713,63 @@
           if (amtEl) amtEl.value = "";
           if (dEl) dEl.value = "";
         })();
+      });
+      const expenseShowUpdateBtn = document.getElementById("expenseShowUpdateBtn");
+      if (expenseShowUpdateBtn) expenseShowUpdateBtn.addEventListener("click", () => { void openExpenseManageModal(); });
+      const expenseManageCloseBtn = document.getElementById("expenseManageCloseBtn");
+      if (expenseManageCloseBtn) expenseManageCloseBtn.addEventListener("click", () => showBackdrop("expenseManageBackdrop", false));
+      const expenseManageCancelEditBtn = document.getElementById("expenseManageCancelEditBtn");
+      if (expenseManageCancelEditBtn) expenseManageCancelEditBtn.addEventListener("click", () => {
+        resetExpenseManageEdit();
+        renderExpenseManageTable();
+      });
+      const expenseManageSaveBtn = document.getElementById("expenseManageSaveBtn");
+      if (expenseManageSaveBtn) expenseManageSaveBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        const id = norm(document.getElementById("expenseManageEditId")?.value);
+        if (!id){ alert("Choose a row with Edit first."); return; }
+        const ym = normalizePortalYm(String(document.getElementById("expenseManageYm")?.value || ""));
+        const amount = toMoneyNumber(document.getElementById("expenseManageAmount")?.value);
+        const category = norm(document.getElementById("expenseManageCategory")?.value);
+        const description = norm(document.getElementById("expenseManageDesc")?.value);
+        const paidTo = norm(document.getElementById("expenseManagePaidTo")?.value);
+        const errEl = document.getElementById("expenseManageErr");
+        if (errEl) errEl.textContent = "";
+        if (!ym){ if (errEl) errEl.textContent = "Choose a month."; return; }
+        if (amount <= 0){ if (errEl) errEl.textContent = "Enter a positive amount."; return; }
+        void (async () => {
+          const sr = await portalServerUpdateExpense({ id, ym, amount, category, description, paidTo });
+          if (!sr.ok){
+            if (errEl) errEl.textContent = sr.error || "Could not update expense.";
+            return;
+          }
+          await portalServerFetchState();
+          updateMaintenanceCollectionCards();
+          resetExpenseManageEdit();
+          renderExpenseManageTable();
+        })();
+      });
+      const expenseManageTbody = document.getElementById("expenseManageTbody");
+      if (expenseManageTbody) expenseManageTbody.addEventListener("click", (e) => {
+        const btn = e.target.closest(".expenseManageEditRowBtn");
+        if (!btn) return;
+        const idRaw = btn.getAttribute("data-expense-id");
+        const ex = (portalServerState.expenses || []).find(x => String(x.id) === String(idRaw));
+        if (!ex) return;
+        const idEl = document.getElementById("expenseManageEditId");
+        if (idEl) idEl.value = String(ex.id || "");
+        const ymSel = document.getElementById("expenseManageYm");
+        if (ymSel) ymSel.value = normalizePortalYm(String(ex.ym || ""));
+        const setv = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+        setv("expenseManageCategory", String(ex.category || ""));
+        setv("expenseManageAmount", String(Math.round(toMoneyNumber(ex.amount)) || ""));
+        setv("expenseManageDesc", String(ex.description || ""));
+        setv("expenseManagePaidTo", String(ex.paidTo || ""));
+        const saveBtn = document.getElementById("expenseManageSaveBtn");
+        if (saveBtn) saveBtn.disabled = false;
+        const err = document.getElementById("expenseManageErr");
+        if (err) err.textContent = "";
       });
       const userBankViewBtn = document.getElementById("userBankViewBtn");
       if (userBankViewBtn) userBankViewBtn.addEventListener("click", openBankingViewModal);
