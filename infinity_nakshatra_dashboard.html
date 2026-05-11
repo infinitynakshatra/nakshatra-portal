@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="Cache-Control" content="no-store, max-age=0" />
   <title>Infinity Nakshatra Society • Society Portal</title>
   <style>
     :root{
@@ -2732,9 +2733,11 @@
     }
 
     // Google Apps Script Web app (see apps_script_collection_data.gs + APPS_SCRIPT_DEPLOY.txt).
-    // /exec URL is set in nakshatra_collection_exec_url.js as globalThis.__NAKSHATRA_COLLECTION_EXEC_URL__
+    // /exec URL: nakshatra_collection_exec_url.js sets globalThis.__NAKSHATRA_COLLECTION_EXEC_URL__
     // (local Python relay: set that global to http://127.0.0.1:8765 before loading this page).
+    // Fallback below keeps POST working if the small JS file is missing on the host (404) or cached stale.
     const COLLECTION_API_KEY = "xUNCXr9NM3AT_-62lagdREjlfca685cuzgTXCttCNFQ";
+    const COLLECTION_API_URL_FALLBACK = "https://script.google.com/macros/s/AKfycbzb0rCrAZsblO78Py05zq5gRuEUmX6pU1G6D_5kDQE37KkZ3b2q_BF1ccG1FoUtyytu/exec";
 
     function sanitizeAppsScriptUrl(raw){
       return String(raw || "")
@@ -2746,7 +2749,7 @@
     const COLLECTION_API_URL = sanitizeAppsScriptUrl(
       typeof globalThis !== "undefined" && globalThis.__NAKSHATRA_COLLECTION_EXEC_URL__
         ? String(globalThis.__NAKSHATRA_COLLECTION_EXEC_URL__)
-        : ""
+        : COLLECTION_API_URL_FALLBACK
     );
 
     /** Direct Apps Script, or local relay (http://127.0.0.1:port — see scripts/collection_proxy.py). */
@@ -2836,7 +2839,8 @@
         if (!res.ok){
           return {
             ok: false,
-            error: `HTTP ${res.status}: ${String(txt || "").slice(0, 160)}` + collectionRelayHint()
+            error: `HTTP ${res.status}: ${String(txt || "").slice(0, 160)}` + collectionRelayHint(),
+            txt: txt
           };
         }
         return { ok:true, res, txt };
@@ -2846,7 +2850,8 @@
           if (!r.ok){
             return {
               ok: false,
-              error: `HTTP ${r.status}: ${String(r.txt || "").slice(0, 160)}` + collectionRelayHint()
+              error: `HTTP ${r.status}: ${String(r.txt || "").slice(0, 160)}` + collectionRelayHint(),
+              txt: r.txt != null ? String(r.txt) : ""
             };
           }
           return { ok:true, res: { ok: r.ok, status: r.status }, txt: r.txt };
@@ -3149,11 +3154,18 @@
         purpose: String(payload.purpose || "").trim()
       });
       if (r.skipped) return { ok:false, skipped:true };
-      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
-      let j;
-      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
-      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
-      return { ok:true, detail: j };
+      const txt = r.txt != null ? String(r.txt) : "";
+      let j = null;
+      if (txt){
+        try { j = JSON.parse(txt); } catch { /* ignore */ }
+      }
+      if (r.ok){
+        if (!j) return { ok:false, error: "bad_json", raw: txt };
+        if (!j.ok) return { ok:false, error: String(j.error || "save_failed"), detail: j };
+        return { ok:true, detail: j };
+      }
+      if (j && j.error) return { ok:false, error: String(j.error), detail: j };
+      return { ok:false, error: r.error || "request_failed", detail: j };
     }
 
     async function portalServerAddExpense(payload){
@@ -8602,8 +8614,12 @@
           });
           gateSubmitBtn.disabled = false;
           if (!sr.ok){
-            const det = (sr.detail && sr.detail.error) ? String(sr.detail.error) : "";
-            if (errEl) errEl.textContent = det || sr.error || "Submit failed. Check plot exists and primary contact has 10 digits in the Sheet.";
+            const code = String(sr.error || (sr.detail && sr.detail.error) || "").trim();
+            const friendly =
+              code === "plot_not_found_or_no_primary_mobile"
+                ? "Plot not found on directory tabs, or no 10-digit number in Primary / Alternate contact columns in Google Sheet. Confirm tab gids match SHEET_EXPORT_GIDS."
+                : "";
+            if (errEl) errEl.textContent = friendly || code || "Submit failed. Check Apps Script deployment and Sheet directory.";
             return;
           }
           const j = sr.detail || {};
