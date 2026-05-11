@@ -1934,7 +1934,7 @@
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
             <button class="btn" id="gateWaShareBtn" type="button">Share to owner WhatsApp</button>
           </div>
-          <div class="smallNote" style="margin-top:10px;">Share opens WhatsApp directly to the owner number for this plot (from the directory or your last submit). Attach the visitor photo in the chat if it is not included automatically.</div>
+          <div class="smallNote" style="margin-top:10px;">With a visitor photo, your phone may open <b>Share</b> first — choose <b>WhatsApp</b> to send <b>text + image</b> (wa.me cannot attach photos). Without a photo, WhatsApp opens directly to the owner number for this plot.</div>
         </div>
 
         <h4 style="margin:22px 0 8px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;">Recent entries (this device)</h4>
@@ -8051,9 +8051,29 @@
         alert("Owner mobile is missing for this plot.");
         return;
       }
-      const url = `https://wa.me/${phonePath}?text=${encodeURIComponent(text)}`;
-      window.open(url, "_blank", "noopener,noreferrer");
-      if (file) alert("WhatsApp opened to the owner’s number with the message text. Add the visitor photo in the chat if it did not attach.");
+      const waUrl = `https://wa.me/${phonePath}?text=${encodeURIComponent(text)}`;
+      // wa.me cannot attach images; Web Share API is the reliable way to send text + photo to WhatsApp on supported devices.
+      if (file && navigator.share){
+        try {
+          if (navigator.canShare){
+            if (navigator.canShare({ files: [file], text })){
+              await navigator.share({ files: [file], text, title: "My Gate — Visitor" });
+              return;
+            }
+            if (navigator.canShare({ files: [file] })){
+              await navigator.share({ files: [file], text });
+              return;
+            }
+          }
+          await navigator.share({ files: [file], text, title: "My Gate — Visitor" });
+          return;
+        } catch (e){
+          if (String(e && e.name) === "AbortError") return;
+          console.warn(e);
+        }
+      }
+      window.open(waUrl, "_blank", "noopener,noreferrer");
+      if (file) alert("Photo could not be sent via the device Share sheet. The chat opened with text only — add the visitor photo manually, or try Share again on your phone.");
     }
 
     function renderUserInbox(){
