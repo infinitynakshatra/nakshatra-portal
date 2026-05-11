@@ -1530,7 +1530,7 @@
       <div class="mcRowInner">
         <div class="mcBrand">
           <h3>My Gate — visitor log</h3>
-          <div class="smallNote">All watchman entries (tab <strong>portal_my_gate_visitors</strong>). Owners see their own rows and receive a portal notification to the plot’s primary mobile.</div>
+          <div class="smallNote">All watchman entries (tab <strong>portal_my_gate_visitors</strong>). Photos are not stored in the sheet; watchman sends image + details to the owner via WhatsApp after each entry.</div>
         </div>
       </div>
       <div class="scroll-x" style="overflow:auto; max-height:min(320px, 48vh); margin-top:10px;">
@@ -1719,7 +1719,7 @@
         <div class="mcRowInner">
           <div class="mcBrand">
             <h3>My Gate — visitors</h3>
-            <div class="smallNote">Entries logged by society watchman for your plot(s). Same entries appear under <b>Notifications</b> with a link to the visitor photo when available.</div>
+            <div class="smallNote">Entries logged by society watchman for your plot(s). You also get a <b>Notifications</b> alert; the visitor photo is sent separately on WhatsApp by the watchman when they use Share.</div>
           </div>
         </div>
         <div class="scroll-x" style="overflow:auto; max-height:min(260px, 42vh); margin-top:10px;">
@@ -1893,7 +1893,7 @@
         <div class="row">
           <div>
             <strong>Visitor entry</strong>
-            <div class="smallNote">Log who is visiting which plot, add one photo, and submit. The owner’s <b>primary contact</b> (from the Google Sheet) gets a <b>portal notification</b> with details and photo link. Default login: ID <span class="mono">watchman</span> / password <span class="mono">Gate@123</span> (change after first sign-in).</div>
+            <div class="smallNote">Submit details first (saved to <strong>portal_my_gate_visitors</strong> and visible to Admin / Owner on refresh). Then take one visitor photo and use <b>Share to owner WhatsApp</b> to send the formatted text and image to the plot owner’s primary mobile (India: <span class="mono">91</span> + 10 digits). Default login: ID <span class="mono">watchman</span> / password <span class="mono">Gate@123</span>.</div>
           </div>
         </div>
         <div class="field" style="margin-top:12px; max-width:220px;">
@@ -1916,18 +1916,59 @@
           <label for="gatePurpose">Visiting / purpose</label>
           <input id="gatePurpose" type="text" autocomplete="off" placeholder="Whom they are meeting, flat, reason…" />
         </div>
-        <div class="field" style="max-width:520px;">
-          <label for="gatePhoto">Visitor photo</label>
-          <input id="gatePhoto" type="file" accept="image/*" capture="environment" />
-          <div class="smallNote" style="margin-top:6px;">One photo (camera or gallery). Compressed before upload.</div>
-          <div style="margin-top:8px;"><img id="gatePhotoPreview" alt="Preview" style="display:none; max-width:min(360px, 100%); max-height:220px; border-radius:10px; border:1px solid var(--border);" /></div>
-        </div>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
           <button class="btn" id="gateSubmitBtn" type="button">Submit visitor</button>
           <button class="btn secondary" id="gateClearBtn" type="button">Clear form</button>
         </div>
         <div class="err" id="gateFormErr" style="margin-top:10px;"></div>
-        <div class="smallNote" style="margin-top:12px;">Requires Apps Script + Google Sheet. Photo is stored in <b>Google Drive</b> (script needs Drive permission); if upload fails, the entry is still saved without a photo link.</div>
+
+        <div id="gateWaShareBlock" style="display:none; margin-top:18px; padding-top:16px; border-top:1px solid var(--border);">
+          <h4 style="margin:0 0 8px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;">Share on WhatsApp</h4>
+          <p class="smallNote" id="gateWaOwnerLine" style="margin-top:0;">Owner (primary contact) will receive the message.</p>
+          <div class="field" style="max-width:520px;">
+            <label for="gateSharePhoto">Visitor photo</label>
+            <input id="gateSharePhoto" type="file" accept="image/*" capture="environment" />
+            <div style="margin-top:8px;"><img id="gateSharePhotoPreview" alt="Preview" style="display:none; max-width:min(360px, 100%); max-height:220px; border-radius:10px; border:1px solid var(--border);" /></div>
+          </div>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+            <button class="btn" id="gateWaShareBtn" type="button">Share to owner WhatsApp</button>
+          </div>
+          <div class="smallNote" style="margin-top:10px;">On phones, Share may open the system sheet so you can pick WhatsApp with <b>text + photo</b>. On desktop, WhatsApp Web may open with text only — then attach the photo manually.</div>
+        </div>
+
+        <h4 style="margin:22px 0 8px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;">Recent entries (this device)</h4>
+        <div class="scroll-x" style="overflow:auto; max-height:min(220px, 40vh);">
+          <table class="adminDirTable">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Plot</th>
+                <th>Visitor</th>
+                <th>Mobile</th>
+                <th>Vehicle</th>
+                <th>Purpose</th>
+              </tr>
+            </thead>
+            <tbody id="watchmanGateRecentTbody">
+              <tr><td colspan="6">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="gateSuccessBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gateSuccessTitle" style="width:min(480px, 96vw);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="gateSuccessTitle">Entry added successfully</div>
+          <div class="modalSub">Saved to the spreadsheet. Admin and owner lists update after data refresh.</div>
+        </div>
+      </div>
+      <p class="smallNote" style="margin:0;">Next: take a visitor photo below, then tap <b>Share to owner WhatsApp</b> to send the formatted details and photo.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
+        <button class="btn" id="gateSuccessOkBtn" type="button">OK</button>
       </div>
     </div>
   </div>
@@ -3044,6 +3085,7 @@
         if (sess && sess.role === "admin") applyFilters();
         try { renderAdminGateVisitsPanel(); } catch {}
         try { renderUserGateVisitsPanel(); } catch {}
+        try { renderWatchmanGateRecent(); } catch {}
         // If these modals are open, refresh them too.
         if (document.getElementById("pendingBackdrop")?.classList.contains("show")) openPendingModal();
         if (document.getElementById("doneBackdrop")?.classList.contains("show")) openDoneOwnersModal();
@@ -3104,9 +3146,7 @@
         visitorName: String(payload.visitorName || "").trim(),
         visitorMobile: String(payload.visitorMobile || "").trim(),
         vehicle: String(payload.vehicle || "").trim(),
-        purpose: String(payload.purpose || "").trim(),
-        photoMime: String(payload.photoMime || "image/jpeg"),
-        photoBase64: String(payload.photoBase64 || "")
+        purpose: String(payload.purpose || "").trim()
       });
       if (r.skipped) return { ok:false, skipped:true };
       if (!r.ok) return { ok:false, error: r.error || "request_failed" };
@@ -4643,7 +4683,9 @@
         const wm2 = document.getElementById("watchmanRoot");
         if (wm2) wm2.style.display = "block";
         setAdminChrome(false);
-        void portalServerFetchState().catch(() => {});
+        void portalServerFetchState().then(() => {
+          try { renderWatchmanGateRecent(); } catch {}
+        }).catch(() => {});
         return;
       }
 
@@ -7805,6 +7847,93 @@
       }).join("");
     }
 
+    function buildGateWhatsAppShareBody_(ctx){
+      const when = ctx.atIso ? String(ctx.atIso).replace("T", " ").slice(0, 19) : "—";
+      return (
+        `*Infinity Nakshatra — My Gate*\n\n` +
+        `*Plot:* ${ctx.plotNo}\n` +
+        `*Recorded:* ${when}\n` +
+        `*Visitor:* ${ctx.visitorName}\n` +
+        `*Visitor mobile:* ${ctx.visitorMobile || "—"}\n` +
+        `*Vehicle:* ${ctx.vehicle || "—"}\n` +
+        `*Purpose:* ${ctx.purpose || "—"}\n`
+      );
+    }
+
+    function waMePathFromOwnerDigits_(d){
+      const x = digitsOnly(String(d || ""));
+      if (x.length === 10) return "91" + x;
+      return x;
+    }
+
+    function renderWatchmanGateRecent(){
+      const tb = document.getElementById("watchmanGateRecentTbody");
+      if (!tb) return;
+      const sess = readSession();
+      if (!sess || sess.role !== "watchman"){
+        tb.innerHTML = `<tr><td colspan="6">—</td></tr>`;
+        return;
+      }
+      if (!isServerEnabled() || !portalServerState.loaded || !Array.isArray(portalServerState.gateVisits)){
+        tb.innerHTML = `<tr><td colspan="6">Entries appear after Apps Script /state loads.</td></tr>`;
+        return;
+      }
+      const list = [...(portalServerState.gateVisits || [])].sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      if (!list.length){
+        tb.innerHTML = `<tr><td colspan="6">No entries yet.</td></tr>`;
+        return;
+      }
+      tb.innerHTML = list.slice(0, 40).map(g => {
+        const when = g.atIso ? escapeHtml(String(g.atIso).replace("T", " ").slice(0, 19)) : "—";
+        return `<tr>
+          <td class="mono">${when}</td>
+          <td>${escapeHtml(String(g.plotNo || ""))}</td>
+          <td>${escapeHtml(String(g.visitorName || ""))}</td>
+          <td class="mono">${escapeHtml(String(g.visitorMobile || ""))}</td>
+          <td>${escapeHtml(String(g.vehicle || ""))}</td>
+          <td>${escapeHtml(String(g.purpose || ""))}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    async function gateShareToOwnerWhatsApp_(){
+      const ctx = globalThis.__insLastGateShareCtx;
+      if (!ctx || !ctx.ownerMobileDigits){
+        alert("Submit a visitor entry first.");
+        return;
+      }
+      const text = buildGateWhatsAppShareBody_(ctx);
+      const inp = document.getElementById("gateSharePhoto");
+      const file = inp && inp.files && inp.files[0];
+      const phonePath = waMePathFromOwnerDigits_(ctx.ownerMobileDigits);
+      if (!phonePath){
+        alert("Owner mobile is missing for this plot.");
+        return;
+      }
+      if (file && navigator.share){
+        try {
+          if (navigator.canShare){
+            if (navigator.canShare({ files: [file], text })){
+              await navigator.share({ files: [file], text, title: "My Gate — Visitor" });
+              return;
+            }
+            if (navigator.canShare({ files: [file] })){
+              await navigator.share({ files: [file], text });
+              return;
+            }
+          }
+          await navigator.share({ text, title: "My Gate — Visitor" });
+          return;
+        } catch (e){
+          if (String(e && e.name) === "AbortError") return;
+          console.warn(e);
+        }
+      }
+      const url = `https://wa.me/${phonePath}?text=${encodeURIComponent(text)}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+      if (file) alert("WhatsApp opened with the message text. If the photo did not attach, add it manually in the chat.");
+    }
+
     function renderUserInbox(){
       const tbody = document.getElementById("userInboxTbody");
       const badge = document.getElementById("userInboxBadge");
@@ -8394,25 +8523,31 @@
       const watchmanChangePwBtn = document.getElementById("watchmanChangePwBtn");
       if (watchmanChangePwBtn) watchmanChangePwBtn.addEventListener("click", () => openPwModal("watchman", WATCHMAN_USER));
 
-      function resetGateForm(){
+      function clearGateEntryFieldsOnly(){
         const err = document.getElementById("gateFormErr");
         if (err) err.textContent = "";
         ["gatePlotNo","gateVisitorName","gateVisitorMobile","gateVehicle","gatePurpose"].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.value = "";
         });
-        const ph = document.getElementById("gatePhoto");
-        if (ph) ph.value = "";
-        const prev = document.getElementById("gatePhotoPreview");
-        if (prev){
-          prev.style.display = "none";
-          prev.removeAttribute("src");
-        }
       }
-      const gatePhoto = document.getElementById("gatePhoto");
-      if (gatePhoto) gatePhoto.addEventListener("change", () => {
-        const f = gatePhoto.files && gatePhoto.files[0];
-        const prev = document.getElementById("gatePhotoPreview");
+      function resetGateForm(){
+        clearGateEntryFieldsOnly();
+        const shp = document.getElementById("gateSharePhoto");
+        if (shp) shp.value = "";
+        const sprev = document.getElementById("gateSharePhotoPreview");
+        if (sprev){
+          sprev.style.display = "none";
+          sprev.removeAttribute("src");
+        }
+        const blk = document.getElementById("gateWaShareBlock");
+        if (blk) blk.style.display = "none";
+        globalThis.__insLastGateShareCtx = null;
+      }
+      const gateSharePhoto = document.getElementById("gateSharePhoto");
+      if (gateSharePhoto) gateSharePhoto.addEventListener("change", () => {
+        const f = gateSharePhoto.files && gateSharePhoto.files[0];
+        const prev = document.getElementById("gateSharePhotoPreview");
         if (!prev) return;
         if (!f){
           prev.style.display = "none";
@@ -8426,6 +8561,17 @@
         };
         r.readAsDataURL(f);
       });
+      const gateSuccessOkBtn = document.getElementById("gateSuccessOkBtn");
+      if (gateSuccessOkBtn) gateSuccessOkBtn.addEventListener("click", () => {
+        showBackdrop("gateSuccessBackdrop", false);
+        const blk = document.getElementById("gateWaShareBlock");
+        if (blk){
+          blk.style.display = "block";
+          blk.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+      });
+      const gateWaShareBtn = document.getElementById("gateWaShareBtn");
+      if (gateWaShareBtn) gateWaShareBtn.addEventListener("click", () => { void gateShareToOwnerWhatsApp_(); });
       const gateClearBtn = document.getElementById("gateClearBtn");
       if (gateClearBtn) gateClearBtn.addEventListener("click", () => resetGateForm());
       const gateSubmitBtn = document.getElementById("gateSubmitBtn");
@@ -8445,44 +8591,49 @@
         const purpose = norm(document.getElementById("gatePurpose")?.value);
         if (!plotNo){ if (errEl) errEl.textContent = "Enter plot number."; return; }
         if (!visitorName){ if (errEl) errEl.textContent = "Enter visitor name."; return; }
-        const file = gatePhoto?.files && gatePhoto.files[0];
         void (async () => {
-          let photoBase64 = "";
-          let photoMime = "image/jpeg";
-          if (file){
-            try {
-              const dataUrl = await compressImageFileToJpegDataUrl_(file, 960);
-              if (dataUrl && dataUrl.indexOf("base64,") >= 0){
-                photoMime = "image/jpeg";
-                photoBase64 = dataUrl.split("base64,")[1] || "";
-              }
-            } catch (e){
-              if (errEl) errEl.textContent = "Could not read photo. Try another image.";
-              return;
-            }
-          }
-          if (photoBase64 && photoBase64.length > 2_400_000){
-            if (errEl) errEl.textContent = "Photo is still too large after compression. Retake or pick a smaller image.";
-            return;
-          }
           gateSubmitBtn.disabled = true;
           const sr = await portalServerAddGateVisit({
             plotNo,
             visitorName,
             visitorMobile,
             vehicle,
-            purpose,
-            photoMime,
-            photoBase64
+            purpose
           });
           gateSubmitBtn.disabled = false;
           if (!sr.ok){
-            if (errEl) errEl.textContent = sr.error || "Submit failed.";
+            const det = (sr.detail && sr.detail.error) ? String(sr.detail.error) : "";
+            if (errEl) errEl.textContent = det || sr.error || "Submit failed. Check plot exists and primary contact has 10 digits in the Sheet.";
             return;
           }
+          const j = sr.detail || {};
+          globalThis.__insLastGateShareCtx = {
+            plotNo,
+            visitorName,
+            visitorMobile,
+            vehicle,
+            purpose,
+            ownerMobileDigits: digitsOnly(String(j.ownerMobile || "")),
+            atIso: String(j.atIso || ""),
+            entryId: String(j.id || "")
+          };
+          const ownLine = document.getElementById("gateWaOwnerLine");
+          if (ownLine){
+            const ph = waMePathFromOwnerDigits_(globalThis.__insLastGateShareCtx.ownerMobileDigits);
+            ownLine.textContent = ph
+              ? `Owner WhatsApp (from plot primary contact): +${ph}`
+              : "Owner primary contact on file — Share will open WhatsApp when a number is available.";
+          }
+          const shp = document.getElementById("gateSharePhoto");
+          if (shp) shp.value = "";
+          const sprev = document.getElementById("gateSharePhotoPreview");
+          if (sprev){ sprev.style.display = "none"; sprev.removeAttribute("src"); }
+          const blk = document.getElementById("gateWaShareBlock");
+          if (blk) blk.style.display = "none";
           await portalServerFetchState();
-          alert("Visitor logged. Owner notified on the portal (primary contact).");
-          resetGateForm();
+          try { renderWatchmanGateRecent(); } catch {}
+          clearGateEntryFieldsOnly();
+          showBackdrop("gateSuccessBackdrop", true);
         })();
       });
       document.getElementById("userChangePwBtn").addEventListener("click", () => {
