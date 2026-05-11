@@ -1531,7 +1531,7 @@
       <div class="mcRowInner">
         <div class="mcBrand">
           <h3>My Gate — visitor log</h3>
-          <div class="smallNote">All Security entries (tab <strong>portal_my_gate_visitors</strong>). Photos are not stored in the sheet; Security sends image + details to the owner via WhatsApp after each entry.</div>
+          <div class="smallNote">All Security entries (tab <strong>portal_my_gate_visitors</strong>). Security can WhatsApp the owner with visitor details and Approve / Reject links.</div>
         </div>
       </div>
       <div class="scroll-x" style="overflow:auto; max-height:min(320px, 48vh); margin-top:10px;">
@@ -1720,7 +1720,7 @@
         <div class="mcRowInner">
           <div class="mcBrand">
             <h3>My Gate — visitors</h3>
-            <div class="smallNote">Entries logged by society Security for your plot(s). You also get a <b>Notifications</b> alert; the visitor photo is sent separately on WhatsApp by Security when they use Share.</div>
+            <div class="smallNote">Entries logged by society Security for your plot(s). You also get a <b>Notifications</b> alert; Security may WhatsApp you with visitor details and tap links to Approve or Reject.</div>
           </div>
         </div>
         <div class="scroll-x" style="overflow:auto; max-height:min(260px, 42vh); margin-top:10px;">
@@ -1894,7 +1894,7 @@
         <div class="row">
           <div>
             <strong>Visitor entry</strong>
-            <div class="smallNote">Submit details first (saved to <strong>portal_my_gate_visitors</strong> and visible to Admin / Owner on refresh). Then take one visitor photo and use <b>Share to owner WhatsApp</b> to open WhatsApp to the plot owner’s number (India: <span class="mono">91</span> + 10 digits). Default login: ID <span class="mono">security</span> / password <span class="mono">Gate@123</span>.</div>
+            <div class="smallNote">Submit details first (saved to <strong>portal_my_gate_visitors</strong> and visible to Admin / Owner on refresh). Then use <b>Share to owner WhatsApp</b> to open WhatsApp to the plot owner’s number (India: <span class="mono">91</span> + 10 digits) with the message and <b>Approve / Reject</b> tap links. Default login: ID <span class="mono">security</span> / password <span class="mono">Gate@123</span>.</div>
           </div>
         </div>
         <div class="field" style="margin-top:12px; max-width:220px;">
@@ -1926,15 +1926,10 @@
         <div id="gateWaShareBlock" style="display:none; margin-top:18px; padding-top:16px; border-top:1px solid var(--border);">
           <h4 style="margin:0 0 8px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;">Share on WhatsApp</h4>
           <p class="smallNote" id="gateWaOwnerLine" style="margin-top:0;">Owner (primary contact) will receive the message.</p>
-          <div class="field" style="max-width:520px;">
-            <label for="gateSharePhoto">Visitor photo</label>
-            <input id="gateSharePhoto" type="file" accept="image/*" capture="environment" />
-            <div style="margin-top:8px;"><img id="gateSharePhotoPreview" alt="Preview" style="display:none; max-width:min(360px, 100%); max-height:220px; border-radius:10px; border:1px solid var(--border);" /></div>
-          </div>
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
             <button class="btn" id="gateWaShareBtn" type="button">Share to owner WhatsApp</button>
           </div>
-          <div class="smallNote" style="margin-top:10px;">After a photo, wait a second for it to finish preparing. One tap opens <b>WhatsApp to the owner’s number</b> with the text, then the <b>Share</b> sheet — choose <b>WhatsApp</b> again to attach the <b>photo</b> to the same chat. Without a photo, only the owner chat opens with the message.</div>
+          <div class="smallNote" style="margin-top:10px;">One tap opens WhatsApp to the owner’s number with the visitor text plus <b>Approve</b> and <b>Reject</b> links. The owner taps a link in WhatsApp to open this portal and confirm (acknowledgment on their device).</div>
         </div>
 
         <h4 style="margin:22px 0 8px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;">Recent entries (this device)</h4>
@@ -1968,7 +1963,7 @@
           <div class="modalSub">Saved to the spreadsheet. Admin and owner lists update after data refresh.</div>
         </div>
       </div>
-      <p class="smallNote" style="margin:0;">Next: take a visitor photo below, then tap <b>Share to owner WhatsApp</b> to send the formatted details and photo.</p>
+      <p class="smallNote" style="margin:0;">Next: tap <b>Share to owner WhatsApp</b> to send the formatted details with Approve / Reject links for the owner.</p>
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
         <button class="btn" id="gateSuccessOkBtn" type="button">OK</button>
       </div>
@@ -8021,97 +8016,68 @@
       }).join("");
     }
 
-    function clearGateSharePhotoPrepared_(){
-      globalThis.__insGateSharePhotoPrepared = null;
-      globalThis.__insGateSharePhotoPrepareGen = (globalThis.__insGateSharePhotoPrepareGen || 0) + 1;
-    }
-
-    /** Re-encode capture to JPEG so Web Share / WhatsApp get a normal image file (camera blobs are often unreliable). */
-    function gateSchedulePreparedShareJpegFromRaw_(rawFile){
-      if (!rawFile){
-        clearGateSharePhotoPrepared_();
-        return;
-      }
-      globalThis.__insGateSharePhotoPrepared = null;
-      globalThis.__insGateSharePhotoPrepareGen = (globalThis.__insGateSharePhotoPrepareGen || 0) + 1;
-      const gen = globalThis.__insGateSharePhotoPrepareGen;
-      const url = URL.createObjectURL(rawFile);
-      const img = new Image();
-      img.onload = () => {
-        try {
-          let w = img.naturalWidth || img.width;
-          let h = img.naturalHeight || img.height;
-          if (!w || !h){
-            URL.revokeObjectURL(url);
-            return;
-          }
-          const max = 2048;
-          if (w > max || h > max){
-            const s = Math.min(max / w, max / h);
-            w = Math.max(1, Math.round(w * s));
-            h = Math.max(1, Math.round(h * s));
-          }
-          const canvas = document.createElement("canvas");
-          canvas.width = w;
-          canvas.height = h;
-          const cx = canvas.getContext("2d");
-          if (!cx){
-            URL.revokeObjectURL(url);
-            return;
-          }
-          cx.drawImage(img, 0, 0, w, h);
-          canvas.toBlob((blob) => {
-            try { URL.revokeObjectURL(url); } catch {}
-            if (gen !== globalThis.__insGateSharePhotoPrepareGen) return;
-            if (!blob || blob.size < 32) return;
-            try {
-              globalThis.__insGateSharePhotoPrepared = new File([blob], "visitor-photo.jpg", { type: "image/jpeg" });
-            } catch {
-              globalThis.__insGateSharePhotoPrepared = null;
-            }
-          }, "image/jpeg", 0.88);
-        } catch {
-          try { URL.revokeObjectURL(url); } catch {}
-        }
-      };
-      img.onerror = () => {
-        try { URL.revokeObjectURL(url); } catch {}
-      };
-      img.src = url;
-    }
-
-    /** Camera/file inputs often omit MIME type; WhatsApp + canShare need a concrete image/* type. */
-    function gateSharePhotoFileForWebShare_(file){
-      if (!file) return null;
-      let t = String(file.type || "").trim();
-      if (!t || t === "application/octet-stream"){
-        const n = String(file.name || "").toLowerCase();
-        if (n.endsWith(".png")) t = "image/png";
-        else if (n.endsWith(".webp")) t = "image/webp";
-        else if (n.endsWith(".gif")) t = "image/gif";
-        else t = "image/jpeg";
-      }
-      const ext =
-        t === "image/png" ? "png" :
-        t === "image/webp" ? "webp" :
-        t === "image/gif" ? "gif" : "jpg";
-      const base = String(file.name || "").replace(/[^\w.\-]+/g, "_").replace(/^\.+/, "").slice(0, 96) || `visitor-photo.${ext}`;
+    function gateEntryHashToken_(entryId, response){
+      const raw = JSON.stringify({
+        id: String(entryId || "").trim(),
+        r: response === "reject" ? "reject" : "approve"
+      });
       try {
-        return new File([file], base, { type: t });
+        return btoa(raw).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
       } catch {
-        return file;
+        return "";
       }
+    }
+
+    function buildGateVisitorResponseAppend_(entryId){
+      const id = String(entryId || "").trim();
+      if (!id) return "";
+      const base = location.href.split("#")[0];
+      const aTok = gateEntryHashToken_(id, "approve");
+      const rTok = gateEntryHashToken_(id, "reject");
+      if (!aTok || !rTok) return "";
+      return (
+        `\n\nReply to this gate visit — tap one link:\n` +
+        `Approve: ${base}#insGate=${aTok}\n` +
+        `Reject: ${base}#insGate=${rTok}\n`
+      );
+    }
+
+    function decodeInsGateHashToken_(tok){
+      let s = String(tok || "").trim();
+      if (!s) return null;
+      s = s.replace(/-/g, "+").replace(/_/g, "/");
+      while (s.length % 4) s += "=";
+      try {
+        return JSON.parse(atob(s));
+      } catch {
+        return null;
+      }
+    }
+
+    function handleInsGateHashOnLoad_(){
+      try {
+        const h = String(location.hash || "");
+        if (!h.startsWith("#insGate=")) return;
+        const o = decodeInsGateHashToken_(h.slice("#insGate=".length));
+        if (!o || typeof o !== "object") return;
+        const id = String(o.id || "").trim();
+        if (!id) return;
+        const r = String(o.r || "");
+        const label = r === "reject" ? "Reject" : "Approve";
+        history.replaceState(null, "", location.pathname + (location.search || ""));
+        alert(`You chose ${label} for visitor entry ${id}. This confirms on your device; tell Security or the office if they should record it officially.`);
+      } catch {}
     }
 
     /**
-     * Open WhatsApp with the owner number + message prefilled (same user gesture as Web Share).
+     * Open WhatsApp with the owner number + message prefilled (same user gesture as the Share button).
      * Android: whatsapp:// targets the app directly; iOS / desktop: api.whatsapp.com (opens app or web to that chat).
      */
     function triggerWhatsAppSendToOwner_(phonePath, messageText){
       const p = String(phonePath || "").replace(/\D/g, "");
       if (!p) return;
       let msg = String(messageText || "");
-      if (msg.length > 3500) msg = msg.slice(0, 3500) + "\n…";
+      if (msg.length > 5500) msg = msg.slice(0, 5500) + "\n…";
       const enc = encodeURIComponent(msg);
       const appUrl = `whatsapp://send?phone=${p}&text=${enc}`;
       const webUrl = `https://api.whatsapp.com/send?phone=${p}&text=${enc}`;
@@ -8128,10 +8094,6 @@
       } catch {}
     }
 
-    /**
-     * Must call navigator.share from the same synchronous user gesture as the button click
-     * (do not wrap in async/await before share) or many browsers omit files / fall back to text-only.
-     */
     function gateShareToOwnerWhatsApp_(){
       const plotNo = norm(document.getElementById("gatePlotNo")?.value);
       const ctx = globalThis.__insLastGateShareCtx;
@@ -8146,6 +8108,11 @@
         alert("Enter the plot number and load the owner directory (CSV), or submit the visitor entry first so the owner WhatsApp number can be resolved.");
         return;
       }
+      const entryId = String((ctx && ctx.entryId) || "").trim();
+      if (!entryId){
+        alert("Submit this visitor entry first so Approve / Reject links can be added to the message.");
+        return;
+      }
       const shareCtx = {
         plotNo: plotNo || (ctx && ctx.plotNo) || "",
         visitorName,
@@ -8154,7 +8121,7 @@
         purpose,
         atIso
       };
-      const body = buildGateWhatsAppShareBody_(shareCtx);
+      const body = buildGateWhatsAppShareBody_(shareCtx) + buildGateVisitorResponseAppend_(entryId);
       const phonePath = waMePathFromOwnerDigits_(ownerDig);
       if (!phonePath){
         alert("Owner mobile is missing for this plot.");
@@ -8162,37 +8129,14 @@
       }
       const destLine = `\n\n_Send to WhatsApp +${phonePath}_`;
       const text = body + destLine;
-      const inp = document.getElementById("gateSharePhoto");
-      const rawFile = inp && inp.files && inp.files[0];
-      let shareFile = null;
-      if (rawFile){
-        const prep = globalThis.__insGateSharePhotoPrepared;
-        if (prep && prep instanceof File && prep.size > 32 && prep.type === "image/jpeg") shareFile = prep;
-        else shareFile = gateSharePhotoFileForWebShare_(rawFile);
-      }
-      if (shareFile && navigator.share){
-        const textForShare = text.length > 3500 ? text.slice(0, 3500) + "\n…" : text;
-        const shareData = { files: [shareFile], text: textForShare };
-        const onShareFail = (e) => {
-          if (String(e && e.name) === "AbortError") return;
-          console.warn(e);
-          triggerWhatsAppSendToOwner_(phonePath, textForShare);
-          alert("Photo could not be sent via Share. WhatsApp opened to the owner number with text — add the visitor photo manually.");
-        };
-        let sharePromise;
-        try {
-          triggerWhatsAppSendToOwner_(phonePath, textForShare);
-          sharePromise = navigator.share(shareData);
-        } catch (e){
-          onShareFail(e);
-          return;
-        }
-        sharePromise.catch(onShareFail);
-        return;
-      }
       triggerWhatsAppSendToOwner_(phonePath, text);
-      if (shareFile) alert("This browser cannot Share files to WhatsApp from here. WhatsApp opened to the owner number with text — add the visitor photo manually.");
     }
+
+    if (!globalThis.__insGateHashListenerWired){
+      globalThis.__insGateHashListenerWired = true;
+      window.addEventListener("hashchange", handleInsGateHashOnLoad_);
+    }
+    handleInsGateHashOnLoad_();
 
     function renderUserInbox(){
       const tbody = document.getElementById("userInboxTbody");
@@ -8796,37 +8740,10 @@
       }
       function resetGateForm(){
         clearGateEntryFieldsOnly();
-        const shp = document.getElementById("gateSharePhoto");
-        if (shp) shp.value = "";
-        clearGateSharePhotoPrepared_();
-        const sprev = document.getElementById("gateSharePhotoPreview");
-        if (sprev){
-          sprev.style.display = "none";
-          sprev.removeAttribute("src");
-        }
         const blk = document.getElementById("gateWaShareBlock");
         if (blk) blk.style.display = "none";
         globalThis.__insLastGateShareCtx = null;
       }
-      const gateSharePhoto = document.getElementById("gateSharePhoto");
-      if (gateSharePhoto) gateSharePhoto.addEventListener("change", () => {
-        const f = gateSharePhoto.files && gateSharePhoto.files[0];
-        const prev = document.getElementById("gateSharePhotoPreview");
-        if (!prev) return;
-        if (!f){
-          prev.style.display = "none";
-          prev.removeAttribute("src");
-          clearGateSharePhotoPrepared_();
-          return;
-        }
-        gateSchedulePreparedShareJpegFromRaw_(f);
-        const r = new FileReader();
-        r.onload = () => {
-          prev.src = String(r.result || "");
-          prev.style.display = "block";
-        };
-        r.readAsDataURL(f);
-      });
       const gateSuccessOkBtn = document.getElementById("gateSuccessOkBtn");
       if (gateSuccessOkBtn) gateSuccessOkBtn.addEventListener("click", () => {
         showBackdrop("gateSuccessBackdrop", false);
@@ -8913,11 +8830,6 @@
               ? `Owner WhatsApp (from plot / directory): +${ph}`
               : "Owner contact on file — Share opens WhatsApp when a number is available.";
           }
-          const shp = document.getElementById("gateSharePhoto");
-          if (shp) shp.value = "";
-          clearGateSharePhotoPrepared_();
-          const sprev = document.getElementById("gateSharePhotoPreview");
-          if (sprev){ sprev.style.display = "none"; sprev.removeAttribute("src"); }
           const blk = document.getElementById("gateWaShareBlock");
           if (blk) blk.style.display = "none";
           await portalServerFetchState();
