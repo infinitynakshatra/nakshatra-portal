@@ -1278,11 +1278,12 @@
       <div class="seg" id="roleSeg">
         <label><input type="radio" name="role" value="admin" checked /> Admin</label>
         <label><input type="radio" name="role" value="user" /> Owner</label>
+        <label><input type="radio" name="role" value="watchman" /> Watchman</label>
       </div>
 
       <div class="field">
         <label for="loginId">Enter ID</label>
-        <input id="loginId" name="ins_login_id" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="Enter ID" />
+        <input id="loginId" name="ins_login_id" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="admin, owner mobile, or watchman" />
       </div>
       <div class="field">
         <label for="loginPw">Enter Password</label>
@@ -1525,6 +1526,34 @@
       </div>
     </div>
 
+    <div class="mcRow adminOnly" id="adminGateRow" style="margin-top:12px;">
+      <div class="mcRowInner">
+        <div class="mcBrand">
+          <h3>My Gate — visitor log</h3>
+          <div class="smallNote">All watchman entries (tab <strong>portal_my_gate_visitors</strong>). Owners see their own rows and receive a portal notification to the plot’s primary mobile.</div>
+        </div>
+      </div>
+      <div class="scroll-x" style="overflow:auto; max-height:min(320px, 48vh); margin-top:10px;">
+        <table class="adminDirTable">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Plot</th>
+              <th>Owner mobile</th>
+              <th>Visitor</th>
+              <th>Visitor mobile</th>
+              <th>Vehicle</th>
+              <th>Purpose</th>
+              <th>Photo</th>
+            </tr>
+          </thead>
+          <tbody id="adminGateVisitsTbody">
+            <tr><td colspan="8">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="grid" style="margin-top:12px;">
       <div class="cardWide" id="adminProjectDocsSection">
         <div class="row">
@@ -1666,7 +1695,7 @@
               Notifications
               <span class="pill" id="userInboxBadge" style="display:none; font-weight:900;">0</span>
             </h3>
-            <div class="smallNote">Admins: payment decisions, new notices, and banking / UPI updates appear here.</div>
+            <div class="smallNote">Payment decisions, notices, banking / UPI updates, and <b>My Gate</b> visitor alerts appear here.</div>
           </div>
           <button class="btn secondary tiny" id="userInboxMarkReadBtn" type="button" style="align-self:flex-start;">Mark all read</button>
         </div>
@@ -1681,6 +1710,33 @@
             </thead>
             <tbody id="userInboxTbody">
               <tr><td colspan="3">—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="mcRow" id="userGateRow" style="margin-top:12px;">
+        <div class="mcRowInner">
+          <div class="mcBrand">
+            <h3>My Gate — visitors</h3>
+            <div class="smallNote">Entries logged by society watchman for your plot(s). Same entries appear under <b>Notifications</b> with a link to the visitor photo when available.</div>
+          </div>
+        </div>
+        <div class="scroll-x" style="overflow:auto; max-height:min(260px, 42vh); margin-top:10px;">
+          <table class="adminDirTable">
+            <thead>
+              <tr>
+                <th>When</th>
+                <th>Plot</th>
+                <th>Visitor</th>
+                <th>Visitor mobile</th>
+                <th>Vehicle</th>
+                <th>Purpose</th>
+                <th>Photo</th>
+              </tr>
+            </thead>
+            <tbody id="userGateVisitsTbody">
+              <tr><td colspan="7">—</td></tr>
             </tbody>
           </table>
         </div>
@@ -1816,6 +1872,62 @@
             </table>
           </div>
         </div>
+      </div>
+    </div>
+
+    <div class="wrap" id="watchmanRoot" style="display:none;">
+      <div class="topbar">
+        <div class="topbarLeft">
+          <img class="portalLogo" src="assets/infinity-nakshatra-logo.png" width="56" height="56" alt="Infinity Nakshatra logo" />
+          <div class="title">
+            <h1>Infinity Nakshatra Society</h1>
+            <p>My Gate — Watchman</p>
+          </div>
+        </div>
+        <div class="pillrow">
+          <button class="btn secondary tiny" id="watchmanChangePwBtn" type="button">Change password</button>
+          <button class="btn danger tiny" id="watchmanLogoutBtn" type="button">Logout</button>
+        </div>
+      </div>
+      <div class="cardWide" style="margin-top:14px;">
+        <div class="row">
+          <div>
+            <strong>Visitor entry</strong>
+            <div class="smallNote">Log who is visiting which plot, add one photo, and submit. The owner’s <b>primary contact</b> (from the Google Sheet) gets a <b>portal notification</b> with details and photo link. Default login: ID <span class="mono">watchman</span> / password <span class="mono">Gate@123</span> (change after first sign-in).</div>
+          </div>
+        </div>
+        <div class="field" style="margin-top:12px; max-width:220px;">
+          <label for="gatePlotNo">Plot No.</label>
+          <input id="gatePlotNo" type="text" inputmode="numeric" autocomplete="off" placeholder="e.g. 12" />
+        </div>
+        <div class="field" style="max-width:420px;">
+          <label for="gateVisitorName">Visitor name <span style="color:var(--danger);">*</span></label>
+          <input id="gateVisitorName" type="text" autocomplete="off" placeholder="Full name" />
+        </div>
+        <div class="field" style="max-width:320px;">
+          <label for="gateVisitorMobile">Visitor mobile</label>
+          <input id="gateVisitorMobile" type="tel" inputmode="tel" autocomplete="off" placeholder="Optional" />
+        </div>
+        <div class="field" style="max-width:420px;">
+          <label for="gateVehicle">Vehicle / ID</label>
+          <input id="gateVehicle" type="text" autocomplete="off" placeholder="Optional" />
+        </div>
+        <div class="field" style="max-width:520px;">
+          <label for="gatePurpose">Visiting / purpose</label>
+          <input id="gatePurpose" type="text" autocomplete="off" placeholder="Whom they are meeting, flat, reason…" />
+        </div>
+        <div class="field" style="max-width:520px;">
+          <label for="gatePhoto">Visitor photo</label>
+          <input id="gatePhoto" type="file" accept="image/*" capture="environment" />
+          <div class="smallNote" style="margin-top:6px;">One photo (camera or gallery). Compressed before upload.</div>
+          <div style="margin-top:8px;"><img id="gatePhotoPreview" alt="Preview" style="display:none; max-width:min(360px, 100%); max-height:220px; border-radius:10px; border:1px solid var(--border);" /></div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+          <button class="btn" id="gateSubmitBtn" type="button">Submit visitor</button>
+          <button class="btn secondary" id="gateClearBtn" type="button">Clear form</button>
+        </div>
+        <div class="err" id="gateFormErr" style="margin-top:10px;"></div>
+        <div class="smallNote" style="margin-top:12px;">Requires Apps Script + Google Sheet. Photo is stored in <b>Google Drive</b> (script needs Drive permission); if upload fails, the entry is still saved without a photo link.</div>
       </div>
     </div>
   </div>
@@ -2385,6 +2497,8 @@
     // Admin ID is normalized to lowercase for comparisons/storage keys.
     const ADMIN_USER = "admin";
     const ADMIN_DEFAULT_PASSWORD = "Admin@123";
+    const WATCHMAN_USER = "watchman";
+    const WATCHMAN_DEFAULT_PASSWORD = "Gate@123";
 
     const LS_PW_PREFIX = "ins_pw_v1:";
     const LS_PAY_PREFIX = "ins_pay_v1:";
@@ -2490,6 +2604,13 @@
     }
 
     function getOwnerMayYear(){
+      if (isServerEnabled() && portalServerState && portalServerState.loaded){
+        const raw = portalServerState.ownerPortalMayYear;
+        if (raw !== undefined && raw !== null && String(raw).trim() !== ""){
+          const y = clampMayYear(Number(raw));
+          if (Number.isFinite(Number(raw))) return y;
+        }
+      }
       return fySettingsLoad().ownerMayYear;
     }
 
@@ -2703,7 +2824,7 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], banking: null, inbox: [], projectDocs: [], serviceContacts: [], ownerAccess: {} };
+    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], banking: null, inbox: [], projectDocs: [], serviceContacts: [], ownerAccess: {}, ownerPortalMayYear: null, gateVisits: [] };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
@@ -2868,6 +2989,12 @@
         const list = [...m.values()].sort((a,b) => String(a.ym).localeCompare(String(b.ym)));
         byPlot.set(k, list);
       }
+      let ownerPortalMayYearSynced = null;
+      const rawOpY = j.ownerPortalMayYear;
+      if (rawOpY !== undefined && rawOpY !== null && String(rawOpY).trim() !== ""){
+        const nn = Number(rawOpY);
+        if (Number.isFinite(nn)) ownerPortalMayYearSynced = clampMayYear(nn);
+      }
       portalServerState = {
         loaded: true,
         paymentsByPlot: byPlot,
@@ -2879,8 +3006,13 @@
         inbox: Array.isArray(j.inbox) ? j.inbox : [],
         projectDocs: Array.isArray(j.projectDocs) ? j.projectDocs : [],
         serviceContacts: Array.isArray(j.serviceContacts) ? j.serviceContacts : [],
-        ownerAccess: (j.ownerAccess && typeof j.ownerAccess === "object" && !Array.isArray(j.ownerAccess)) ? j.ownerAccess : {}
+        ownerAccess: (j.ownerAccess && typeof j.ownerAccess === "object" && !Array.isArray(j.ownerAccess)) ? j.ownerAccess : {},
+        ownerPortalMayYear: ownerPortalMayYearSynced,
+        gateVisits: Array.isArray(j.gateVisits) ? j.gateVisits : []
       };
+      if (ownerPortalMayYearSynced !== null){
+        try { fySettingsSave({ ownerMayYear: ownerPortalMayYearSynced }); } catch {}
+      }
       try {
         const sessKick = readSession();
         if (sessKick && sessKick.role === "user" && isOwnerLoginBlocked(sessKick.userId)){
@@ -2904,8 +3036,14 @@
         if (document.getElementById("bankViewBackdrop")?.classList.contains("show")) fillBankViewModal();
         const sess = readSession();
         if (sess && sess.role === "user") refreshUserView();
+        if (sess && sess.role === "admin"){
+          populateOwnerPortalMayYearSelect();
+          updateAdminMcFyRangeNote();
+        }
         // Plot directory "Total Amount Paid" matches See Payment total received; refresh when /state arrives after CSV.
         if (sess && sess.role === "admin") applyFilters();
+        try { renderAdminGateVisitsPanel(); } catch {}
+        try { renderUserGateVisitsPanel(); } catch {}
         // If these modals are open, refresh them too.
         if (document.getElementById("pendingBackdrop")?.classList.contains("show")) openPendingModal();
         if (document.getElementById("doneBackdrop")?.classList.contains("show")) openDoneOwnersModal();
@@ -2936,6 +3074,46 @@
       try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
       if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
       return { ok:true };
+    }
+
+    async function portalServerSaveOwnerPortalFy(mayYear){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "saveOwnerPortalFy",
+        actor: "admin",
+        ownerMayYear: clampMayYear(Number(mayYear))
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true };
+    }
+
+    async function portalServerAddGateVisit(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "watchman") return { ok:false, error: "watchman_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "addGateVisit",
+        actor: "watchman",
+        plotNo: String(payload.plotNo || "").trim(),
+        visitorName: String(payload.visitorName || "").trim(),
+        visitorMobile: String(payload.visitorMobile || "").trim(),
+        vehicle: String(payload.vehicle || "").trim(),
+        purpose: String(payload.purpose || "").trim(),
+        photoMime: String(payload.photoMime || "image/jpeg"),
+        photoBase64: String(payload.photoBase64 || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true, detail: j };
     }
 
     async function portalServerAddExpense(payload){
@@ -3630,6 +3808,7 @@
       }
 
       if (!await pwGetHash(ADMIN_USER)) await pwSet(ADMIN_USER, ADMIN_DEFAULT_PASSWORD);
+      if (!await pwGetHash(WATCHMAN_USER)) await pwSet(WATCHMAN_USER, WATCHMAN_DEFAULT_PASSWORD);
     }
 
     function readSession(){
@@ -4400,6 +4579,8 @@
       showEl(document.getElementById("loginRoot"), true);
       document.getElementById("adminRoot").style.display = "none";
       document.getElementById("userRoot").style.display = "none";
+      const wmRoot = document.getElementById("watchmanRoot");
+      if (wmRoot) wmRoot.style.display = "none";
       if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
     }
 
@@ -4410,6 +4591,8 @@
       if (sess.role === "admin"){
         document.getElementById("adminRoot").style.display = "block";
         document.getElementById("userRoot").style.display = "none";
+        const wm0 = document.getElementById("watchmanRoot");
+        if (wm0) wm0.style.display = "none";
         setAdminChrome(true);
         const pb = document.getElementById("profileBtn");
         const pn = document.getElementById("profileName");
@@ -4433,6 +4616,8 @@
       if (sess.role === "user"){
         document.getElementById("adminRoot").style.display = "none";
         document.getElementById("userRoot").style.display = "block";
+        const wm1 = document.getElementById("watchmanRoot");
+        if (wm1) wm1.style.display = "none";
         setAdminChrome(false);
         const upb = document.getElementById("userProfileBtn");
         const upn = document.getElementById("userProfileName");
@@ -4452,6 +4637,16 @@
         return;
       }
 
+      if (sess.role === "watchman"){
+        document.getElementById("adminRoot").style.display = "none";
+        document.getElementById("userRoot").style.display = "none";
+        const wm2 = document.getElementById("watchmanRoot");
+        if (wm2) wm2.style.display = "block";
+        setAdminChrome(false);
+        void portalServerFetchState().catch(() => {});
+        return;
+      }
+
       showLogin();
     }
 
@@ -4464,6 +4659,7 @@
     function normalizeLoginId(role, raw){
       const s = norm(raw);
       if (role === "admin") return s.toLowerCase();
+      if (role === "watchman") return s.toLowerCase().replace(/\s+/g, "");
       return digitsOnly(s);
     }
 
@@ -4490,6 +4686,20 @@
           return;
         }
         writeSession({ role:"admin", userId: ADMIN_USER });
+        showAppForSession(readSession());
+        return;
+      }
+
+      if (role === "watchman"){
+        if (userId !== WATCHMAN_USER){
+          setErr(document.getElementById("loginErr"), "Watchman ID must be: watchman");
+          return;
+        }
+        if (!(await pwVerify(WATCHMAN_USER, password))){
+          setErr(document.getElementById("loginErr"), "Invalid watchman password.");
+          return;
+        }
+        writeSession({ role:"watchman", userId: WATCHMAN_USER });
         showAppForSession(readSession());
         return;
       }
@@ -4526,7 +4736,7 @@
 
     function openPwModal(prefillRole, prefillUser){
       const role = prefillRole || document.querySelector('input[name="role"]:checked')?.value || "admin";
-      const u = prefillUser || (role === "admin" ? ADMIN_USER : normalizeLoginId("user", document.getElementById("loginId").value));
+      const u = prefillUser || (role === "admin" ? ADMIN_USER : role === "watchman" ? WATCHMAN_USER : normalizeLoginId("user", document.getElementById("loginId").value));
 
       document.getElementById("pwUser").value = u || "";
       document.getElementById("pwOld").value = "";
@@ -4537,7 +4747,9 @@
       document.getElementById("pwSub").textContent =
         role === "admin"
           ? "Admin account"
-          : "Owner account (mobile digits)";
+          : role === "watchman"
+            ? "Watchman (My Gate)"
+            : "Owner account (mobile digits)";
 
       showBackdrop("pwBackdrop", true);
     }
@@ -4545,9 +4757,12 @@
     async function savePwModal(){
       setErr(document.getElementById("pwErr"), "");
       const userIdRaw = norm(document.getElementById("pwUser").value);
-      const userId = userIdRaw.includes("@")
-        ? userIdRaw.toLowerCase()
-        : digitsOnly(userIdRaw);
+      const rawLower = userIdRaw.toLowerCase();
+      let userId;
+      if (rawLower === ADMIN_USER) userId = ADMIN_USER;
+      else if (rawLower === WATCHMAN_USER) userId = WATCHMAN_USER;
+      else if (userIdRaw.includes("@")) userId = userIdRaw.toLowerCase();
+      else userId = digitsOnly(userIdRaw);
 
       const oldPw = document.getElementById("pwOld").value;
       const newPw = document.getElementById("pwNew").value;
@@ -4563,7 +4778,8 @@
       }
 
       const isAdmin = userId === ADMIN_USER;
-      if (!isAdmin){
+      const isWatchman = userId === WATCHMAN_USER;
+      if (!isAdmin && !isWatchman){
         if (digitsOnly(userId) !== userId || userId.length < 8){
           setErr(document.getElementById("pwErr"), "Owner Login ID should be digits-only mobile number.");
           return;
@@ -4579,7 +4795,7 @@
       showBackdrop("pwBackdrop", false);
 
       const sess = readSession();
-      if (sess && ((sess.role === "admin" && userId === ADMIN_USER) || (sess.role === "user" && sess.userId === userId))){
+      if (sess && ((sess.role === "admin" && userId === ADMIN_USER) || (sess.role === "watchman" && userId === WATCHMAN_USER) || (sess.role === "user" && sess.userId === userId))){
         // keep session; user must re-login if they changed another account
       }
 
@@ -5733,8 +5949,19 @@
       if (osel && !globalThis.__insOwnerPortalFyWired){
         globalThis.__insOwnerPortalFyWired = true;
         osel.addEventListener("change", () => {
-          fySettingsSave({ ownerMayYear: Number(osel.value) });
-          refreshUserViewIfUser();
+          const y = clampMayYear(Number(osel.value));
+          fySettingsSave({ ownerMayYear: y });
+          void (async () => {
+            if (isServerEnabled()){
+              const sr = await portalServerSaveOwnerPortalFy(y);
+              if (!sr.ok && !sr.skipped){
+                alert(sr.error || "Could not save owner portal FY to the spreadsheet.");
+              } else if (sr.ok){
+                await portalServerFetchState();
+              }
+            }
+            refreshUserViewIfUser();
+          })();
         });
       }
     }
@@ -7449,6 +7676,133 @@
         if (payChart){ payChart.destroy(); payChart = null; }
       }
       renderUserInbox();
+      renderUserGateVisitsPanel();
+    }
+
+    function compressImageFileToJpegDataUrl_(file, maxW){
+      return new Promise((resolve, reject) => {
+        if (!file || !file.type || !/^image\//i.test(file.type)){
+          resolve("");
+          return;
+        }
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          try {
+            let w = img.naturalWidth || img.width;
+            let h = img.naturalHeight || img.height;
+            const cap = Math.max(320, Math.min(1280, Number(maxW) || 960));
+            if (w > cap){
+              h = Math.round((h * cap) / w);
+              w = cap;
+            }
+            const c = document.createElement("canvas");
+            c.width = w;
+            c.height = h;
+            const ctx = c.getContext("2d");
+            if (!ctx){ URL.revokeObjectURL(url); resolve(""); return; }
+            ctx.drawImage(img, 0, 0, w, h);
+            const dataUrl = c.toDataURL("image/jpeg", 0.82);
+            URL.revokeObjectURL(url);
+            resolve(dataUrl || "");
+          } catch (e){
+            try { URL.revokeObjectURL(url); } catch {}
+            reject(e);
+          }
+        };
+        img.onerror = () => {
+          try { URL.revokeObjectURL(url); } catch {}
+          reject(new Error("image_load_failed"));
+        };
+        img.src = url;
+      });
+    }
+
+    function gatePhotoCellHtml_(photoUrl){
+      const u = norm(String(photoUrl || ""));
+      if (!u) return "—";
+      if (/^https?:\/\//i.test(u)){
+        return `<a href="${escapeHtml(u)}" target="_blank" rel="noreferrer">Photo</a>`;
+      }
+      return escapeHtml(u.slice(0, 80));
+    }
+
+    function renderAdminGateVisitsPanel(){
+      const tb = document.getElementById("adminGateVisitsTbody");
+      if (!tb) return;
+      const sess = readSession();
+      if (!sess || sess.role !== "admin"){
+        tb.innerHTML = `<tr><td colspan="8">—</td></tr>`;
+        return;
+      }
+      if (!isServerEnabled() || !portalServerState.loaded || !Array.isArray(portalServerState.gateVisits)){
+        tb.innerHTML = `<tr><td colspan="8">Visitor log loads when Apps Script API is configured.</td></tr>`;
+        return;
+      }
+      const list = [...(portalServerState.gateVisits || [])].sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      if (!list.length){
+        tb.innerHTML = `<tr><td colspan="8">No gate entries yet.</td></tr>`;
+        return;
+      }
+      tb.innerHTML = list.slice(0, 200).map(g => {
+        const when = g.atIso ? escapeHtml(String(g.atIso).replace("T", " ").slice(0, 19)) : "—";
+        return `<tr>
+          <td class="mono">${when}</td>
+          <td>${escapeHtml(String(g.plotNo || ""))}</td>
+          <td class="mono">${escapeHtml(String(g.ownerMobile || ""))}</td>
+          <td>${escapeHtml(String(g.visitorName || ""))}</td>
+          <td class="mono">${escapeHtml(String(g.visitorMobile || ""))}</td>
+          <td>${escapeHtml(String(g.vehicle || ""))}</td>
+          <td>${escapeHtml(String(g.purpose || ""))}</td>
+          <td>${gatePhotoCellHtml_(g.photoUrl)}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function userGateVisitsFilteredForSession_(){
+      const sess = readSession();
+      if (!sess || sess.role !== "user") return [];
+      const mob = digitsOnly(sess.userId);
+      const rows = findUserPlotRows(mob);
+      const plotSet = new Set(rows.map(r => norm(plotNoOfRow(r))).filter(Boolean));
+      const list = portalServerState.gateVisits || [];
+      return list.filter(g => {
+        const om = digitsOnly(String(g.ownerMobile || ""));
+        if (om && om === mob) return true;
+        const p = norm(String(g.plotNo || ""));
+        return !!(p && plotSet.has(p));
+      });
+    }
+
+    function renderUserGateVisitsPanel(){
+      const tb = document.getElementById("userGateVisitsTbody");
+      if (!tb) return;
+      const sess = readSession();
+      if (!sess || sess.role !== "user"){
+        tb.innerHTML = `<tr><td colspan="7">—</td></tr>`;
+        return;
+      }
+      if (!isServerEnabled() || !portalServerState.loaded || !Array.isArray(portalServerState.gateVisits)){
+        tb.innerHTML = `<tr><td colspan="7">Visitor log loads when Apps Script API is configured.</td></tr>`;
+        return;
+      }
+      const list = userGateVisitsFilteredForSession_().sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      if (!list.length){
+        tb.innerHTML = `<tr><td colspan="7">No visitors logged for your plot(s) yet.</td></tr>`;
+        return;
+      }
+      tb.innerHTML = list.slice(0, 100).map(g => {
+        const when = g.atIso ? escapeHtml(String(g.atIso).replace("T", " ").slice(0, 19)) : "—";
+        return `<tr>
+          <td class="mono">${when}</td>
+          <td>${escapeHtml(String(g.plotNo || ""))}</td>
+          <td>${escapeHtml(String(g.visitorName || ""))}</td>
+          <td class="mono">${escapeHtml(String(g.visitorMobile || ""))}</td>
+          <td>${escapeHtml(String(g.vehicle || ""))}</td>
+          <td>${escapeHtml(String(g.purpose || ""))}</td>
+          <td>${gatePhotoCellHtml_(g.photoUrl)}</td>
+        </tr>`;
+      }).join("");
     }
 
     function renderUserInbox(){
@@ -7641,7 +7995,7 @@
       document.getElementById("loginBtn").addEventListener("click", handleLogin);
       document.getElementById("openPwFromLoginBtn").addEventListener("click", () => {
         const role = document.querySelector('input[name="role"]:checked')?.value || "admin";
-        const u = role === "admin" ? ADMIN_USER : normalizeLoginId("user", document.getElementById("loginId").value);
+        const u = role === "admin" ? ADMIN_USER : role === "watchman" ? WATCHMAN_USER : normalizeLoginId("user", document.getElementById("loginId").value);
         openPwModal(role, u);
       });
 
@@ -8035,6 +8389,102 @@
       }
 
       document.getElementById("userLogoutBtn").addEventListener("click", logout);
+      const watchmanLogoutBtn = document.getElementById("watchmanLogoutBtn");
+      if (watchmanLogoutBtn) watchmanLogoutBtn.addEventListener("click", logout);
+      const watchmanChangePwBtn = document.getElementById("watchmanChangePwBtn");
+      if (watchmanChangePwBtn) watchmanChangePwBtn.addEventListener("click", () => openPwModal("watchman", WATCHMAN_USER));
+
+      function resetGateForm(){
+        const err = document.getElementById("gateFormErr");
+        if (err) err.textContent = "";
+        ["gatePlotNo","gateVisitorName","gateVisitorMobile","gateVehicle","gatePurpose"].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.value = "";
+        });
+        const ph = document.getElementById("gatePhoto");
+        if (ph) ph.value = "";
+        const prev = document.getElementById("gatePhotoPreview");
+        if (prev){
+          prev.style.display = "none";
+          prev.removeAttribute("src");
+        }
+      }
+      const gatePhoto = document.getElementById("gatePhoto");
+      if (gatePhoto) gatePhoto.addEventListener("change", () => {
+        const f = gatePhoto.files && gatePhoto.files[0];
+        const prev = document.getElementById("gatePhotoPreview");
+        if (!prev) return;
+        if (!f){
+          prev.style.display = "none";
+          prev.removeAttribute("src");
+          return;
+        }
+        const r = new FileReader();
+        r.onload = () => {
+          prev.src = String(r.result || "");
+          prev.style.display = "block";
+        };
+        r.readAsDataURL(f);
+      });
+      const gateClearBtn = document.getElementById("gateClearBtn");
+      if (gateClearBtn) gateClearBtn.addEventListener("click", () => resetGateForm());
+      const gateSubmitBtn = document.getElementById("gateSubmitBtn");
+      if (gateSubmitBtn) gateSubmitBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "watchman"){ alert("Watchman login required."); return; }
+        const errEl = document.getElementById("gateFormErr");
+        if (errEl) errEl.textContent = "";
+        if (!isServerEnabled()){
+          if (errEl) errEl.textContent = "Configure COLLECTION_API_URL and API key.";
+          return;
+        }
+        const plotNo = norm(document.getElementById("gatePlotNo")?.value);
+        const visitorName = norm(document.getElementById("gateVisitorName")?.value);
+        const visitorMobile = norm(document.getElementById("gateVisitorMobile")?.value);
+        const vehicle = norm(document.getElementById("gateVehicle")?.value);
+        const purpose = norm(document.getElementById("gatePurpose")?.value);
+        if (!plotNo){ if (errEl) errEl.textContent = "Enter plot number."; return; }
+        if (!visitorName){ if (errEl) errEl.textContent = "Enter visitor name."; return; }
+        const file = gatePhoto?.files && gatePhoto.files[0];
+        void (async () => {
+          let photoBase64 = "";
+          let photoMime = "image/jpeg";
+          if (file){
+            try {
+              const dataUrl = await compressImageFileToJpegDataUrl_(file, 960);
+              if (dataUrl && dataUrl.indexOf("base64,") >= 0){
+                photoMime = "image/jpeg";
+                photoBase64 = dataUrl.split("base64,")[1] || "";
+              }
+            } catch (e){
+              if (errEl) errEl.textContent = "Could not read photo. Try another image.";
+              return;
+            }
+          }
+          if (photoBase64 && photoBase64.length > 2_400_000){
+            if (errEl) errEl.textContent = "Photo is still too large after compression. Retake or pick a smaller image.";
+            return;
+          }
+          gateSubmitBtn.disabled = true;
+          const sr = await portalServerAddGateVisit({
+            plotNo,
+            visitorName,
+            visitorMobile,
+            vehicle,
+            purpose,
+            photoMime,
+            photoBase64
+          });
+          gateSubmitBtn.disabled = false;
+          if (!sr.ok){
+            if (errEl) errEl.textContent = sr.error || "Submit failed.";
+            return;
+          }
+          await portalServerFetchState();
+          alert("Visitor logged. Owner notified on the portal (primary contact).");
+          resetGateForm();
+        })();
+      });
       document.getElementById("userChangePwBtn").addEventListener("click", () => {
         const sess = readSession();
         openPwModal("user", sess?.userId || "");
@@ -8228,7 +8678,7 @@
       renderAdminPendingApprovalPanel();
 
       const sess = readSession();
-      if (sess && (sess.role === "admin" || sess.role === "user")){
+      if (sess && (sess.role === "admin" || sess.role === "user" || sess.role === "watchman")){
         showAppForSession(sess);
       } else {
         showLogin();
