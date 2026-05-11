@@ -1279,12 +1279,12 @@
       <div class="seg" id="roleSeg">
         <label><input type="radio" name="role" value="admin" checked /> Admin</label>
         <label><input type="radio" name="role" value="user" /> Owner</label>
-        <label><input type="radio" name="role" value="watchman" /> Watchman</label>
+        <label><input type="radio" name="role" value="watchman" /> Security</label>
       </div>
 
       <div class="field">
         <label for="loginId">Enter ID</label>
-        <input id="loginId" name="ins_login_id" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="admin, owner mobile, or watchman" />
+        <input id="loginId" name="ins_login_id" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="admin, owner mobile, or security" />
       </div>
       <div class="field">
         <label for="loginPw">Enter Password</label>
@@ -1531,7 +1531,7 @@
       <div class="mcRowInner">
         <div class="mcBrand">
           <h3>My Gate — visitor log</h3>
-          <div class="smallNote">All watchman entries (tab <strong>portal_my_gate_visitors</strong>). Photos are not stored in the sheet; watchman sends image + details to the owner via WhatsApp after each entry.</div>
+          <div class="smallNote">All Security entries (tab <strong>portal_my_gate_visitors</strong>). Photos are not stored in the sheet; Security sends image + details to the owner via WhatsApp after each entry.</div>
         </div>
       </div>
       <div class="scroll-x" style="overflow:auto; max-height:min(320px, 48vh); margin-top:10px;">
@@ -1720,7 +1720,7 @@
         <div class="mcRowInner">
           <div class="mcBrand">
             <h3>My Gate — visitors</h3>
-            <div class="smallNote">Entries logged by society watchman for your plot(s). You also get a <b>Notifications</b> alert; the visitor photo is sent separately on WhatsApp by the watchman when they use Share.</div>
+            <div class="smallNote">Entries logged by society Security for your plot(s). You also get a <b>Notifications</b> alert; the visitor photo is sent separately on WhatsApp by Security when they use Share.</div>
           </div>
         </div>
         <div class="scroll-x" style="overflow:auto; max-height:min(260px, 42vh); margin-top:10px;">
@@ -1882,7 +1882,7 @@
           <img class="portalLogo" src="assets/infinity-nakshatra-logo.png" width="56" height="56" alt="Infinity Nakshatra logo" />
           <div class="title">
             <h1>Infinity Nakshatra Society</h1>
-            <p>My Gate — Watchman</p>
+            <p>My Gate — Security</p>
           </div>
         </div>
         <div class="pillrow">
@@ -1894,7 +1894,7 @@
         <div class="row">
           <div>
             <strong>Visitor entry</strong>
-            <div class="smallNote">Submit details first (saved to <strong>portal_my_gate_visitors</strong> and visible to Admin / Owner on refresh). Then take one visitor photo and use <b>Share to owner WhatsApp</b> to send the formatted text and image to the plot owner’s primary mobile (India: <span class="mono">91</span> + 10 digits). Default login: ID <span class="mono">watchman</span> / password <span class="mono">Gate@123</span>.</div>
+            <div class="smallNote">Submit details first (saved to <strong>portal_my_gate_visitors</strong> and visible to Admin / Owner on refresh). Then take one visitor photo and use <b>Share to owner WhatsApp</b> to open WhatsApp to the plot owner’s number (India: <span class="mono">91</span> + 10 digits). Default login: ID <span class="mono">security</span> / password <span class="mono">Gate@123</span>.</div>
           </div>
         </div>
         <div class="field" style="margin-top:12px; max-width:220px;">
@@ -1934,7 +1934,7 @@
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
             <button class="btn" id="gateWaShareBtn" type="button">Share to owner WhatsApp</button>
           </div>
-          <div class="smallNote" style="margin-top:10px;">On phones, Share may open the system sheet so you can pick WhatsApp with <b>text + photo</b>. On desktop, WhatsApp Web may open with text only — then attach the photo manually.</div>
+          <div class="smallNote" style="margin-top:10px;">Share opens WhatsApp directly to the owner number for this plot (from the directory or your last submit). Attach the visitor photo in the chat if it is not included automatically.</div>
         </div>
 
         <h4 style="margin:22px 0 8px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;">Recent entries (this device)</h4>
@@ -1948,10 +1948,11 @@
                 <th>Mobile</th>
                 <th>Vehicle</th>
                 <th>Purpose</th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody id="watchmanGateRecentTbody">
-              <tr><td colspan="6">—</td></tr>
+              <tr><td colspan="7">—</td></tr>
             </tbody>
           </table>
         </div>
@@ -2539,7 +2540,7 @@
     // Admin ID is normalized to lowercase for comparisons/storage keys.
     const ADMIN_USER = "admin";
     const ADMIN_DEFAULT_PASSWORD = "Admin@123";
-    const WATCHMAN_USER = "watchman";
+    const WATCHMAN_USER = "security";
     const WATCHMAN_DEFAULT_PASSWORD = "Gate@123";
 
     const LS_PW_PREFIX = "ins_pw_v1:";
@@ -3168,6 +3169,59 @@
       return { ok:false, error: r.error || "request_failed", detail: j };
     }
 
+    async function portalServerUpdateGateVisit(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "watchman") return { ok:false, error: "watchman_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "updateGateVisit",
+        actor: "watchman",
+        id: String(payload.id || "").trim(),
+        plotNo: String(payload.plotNo || "").trim(),
+        visitorName: String(payload.visitorName || "").trim(),
+        visitorMobile: String(payload.visitorMobile || "").trim(),
+        vehicle: String(payload.vehicle || "").trim(),
+        purpose: String(payload.purpose || "").trim()
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      const txt = r.txt != null ? String(r.txt) : "";
+      let j = null;
+      if (txt){
+        try { j = JSON.parse(txt); } catch { /* ignore */ }
+      }
+      if (r.ok){
+        if (!j) return { ok:false, error: "bad_json", raw: txt };
+        if (!j.ok) return { ok:false, error: String(j.error || "save_failed"), detail: j };
+        return { ok:true, detail: j };
+      }
+      if (j && j.error) return { ok:false, error: String(j.error), detail: j };
+      return { ok:false, error: r.error || "request_failed", detail: j };
+    }
+
+    async function portalServerDeleteGateVisit(id){
+      const sess = readSession();
+      if (!sess || sess.role !== "watchman") return { ok:false, error: "watchman_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "deleteGateVisit",
+        actor: "watchman",
+        id: String(id || "").trim()
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      const txt = r.txt != null ? String(r.txt) : "";
+      let j = null;
+      if (txt){
+        try { j = JSON.parse(txt); } catch { /* ignore */ }
+      }
+      if (r.ok){
+        if (!j) return { ok:false, error: "bad_json", raw: txt };
+        if (!j.ok) return { ok:false, error: String(j.error || "delete_failed"), detail: j };
+        return { ok:true, detail: j };
+      }
+      if (j && j.error) return { ok:false, error: String(j.error), detail: j };
+      return { ok:false, error: r.error || "request_failed", detail: j };
+    }
+
     async function portalServerAddExpense(payload){
       const sess = readSession();
       if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
@@ -3781,6 +3835,26 @@
     function digitsOnly(s){
       return String(s || "").replace(/\D/g, "");
     }
+    /** Match owner / sheet mobiles when one side has country prefix (e.g. 91… vs 10 digits). */
+    function mobileDigitsMatchLast10_(sheetDigits, userDigits){
+      const s = digitsOnly(String(sheetDigits || ""));
+      const u = digitsOnly(String(userDigits || ""));
+      if (!s || !u) return false;
+      const sl = s.length >= 10 ? s.slice(-10) : s;
+      const ul = u.length >= 10 ? u.slice(-10) : u;
+      return sl === ul;
+    }
+    /** Same rules as Apps Script plotNoCellMatchesPlotInput_ for client-side gate filters / WhatsApp lookup. */
+    function plotNoCellMatchesPlotInputClient_(cellPlot, plotInput){
+      const a = norm(String(cellPlot != null ? cellPlot : ""));
+      const b = norm(String(plotInput || ""));
+      if (!a || !b) return false;
+      if (a === b) return true;
+      const na = Number(a);
+      const nb = Number(b);
+      if (Number.isFinite(na) && Number.isFinite(nb) && na === nb) return true;
+      return false;
+    }
     function soldKey(v){
       const s = norm(v).toLowerCase();
       if (s === "sold") return "sold";
@@ -3860,11 +3934,20 @@
       }
 
       if (!await pwGetHash(ADMIN_USER)) await pwSet(ADMIN_USER, ADMIN_DEFAULT_PASSWORD);
-      if (!await pwGetHash(WATCHMAN_USER)) await pwSet(WATCHMAN_USER, WATCHMAN_DEFAULT_PASSWORD);
+      if (!await pwGetHash(WATCHMAN_USER)){
+        if (!(await pwGetHash("watchman"))) await pwSet(WATCHMAN_USER, WATCHMAN_DEFAULT_PASSWORD);
+      }
     }
 
     function readSession(){
-      try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null"); } catch { return null; }
+      try {
+        const o = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
+        if (o && o.role === "watchman" && String(o.userId || "") === "watchman"){
+          o.userId = WATCHMAN_USER;
+          writeSession(o);
+        }
+        return o;
+      } catch { return null; }
     }
     function writeSession(obj){
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(obj));
@@ -4745,14 +4828,18 @@
       }
 
       if (role === "watchman"){
-        if (userId !== WATCHMAN_USER){
-          setErr(document.getElementById("loginErr"), "Watchman ID must be: watchman");
+        const legacyWm = userId === "watchman";
+        if (userId !== WATCHMAN_USER && !legacyWm){
+          setErr(document.getElementById("loginErr"), "Security ID must be: security");
           return;
         }
-        if (!(await pwVerify(WATCHMAN_USER, password))){
-          setErr(document.getElementById("loginErr"), "Invalid watchman password.");
+        let okWm = await pwVerify(WATCHMAN_USER, password);
+        if (!okWm && legacyWm) okWm = await pwVerify("watchman", password);
+        if (!okWm){
+          setErr(document.getElementById("loginErr"), "Invalid Security password.");
           return;
         }
+        if (legacyWm || !(await pwGetHash(WATCHMAN_USER))) await pwSet(WATCHMAN_USER, password);
         writeSession({ role:"watchman", userId: WATCHMAN_USER });
         showAppForSession(readSession());
         return;
@@ -4802,7 +4889,7 @@
         role === "admin"
           ? "Admin account"
           : role === "watchman"
-            ? "Watchman (My Gate)"
+            ? "Security (My Gate)"
             : "Owner account (mobile digits)";
 
       showBackdrop("pwBackdrop", true);
@@ -4814,7 +4901,7 @@
       const rawLower = userIdRaw.toLowerCase();
       let userId;
       if (rawLower === ADMIN_USER) userId = ADMIN_USER;
-      else if (rawLower === WATCHMAN_USER) userId = WATCHMAN_USER;
+      else if (rawLower === WATCHMAN_USER || rawLower === "watchman") userId = WATCHMAN_USER;
       else if (userIdRaw.includes("@")) userId = userIdRaw.toLowerCase();
       else userId = digitsOnly(userIdRaw);
 
@@ -4840,7 +4927,9 @@
         }
       }
 
-      if (!(await pwVerify(userId, oldPw))){
+      let pwOk = await pwVerify(userId, oldPw);
+      if (!pwOk && isWatchman) pwOk = await pwVerify("watchman", oldPw);
+      if (!pwOk){
         setErr(document.getElementById("pwErr"), "Current password is incorrect.");
         return;
       }
@@ -7431,7 +7520,7 @@
       for (const r of allRows){
         const p = digitsOnly(r["Primary Contact Number"]);
         const a = digitsOnly(r["Alternate Number"]);
-        const match = (p && p === userDigits) || (a && a === userDigits);
+        const match = mobileDigitsMatchLast10_(p, userDigits) || mobileDigitsMatchLast10_(a, userDigits);
         if (!match) continue;
         const pno = plotNoOfRow(r);
         if (pno){
@@ -7818,13 +7907,17 @@
       if (!sess || sess.role !== "user") return [];
       const mob = digitsOnly(sess.userId);
       const rows = findUserPlotRows(mob);
-      const plotSet = new Set(rows.map(r => norm(plotNoOfRow(r))).filter(Boolean));
+      const plotList = rows.map(r => norm(plotNoOfRow(r))).filter(Boolean);
       const list = portalServerState.gateVisits || [];
       return list.filter(g => {
         const om = digitsOnly(String(g.ownerMobile || ""));
-        if (om && om === mob) return true;
+        if (om && mobileDigitsMatchLast10_(om, mob)) return true;
         const p = norm(String(g.plotNo || ""));
-        return !!(p && plotSet.has(p));
+        if (!p) return false;
+        for (const pl of plotList){
+          if (plotNoCellMatchesPlotInputClient_(pl, p)) return true;
+        }
+        return false;
       });
     }
 
@@ -7859,6 +7952,21 @@
       }).join("");
     }
 
+    function lookupOwnerDigitsForPlotFromDirectory_(plotNo){
+      const want = norm(String(plotNo || ""));
+      if (!want || !Array.isArray(allRows) || !allRows.length) return "";
+      for (const r of allRows){
+        const prow = plotNoOfRow(r);
+        if (!plotNoCellMatchesPlotInputClient_(prow, want)) continue;
+        const pr = digitsOnly(r[COL_PRIMARY_CONTACT] || r["Primary Contact Number"] || "");
+        const ar = digitsOnly(r[COL_ALTERNATE_NUMBER] || r["Alternate Number"] || "");
+        const pick = (pr.length >= 10 ? pr : "") || (ar.length >= 10 ? ar : "");
+        if (!pick) continue;
+        return pick.length >= 10 ? pick.slice(-10) : "";
+      }
+      return "";
+    }
+
     function buildGateWhatsAppShareBody_(ctx){
       const when = ctx.atIso ? String(ctx.atIso).replace("T", " ").slice(0, 19) : "—";
       return (
@@ -7883,20 +7991,21 @@
       if (!tb) return;
       const sess = readSession();
       if (!sess || sess.role !== "watchman"){
-        tb.innerHTML = `<tr><td colspan="6">—</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="7">—</td></tr>`;
         return;
       }
       if (!isServerEnabled() || !portalServerState.loaded || !Array.isArray(portalServerState.gateVisits)){
-        tb.innerHTML = `<tr><td colspan="6">Entries appear after Apps Script /state loads.</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="7">Entries appear after Apps Script /state loads.</td></tr>`;
         return;
       }
       const list = [...(portalServerState.gateVisits || [])].sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
       if (!list.length){
-        tb.innerHTML = `<tr><td colspan="6">No entries yet.</td></tr>`;
+        tb.innerHTML = `<tr><td colspan="7">No entries yet.</td></tr>`;
         return;
       }
       tb.innerHTML = list.slice(0, 40).map(g => {
         const when = g.atIso ? escapeHtml(String(g.atIso).replace("T", " ").slice(0, 19)) : "—";
+        const gid = escapeHtml(String(g.id || ""));
         return `<tr>
           <td class="mono">${when}</td>
           <td>${escapeHtml(String(g.plotNo || ""))}</td>
@@ -7904,46 +8013,47 @@
           <td class="mono">${escapeHtml(String(g.visitorMobile || ""))}</td>
           <td>${escapeHtml(String(g.vehicle || ""))}</td>
           <td>${escapeHtml(String(g.purpose || ""))}</td>
+          <td style="white-space:nowrap;"><span style="display:inline-flex;gap:6px;flex-wrap:nowrap;align-items:center;">
+            <button type="button" class="btn secondary tiny" data-gate-edit="${gid}">Edit</button>
+            <button type="button" class="btn danger tiny" data-gate-del="${gid}">Delete</button>
+          </span></td>
         </tr>`;
       }).join("");
     }
 
     async function gateShareToOwnerWhatsApp_(){
+      const plotNo = norm(document.getElementById("gatePlotNo")?.value);
       const ctx = globalThis.__insLastGateShareCtx;
-      if (!ctx || !ctx.ownerMobileDigits){
-        alert("Submit a visitor entry first.");
+      const visitorName = norm(document.getElementById("gateVisitorName")?.value) || (ctx && ctx.visitorName) || "";
+      const visitorMobile = norm(document.getElementById("gateVisitorMobile")?.value) || (ctx && ctx.visitorMobile) || "";
+      const vehicle = norm(document.getElementById("gateVehicle")?.value) || (ctx && ctx.vehicle) || "";
+      const purpose = norm(document.getElementById("gatePurpose")?.value) || (ctx && ctx.purpose) || "";
+      const atIso = (ctx && ctx.atIso) ? String(ctx.atIso) : "";
+      let ownerDig = lookupOwnerDigitsForPlotFromDirectory_(plotNo);
+      if (!ownerDig && ctx && ctx.ownerMobileDigits) ownerDig = String(ctx.ownerMobileDigits);
+      if (!ownerDig){
+        alert("Enter the plot number and load the owner directory (CSV), or submit the visitor entry first so the owner WhatsApp number can be resolved.");
         return;
       }
-      const text = buildGateWhatsAppShareBody_(ctx);
+      const shareCtx = {
+        plotNo: plotNo || (ctx && ctx.plotNo) || "",
+        visitorName,
+        visitorMobile,
+        vehicle,
+        purpose,
+        atIso
+      };
+      const text = buildGateWhatsAppShareBody_(shareCtx);
       const inp = document.getElementById("gateSharePhoto");
       const file = inp && inp.files && inp.files[0];
-      const phonePath = waMePathFromOwnerDigits_(ctx.ownerMobileDigits);
+      const phonePath = waMePathFromOwnerDigits_(ownerDig);
       if (!phonePath){
         alert("Owner mobile is missing for this plot.");
         return;
       }
-      if (file && navigator.share){
-        try {
-          if (navigator.canShare){
-            if (navigator.canShare({ files: [file], text })){
-              await navigator.share({ files: [file], text, title: "My Gate — Visitor" });
-              return;
-            }
-            if (navigator.canShare({ files: [file] })){
-              await navigator.share({ files: [file], text });
-              return;
-            }
-          }
-          await navigator.share({ text, title: "My Gate — Visitor" });
-          return;
-        } catch (e){
-          if (String(e && e.name) === "AbortError") return;
-          console.warn(e);
-        }
-      }
       const url = `https://wa.me/${phonePath}?text=${encodeURIComponent(text)}`;
       window.open(url, "_blank", "noopener,noreferrer");
-      if (file) alert("WhatsApp opened with the message text. If the photo did not attach, add it manually in the chat.");
+      if (file) alert("WhatsApp opened to the owner’s number with the message text. Add the visitor photo in the chat if it did not attach.");
     }
 
     function renderUserInbox(){
@@ -8538,6 +8648,9 @@
       function clearGateEntryFieldsOnly(){
         const err = document.getElementById("gateFormErr");
         if (err) err.textContent = "";
+        globalThis.__insGateEditingId = "";
+        const sub = document.getElementById("gateSubmitBtn");
+        if (sub) sub.textContent = "Submit visitor";
         ["gatePlotNo","gateVisitorName","gateVisitorMobile","gateVehicle","gatePurpose"].forEach(id => {
           const el = document.getElementById(id);
           if (el) el.value = "";
@@ -8589,7 +8702,8 @@
       const gateSubmitBtn = document.getElementById("gateSubmitBtn");
       if (gateSubmitBtn) gateSubmitBtn.addEventListener("click", () => {
         const sess = readSession();
-        if (!sess || sess.role !== "watchman"){ alert("Watchman login required."); return; }
+        if (!sess || sess.role !== "watchman"){ alert("Security login required."); return; }
+        if (gateSubmitBtn.dataset.gateSubmitBusy === "1") return;
         const errEl = document.getElementById("gateFormErr");
         if (errEl) errEl.textContent = "";
         if (!isServerEnabled()){
@@ -8603,16 +8717,33 @@
         const purpose = norm(document.getElementById("gatePurpose")?.value);
         if (!plotNo){ if (errEl) errEl.textContent = "Enter plot number."; return; }
         if (!visitorName){ if (errEl) errEl.textContent = "Enter visitor name."; return; }
+        const editingId = norm(String(globalThis.__insGateEditingId || ""));
+        const wasEdit = !!editingId;
         void (async () => {
+          gateSubmitBtn.dataset.gateSubmitBusy = "1";
           gateSubmitBtn.disabled = true;
-          const sr = await portalServerAddGateVisit({
-            plotNo,
-            visitorName,
-            visitorMobile,
-            vehicle,
-            purpose
-          });
-          gateSubmitBtn.disabled = false;
+          let sr;
+          try {
+            sr = wasEdit
+              ? await portalServerUpdateGateVisit({
+                id: editingId,
+                plotNo,
+                visitorName,
+                visitorMobile,
+                vehicle,
+                purpose
+              })
+              : await portalServerAddGateVisit({
+                plotNo,
+                visitorName,
+                visitorMobile,
+                vehicle,
+                purpose
+              });
+          } finally {
+            gateSubmitBtn.disabled = false;
+            delete gateSubmitBtn.dataset.gateSubmitBusy;
+          }
           if (!sr.ok){
             const code = String(sr.error || (sr.detail && sr.detail.error) || "").trim();
             const friendly =
@@ -8631,14 +8762,15 @@
             purpose,
             ownerMobileDigits: digitsOnly(String(j.ownerMobile || "")),
             atIso: String(j.atIso || ""),
-            entryId: String(j.id || "")
+            entryId: String(j.id || editingId || "")
           };
           const ownLine = document.getElementById("gateWaOwnerLine");
           if (ownLine){
-            const ph = waMePathFromOwnerDigits_(globalThis.__insLastGateShareCtx.ownerMobileDigits);
+            const dirDig = lookupOwnerDigitsForPlotFromDirectory_(plotNo);
+            const ph = waMePathFromOwnerDigits_(dirDig || globalThis.__insLastGateShareCtx.ownerMobileDigits);
             ownLine.textContent = ph
-              ? `Owner WhatsApp (from plot primary contact): +${ph}`
-              : "Owner primary contact on file — Share will open WhatsApp when a number is available.";
+              ? `Owner WhatsApp (from plot / directory): +${ph}`
+              : "Owner contact on file — Share opens WhatsApp when a number is available.";
           }
           const shp = document.getElementById("gateSharePhoto");
           if (shp) shp.value = "";
@@ -8648,10 +8780,52 @@
           if (blk) blk.style.display = "none";
           await portalServerFetchState();
           try { renderWatchmanGateRecent(); } catch {}
+          const sucTitle = document.getElementById("gateSuccessTitle");
+          if (sucTitle) sucTitle.textContent = wasEdit ? "Entry updated successfully" : "Entry added successfully";
           clearGateEntryFieldsOnly();
           showBackdrop("gateSuccessBackdrop", true);
         })();
       });
+
+      const wGateTbody = document.getElementById("watchmanGateRecentTbody");
+      if (wGateTbody && !globalThis.__insWatchmanGateRecentWired){
+        globalThis.__insWatchmanGateRecentWired = true;
+        wGateTbody.addEventListener("click", (ev) => {
+          const ed = ev.target.closest("[data-gate-edit]");
+          const del = ev.target.closest("[data-gate-del]");
+          if (ed){
+            const id = ed.getAttribute("data-gate-edit");
+            const list = [...(portalServerState.gateVisits || [])];
+            const g = list.find(x => String(x.id || "") === id);
+            if (!g) return;
+            document.getElementById("gatePlotNo").value = String(g.plotNo || "");
+            document.getElementById("gateVisitorName").value = String(g.visitorName || "");
+            document.getElementById("gateVisitorMobile").value = String(g.visitorMobile || "");
+            document.getElementById("gateVehicle").value = String(g.vehicle || "");
+            document.getElementById("gatePurpose").value = String(g.purpose || "");
+            globalThis.__insGateEditingId = id;
+            const sub = document.getElementById("gateSubmitBtn");
+            if (sub) sub.textContent = "Save changes";
+            const errE = document.getElementById("gateFormErr");
+            if (errE) errE.textContent = "Editing entry — submit to save.";
+            document.getElementById("gatePlotNo")?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            return;
+          }
+          if (del){
+            const id = del.getAttribute("data-gate-del");
+            if (!id || !confirm("Delete this gate entry?")) return;
+            void (async () => {
+              const dr = await portalServerDeleteGateVisit(id);
+              if (!dr.ok){
+                alert(String(dr.error || "Delete failed."));
+                return;
+              }
+              await portalServerFetchState();
+              try { renderWatchmanGateRecent(); } catch {}
+            })();
+          }
+        });
+      }
       document.getElementById("userChangePwBtn").addEventListener("click", () => {
         const sess = readSession();
         openPwModal("user", sess?.userId || "");
