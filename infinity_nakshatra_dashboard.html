@@ -1929,7 +1929,7 @@
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
             <button class="btn" id="gateWaShareBtn" type="button">Share to owner WhatsApp</button>
           </div>
-          <div class="smallNote" style="margin-top:10px;">One tap opens WhatsApp to the owner’s number with the visitor text plus <b>Approve</b> and <b>Reject</b> links. The owner taps a link in WhatsApp to open this portal and confirm (acknowledgment on their device).</div>
+          <div class="smallNote" style="margin-top:10px;">The owner gets two clear choices at the bottom of the same message (<b>APPROVE</b> / <b>REJECT</b>) as <b>tappable links</b> (WhatsApp turns URLs into taps). Messages like your bank screenshot with built-in green bordered buttons require <b>WhatsApp Business Cloud API</b> and Meta-approved templates—not something “Share” from a normal website can draw.</div>
         </div>
 
         <h4 style="margin:22px 0 8px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;">Recent entries (this device)</h4>
@@ -8035,10 +8035,13 @@
       const aTok = gateEntryHashToken_(id, "approve");
       const rTok = gateEntryHashToken_(id, "reject");
       if (!aTok || !rTok) return "";
+      const approveUrl = `${base}#insGate=${aTok}`;
+      const rejectUrl = `${base}#insGate=${rTok}`;
       return (
-        `\n\nReply to this gate visit — tap one link:\n` +
-        `Approve: ${base}#insGate=${aTok}\n` +
-        `Reject: ${base}#insGate=${rTok}\n`
+        `\n\n————————————\n*Please confirm*\n————————————\n\n` +
+        `*✅ APPROVE*\n${approveUrl}\n\n` +
+        `*❌ REJECT*\n${rejectUrl}\n\n` +
+        `————————————`
       );
     }
 
