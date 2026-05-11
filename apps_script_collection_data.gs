@@ -38,12 +38,38 @@ const PORTAL_AUDIT_SHEET = "portal_audit";
 /** Single-row JSON for society banking/UPI (shared across devices). */
 const PORTAL_BANKING_SHEET = "portal_banking_config";
 const PORTAL_BANKING_HEADERS = ["key", "jsonPayload"];
+const PORTAL_PROJECT_DOCS_SHEET = "portal_project_docs";
+const PORTAL_PROJECT_DOCS_HEADERS = ["key", "jsonPayload"];
+const PORTAL_SERVICE_CONTACTS_SHEET = "portal_service_contacts";
+const PORTAL_SERVICE_CONTACTS_HEADERS = ["key", "jsonPayload"];
+const PORTAL_OWNER_ACCESS_SHEET = "portal_owner_access";
+const PORTAL_OWNER_ACCESS_HEADERS = ["key", "jsonPayload"];
+/** Per-user (or broadcast "*") messages shown on the owner portal. */
+const PORTAL_USER_INBOX_SHEET = "portal_user_inbox";
+const PORTAL_USER_INBOX_HEADERS = ["id", "atIso", "toMobile", "kind", "title", "body", "readAt"];
 
 const PORTAL_PAYMENTS_HEADERS = ["id","atIso","plotNo","ym","amount","lateFee","by","source","note","requesterMobile"];
 const PORTAL_PENDING_HEADERS = ["id","plotNo","ym","amount","lateFee","requesterMobile","requestedAt"];
 const PORTAL_TICKETS_HEADERS = ["id","plotNo","requesterMobile","category","description","status","createdAt","updatedAt","adminComment"];
 const PORTAL_NOTICES_HEADERS = ["id","title","body","audience","createdAt","createdBy","attachmentUrl"];
 const PORTAL_AUDIT_HEADERS = ["atIso","actor","action","detail"];
+const PORTAL_EXPENSES_SHEET = "portal_expenses";
+const PORTAL_EXPENSES_HEADERS = ["id","atIso","ym","category","amount","description","paidTo"];
+/** Visitor log at society gate (watchman entries; photo stored in Drive when available). */
+const PORTAL_GATE_VISITS_SHEET = "portal_my_gate_visitors";
+const PORTAL_GATE_VISITS_HEADERS = ["id","atIso","plotNo","ownerMobile","visitorName","visitorMobile","vehicle","purpose","photoUrl"];
+/** Tab gids for plot→owner phone lookup (same order as portal SHEET_EXPORT_GIDS: first tab then plot_owners). */
+var PORTAL_OWNER_PLOT_SHEET_GIDS = [0, 1304899070];
+/** Fallback phone columns when Primary Contact Number is empty (10-digit mobile required for inbox). */
+var OWNER_PHONE_ALT_HEADERS = [
+  "Alternate Contact Number",
+  "Alternate Number",
+  "Alternate Mobile",
+  "Secondary Contact Number"
+];
+/** Single cell: May-start calendar year for the FY shown on the owner portal (shared across devices). */
+const PORTAL_FY_SETTINGS_SHEET = "portal_fy_settings";
+const PORTAL_FY_SETTINGS_HEADERS = ["ownerPortalMayYear"];
 
 function ensureSheetWithHeaders_(ss, name, headers) {
   var sh = ss.getSheetByName(name);
@@ -89,17 +115,31 @@ function ymCellToCanon_(ss, v) {
   return normalizeYm_(v);
 }
 
+/** Canonical YYYY-MM for portal logic (handles Sheet Date cells in pending / collection rows). */
+function portalYmCanon_(ss, ymVal) {
+  return normalizeYm_(ymCellToCanon_(ss, ymVal));
+}
+
 /** plotNo|ym for de-duplicating merged payment rows */
 function portalPaymentKey_(plotNo, ym) {
   return String(plotNo || "").trim() + "|" + normalizeYm_(ym);
+}
+
+/** One row's money for comparisons/totals: if amount and lateFee are the same positive value, count once (mirrored columns). */
+function paymentLineMoneyTotal_(row) {
+  if (!row) return 0;
+  var a = Number(row.amount || 0);
+  var lf = Number(row.lateFee || 0);
+  if (a > 0 && lf > 0 && Math.abs(a - lf) < 0.005) return a;
+  return a + lf;
 }
 
 /** When two records exist for the same plot+month, prefer real money + latest timestamp. */
 function pickBetterPortalPayment_(a, b) {
   if (!a) return b;
   if (!b) return a;
-  var aa = Number(a.amount || 0) + Number(a.lateFee || 0);
-  var bb = Number(b.amount || 0) + Number(b.lateFee || 0);
+  var aa = paymentLineMoneyTotal_(a);
+  var bb = paymentLineMoneyTotal_(b);
   if (bb > aa) return b;
   if (aa > bb) return a;
   var ta = Date.parse(String(a.atIso || "")) || 0;
@@ -114,7 +154,7 @@ function mergePortalPaymentsDedupe_(portalRows, collectionRows) {
     var pr = portalRows[i];
     var k = portalPaymentKey_(pr.plotNo, pr.ym);
     if (!k || k === "|") continue;
-    map[k] = pr;
+    map[k] = pickBetterPortalPayment_(map[k], pr);
   }
   for (i = 0; i < collectionRows.length; i++) {
     var cr = collectionRows[i];
@@ -142,6 +182,109 @@ function sanitizeBankingPayload_(data) {
   return o;
 }
 
+function readPortalExpenses_(ss) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_EXPENSES_SHEET, PORTAL_EXPENSES_HEADERS);
+  var rows = rowsToObjects_(sh, PORTAL_EXPENSES_HEADERS);
+  var out = [];
+  var i;
+  for (i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var idRaw = String(r.id || "").trim();
+    if (!idRaw || idRaw.toLowerCase() === "null") continue;
+    out.push({
+      id: idRaw,
+      atIso: String(r.atIso || ""),
+      ym: portalYmCanon_(ss, r.ym),
+      category: String(r.category || ""),
+      amount: Number(r.amount || 0),
+      description: String(r.description || ""),
+      paidTo: String(r.paidTo || "")
+    });
+  }
+  return out;
+}
+
+function readPortalOwnerFyMayYear_(ss) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_FY_SETTINGS_SHEET, PORTAL_FY_SETTINGS_HEADERS);
+  if (sh.getLastRow() < 2) return null;
+  var v = sh.getRange(2, 1).getValue();
+  var n = Number(v);
+  if (!isFinite(n) || n < 2000 || n > 2100) return null;
+  return Math.round(n);
+}
+
+function writePortalOwnerFyMayYear_(ss, mayYear) {
+  var n = Math.round(Number(mayYear));
+  if (!isFinite(n) || n < 2000 || n > 2100) return { ok: false, error: "invalid ownerPortalMayYear" };
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_FY_SETTINGS_SHEET, PORTAL_FY_SETTINGS_HEADERS);
+  var row = [n];
+  if (sh.getLastRow() < 2) sh.appendRow(row);
+  else sh.getRange(2, 1, 1, 1).setValues([row]);
+  return { ok: true };
+}
+
+function readPortalGateVisits_(ss) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_GATE_VISITS_SHEET, PORTAL_GATE_VISITS_HEADERS);
+  var rows = rowsToObjects_(sh, PORTAL_GATE_VISITS_HEADERS);
+  rows.sort(function (a, b) {
+    return String(b.atIso || "").localeCompare(String(a.atIso || ""));
+  });
+  return rows.slice(0, 400);
+}
+
+function plotNoCellMatchesPlotInput_(cellVal, plotInput) {
+  var a = String(cellVal != null ? cellVal : "").trim();
+  var b = String(plotInput || "").trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  var na = Number(a);
+  var nb = Number(b);
+  if (isFinite(na) && isFinite(nb) && na === nb) return true;
+  return false;
+}
+
+function rowTenDigitPhoneFromCol_(sh, row, col) {
+  if (col < 1) return null;
+  var v = String(sh.getRange(row, col).getDisplayValue() || "").trim();
+  var digits = v.replace(/\D/g, "");
+  if (digits.length < 10) return null;
+  return digits.slice(-10);
+}
+
+function lookupPrimaryMobileDigitsForPlot_(ss, plotNo) {
+  var want = String(plotNo || "").trim();
+  if (!want) return null;
+  var gi;
+  for (gi = 0; gi < PORTAL_OWNER_PLOT_SHEET_GIDS.length; gi++) {
+    var sh;
+    try {
+      sh = ss.getSheetById(PORTAL_OWNER_PLOT_SHEET_GIDS[gi]);
+    } catch (e1) {
+      continue;
+    }
+    if (!sh) continue;
+    var plotCol = findColByHeaderKey_(sh, "Plot No.");
+    if (plotCol < 1) continue;
+    var primaryCol = findColByHeaderKey_(sh, "Primary Contact Number");
+    var lastRow = sh.getLastRow();
+    var r;
+    for (r = 2; r <= lastRow; r++) {
+      var cellPlot = sh.getRange(r, plotCol).getDisplayValue();
+      if (!plotNoCellMatchesPlotInput_(cellPlot, want)) continue;
+      var dig = rowTenDigitPhoneFromCol_(sh, r, primaryCol);
+      if (dig) return dig;
+      var ai;
+      for (ai = 0; ai < OWNER_PHONE_ALT_HEADERS.length; ai++) {
+        var ac = findColByHeaderKey_(sh, OWNER_PHONE_ALT_HEADERS[ai]);
+        dig = rowTenDigitPhoneFromCol_(sh, r, ac);
+        if (dig) return dig;
+      }
+      return null;
+    }
+  }
+  return null;
+}
+
 function readPortalBankingObject_(ss) {
   var sh = ensureSheetWithHeaders_(ss, PORTAL_BANKING_SHEET, PORTAL_BANKING_HEADERS);
   if (sh.getLastRow() < 2) return null;
@@ -167,11 +310,206 @@ function writePortalBankingObject_(ss, data) {
   return { ok: true };
 }
 
+function sanitizeProjectDocsList_(docs) {
+  var out = [];
+  var arr = Array.isArray(docs) ? docs : [];
+  for (var i = 0; i < arr.length && i < 300; i++) {
+    var d = arr[i];
+    if (!d) continue;
+    var id = String(d.id || "").trim();
+    var name = String(d.name || "").trim().slice(0, 500);
+    if (!id || !name) continue;
+    out.push({
+      id: id,
+      name: name,
+      details: String(d.details || "").slice(0, 4000),
+      url: String(d.url || "").trim().slice(0, 2000),
+      likeCount: Math.max(0, Number(d.likeCount) || 0),
+      createdAt: Number(d.createdAt) || 0
+    });
+  }
+  return out;
+}
+
+function readPortalProjectDocs_(ss) {
+  var sh = ss.getSheetByName(PORTAL_PROJECT_DOCS_SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var cell = sh.getRange(2, 2).getValue();
+  var s = String(cell || "").trim();
+  if (!s) return [];
+  try {
+    var o = JSON.parse(s);
+    var arr = o && Array.isArray(o.docs) ? o.docs : [];
+    return sanitizeProjectDocsList_(arr);
+  } catch (e) {
+    return [];
+  }
+}
+
+function writePortalProjectDocs_(ss, docs) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_PROJECT_DOCS_SHEET, PORTAL_PROJECT_DOCS_HEADERS);
+  var clean = sanitizeProjectDocsList_(docs);
+  var payload = JSON.stringify({ v: 1, docs: clean });
+  if (payload.length > 48000) return { ok: false, error: "project_docs_payload_too_large" };
+  var row = ["default", payload];
+  if (sh.getLastRow() < 2) sh.appendRow(row);
+  else sh.getRange(2, 1, 1, 2).setValues([row]);
+  return { ok: true };
+}
+
+function sanitizeServiceContactsList_(rows) {
+  var out = [];
+  var arr = Array.isArray(rows) ? rows : [];
+  for (var i = 0; i < arr.length && i < 300; i++) {
+    var r = arr[i];
+    if (!r) continue;
+    var id = String(r.id || "").trim();
+    var contactName = String(r.contactName || "").trim().slice(0, 500);
+    if (!id || !contactName) continue;
+    out.push({
+      id: id,
+      contactName: contactName,
+      contact: String(r.contact || "").trim().slice(0, 500),
+      serviceDetails: String(r.serviceDetails || "").slice(0, 4000),
+      createdAt: Number(r.createdAt) || 0
+    });
+  }
+  return out;
+}
+
+function readPortalServiceContacts_(ss) {
+  var sh = ss.getSheetByName(PORTAL_SERVICE_CONTACTS_SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var cell = sh.getRange(2, 2).getValue();
+  var s = String(cell || "").trim();
+  if (!s) return [];
+  try {
+    var o = JSON.parse(s);
+    var arr = o && Array.isArray(o.contacts) ? o.contacts : [];
+    return sanitizeServiceContactsList_(arr);
+  } catch (e) {
+    return [];
+  }
+}
+
+function writePortalServiceContacts_(ss, contacts) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_SERVICE_CONTACTS_SHEET, PORTAL_SERVICE_CONTACTS_HEADERS);
+  var clean = sanitizeServiceContactsList_(contacts);
+  var payload = JSON.stringify({ v: 1, contacts: clean });
+  if (payload.length > 48000) return { ok: false, error: "service_contacts_payload_too_large" };
+  var row = ["default", payload];
+  if (sh.getLastRow() < 2) sh.appendRow(row);
+  else sh.getRange(2, 1, 1, 2).setValues([row]);
+  return { ok: true };
+}
+
+/** Mobile digits -> "deny" | "allow" (omit key for portal default: deny if no payments, allow if paid). */
+function sanitizeOwnerAccessMap_(raw) {
+  var out = {};
+  if (!raw || typeof raw !== "object") return out;
+  var keys = Object.keys(raw);
+  var i;
+  for (i = 0; i < keys.length && i < 5000; i++) {
+    var k = keys[i];
+    var d = String(k || "").replace(/\D/g, "");
+    if (d.length < 10 || d.length > 15) continue;
+    var v = String(raw[k] || "").toLowerCase();
+    if (v === "deny") out[d] = "deny";
+    else if (v === "allow") out[d] = "allow";
+  }
+  return out;
+}
+
+function readPortalOwnerAccess_(ss) {
+  var sh = ss.getSheetByName(PORTAL_OWNER_ACCESS_SHEET);
+  if (!sh || sh.getLastRow() < 2) return {};
+  var cell = sh.getRange(2, 2).getValue();
+  var s = String(cell || "").trim();
+  if (!s) return {};
+  try {
+    var o = JSON.parse(s);
+    var m = o && o.byMobile && typeof o.byMobile === "object" ? o.byMobile : {};
+    return sanitizeOwnerAccessMap_(m);
+  } catch (e) {
+    return {};
+  }
+}
+
+function writePortalOwnerAccess_(ss, map) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_OWNER_ACCESS_SHEET, PORTAL_OWNER_ACCESS_HEADERS);
+  var clean = sanitizeOwnerAccessMap_(map);
+  var payload = JSON.stringify({ v: 1, byMobile: clean });
+  if (payload.length > 48000) return { ok: false, error: "owner_access_payload_too_large" };
+  var row = ["default", payload];
+  if (sh.getLastRow() < 2) sh.appendRow(row);
+  else sh.getRange(2, 1, 1, 2).setValues([row]);
+  return { ok: true };
+}
+
 function audit_(ss, actor, action, detailObj) {
   var sh = ensureSheetWithHeaders_(ss, PORTAL_AUDIT_SHEET, PORTAL_AUDIT_HEADERS);
   var detail = "";
   try { detail = JSON.stringify(detailObj || {}); } catch (e) { detail = String(detailObj || ""); }
   sh.appendRow([nowIso_(), String(actor || ""), String(action || ""), detail]);
+}
+
+function appendUserInbox_(ss, toMobileDigits, kind, title, body) {
+  var mob = String(toMobileDigits || "").replace(/\D/g, "");
+  if (!mob) mob = "*";
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_USER_INBOX_SHEET, PORTAL_USER_INBOX_HEADERS);
+  sh.appendRow([newId_(), nowIso_(), mob, String(kind || ""), String(title || "").slice(0, 500), String(body || "").slice(0, 4000), ""]);
+}
+
+function readUserInbox_(ss, mobDigits) {
+  var sh = ss.getSheetByName(PORTAL_USER_INBOX_SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var rows = rowsToObjects_(sh, PORTAL_USER_INBOX_HEADERS);
+  var want = String(mobDigits || "").replace(/\D/g, "");
+  var out = [];
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var rawTm = String(r.toMobile || "").trim();
+    var tm = rawTm.replace(/\D/g, "");
+    if (rawTm !== "*" && tm !== want) continue;
+    out.push({
+      id: String(r.id || ""),
+      atIso: String(r.atIso || ""),
+      toMobile: String(r.toMobile || ""),
+      kind: String(r.kind || ""),
+      title: String(r.title || ""),
+      body: String(r.body || ""),
+      readAt: String(r.readAt || "")
+    });
+  }
+  out.sort(function (a, b) {
+    return String(b.atIso).localeCompare(String(a.atIso));
+  });
+  return out.slice(0, 100);
+}
+
+function markUserInboxRead_(ss, mobDigits, ids) {
+  var want = String(mobDigits || "").replace(/\D/g, "");
+  if (!want || !ids || !ids.length) return 0;
+  var set = {};
+  for (var i = 0; i < ids.length; i++) set[String(ids[i])] = true;
+  var sh = ss.getSheetByName(PORTAL_USER_INBOX_SHEET);
+  if (!sh || sh.getLastRow() < 2) return 0;
+  var lr = sh.getLastRow();
+  var vals = sh.getRange(2, 1, lr, PORTAL_USER_INBOX_HEADERS.length).getValues();
+  var n = 0;
+  for (var r = 0; r < vals.length; r++) {
+    var row = vals[r];
+    var id = String(row[0] || "");
+    if (!set[id]) continue;
+    if (String(row[6] || "").trim()) continue;
+    var rawTm = String(row[2] || "").trim();
+    var tm = rawTm.replace(/\D/g, "");
+    if (rawTm !== "*" && tm !== want) continue;
+    sh.getRange(r + 2, 7).setValue(nowIso_());
+    n++;
+  }
+  if (n) invalidatePortalStateCache_();
+  return n;
 }
 
 function rowsToObjects_(sh, headers) {
@@ -254,8 +592,7 @@ function paymentsFromCollectionData_(ss) {
     if (!plotNo || !ym) continue;
     var key = plotNo + "|" + ym;
     var atIso = String(r[0] || "");
-    // Keep latest by timestamp string (ISO sort ok) or last seen
-    map[key] = {
+    var row = {
       id: "",
       atIso: atIso,
       plotNo: plotNo,
@@ -267,6 +604,7 @@ function paymentsFromCollectionData_(ss) {
       note: String(r[11] || ""),
       requesterMobile: String(r[8] || "")
     };
+    map[key] = pickBetterPortalPayment_(map[key], row);
   }
   var out = [];
   for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) out.push(map[k]);
@@ -283,6 +621,12 @@ function getPortalState_(ss) {
       try {
         var cachedOut = JSON.parse(cached);
         cachedOut.banking = readPortalBankingObject_(ss);
+        cachedOut.projectDocs = readPortalProjectDocs_(ss);
+        cachedOut.serviceContacts = readPortalServiceContacts_(ss);
+        cachedOut.ownerAccess = readPortalOwnerAccess_(ss);
+        cachedOut.expenses = readPortalExpenses_(ss);
+        cachedOut.ownerPortalMayYear = readPortalOwnerFyMayYear_(ss);
+        cachedOut.gateVisits = readPortalGateVisits_(ss);
         return cachedOut;
       } catch (eParse) {
         try {
@@ -316,14 +660,23 @@ function getPortalState_(ss) {
     out.payments = mergePortalPaymentsDedupe_(out.payments, colPay);
   } catch (eM) {}
   out.banking = readPortalBankingObject_(ss);
+  out.projectDocs = readPortalProjectDocs_(ss);
+  out.serviceContacts = readPortalServiceContacts_(ss);
+  out.ownerAccess = readPortalOwnerAccess_(ss);
+  out.expenses = readPortalExpenses_(ss);
+  out.ownerPortalMayYear = readPortalOwnerFyMayYear_(ss);
+  out.gateVisits = readPortalGateVisits_(ss);
   try {
-    // Cache payments/pending/tickets/notices only (banking can be large; always merged fresh from sheet on cache hit).
+    // Cache payments/pending/tickets/notices/expenses (banking + project docs merged fresh from sheet on cache hit).
     var cachePayload = {
       ok: out.ok,
       payments: out.payments,
       pending: out.pending,
       tickets: out.tickets,
-      notices: out.notices
+      notices: out.notices,
+      expenses: out.expenses,
+      ownerPortalMayYear: out.ownerPortalMayYear,
+      gateVisits: out.gateVisits
     };
     // Longer TTL avoids a burst of concurrent /state recomputes returning subtly different payloads;
     // mutations still call invalidatePortalStateCache_().
@@ -333,16 +686,16 @@ function getPortalState_(ss) {
 }
 
 const COLLECTION_HEADERS = [
-  "atIso",
-  "plotNo",
-  "ym",
-  "monthLabel",
-  "amount",
-  "lateFee",
-  "role",
-  "ownerName",
-  "mobile",
-  "groupStatus",
+      "atIso",
+      "plotNo",
+      "ym",
+      "monthLabel",
+      "amount",
+      "lateFee",
+      "role",
+      "ownerName",
+      "mobile",
+      "groupStatus",
   "userAgent",
   "note"
 ];
@@ -366,6 +719,13 @@ function doGet() {
     ensureSheetWithHeaders_(ss, PORTAL_NOTICES_SHEET, PORTAL_NOTICES_HEADERS);
     ensureSheetWithHeaders_(ss, PORTAL_AUDIT_SHEET, PORTAL_AUDIT_HEADERS);
     ensureSheetWithHeaders_(ss, PORTAL_BANKING_SHEET, PORTAL_BANKING_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_PROJECT_DOCS_SHEET, PORTAL_PROJECT_DOCS_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_SERVICE_CONTACTS_SHEET, PORTAL_SERVICE_CONTACTS_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_OWNER_ACCESS_SHEET, PORTAL_OWNER_ACCESS_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_USER_INBOX_SHEET, PORTAL_USER_INBOX_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_EXPENSES_SHEET, PORTAL_EXPENSES_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_FY_SETTINGS_SHEET, PORTAL_FY_SETTINGS_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_GATE_VISITS_SHEET, PORTAL_GATE_VISITS_HEADERS);
     return json_({ ok: true, service: "Infinity Nakshatra portal backend", now: nowIso_() }, 200);
   } catch (err) {
     return json_({ ok: false, error: String(err && err.message ? err.message : err) }, 500);
@@ -390,7 +750,7 @@ function monthBackupSheetName_(ym) {
 }
 
 function ensureHeaders_(sh) {
-  if (sh.getLastRow() === 0) {
+    if (sh.getLastRow() === 0) {
     sh.appendRow(COLLECTION_HEADERS);
     return;
   }
@@ -401,23 +761,23 @@ function ensureHeaders_(sh) {
   }
   const first = sh.getRange(1, 1).getValue();
   if (!first || String(first).trim() !== "atIso") {
-    sh.insertRowBefore(1);
+        sh.insertRowBefore(1);
     sh.getRange(1, 1, 1, COLLECTION_HEADERS.length).setValues([COLLECTION_HEADERS]);
-  }
-}
+      }
+    }
 
 function buildRow_(entry) {
   return [
-    entry.atIso || new Date().toISOString(),
-    entry.plotNo || "",
-    entry.ym || "",
-    entry.monthLabel || "",
-    Number(entry.amount || 0),
-    Number(entry.lateFee || 0),
-    entry.role || "",
-    entry.ownerName || "",
-    entry.mobile || "",
-    entry.groupStatus || "",
+      entry.atIso || new Date().toISOString(),
+      entry.plotNo || "",
+      entry.ym || "",
+      entry.monthLabel || "",
+      Number(entry.amount || 0),
+      Number(entry.lateFee || 0),
+      entry.role || "",
+      entry.ownerName || "",
+      entry.mobile || "",
+      entry.groupStatus || "",
     entry.userAgent || "",
     entry.note != null ? String(entry.note) : ""
   ];
@@ -454,21 +814,27 @@ function collectionAnyRowExists_(sh, plotNo, ym) {
 function appendCollectionRow_(ss, entry) {
   const master = ss.getSheetByName(TARGET_SHEET_NAME) || ss.insertSheet(TARGET_SHEET_NAME);
   ensureHeaders_(master);
-  const row = buildRow_(entry);
-  const note = String(entry && entry.note != null ? entry.note : "");
-  const plotNo = String(entry && entry.plotNo != null ? entry.plotNo : "");
-  const ym = String(entry && entry.ym != null ? entry.ym : "");
-  // Enforce ONE entry per plot+month in collection logs.
-  // This prevents duplicates even if someone retries.
-  if (collectionAnyRowExists_(master, plotNo, ym)) return;
-  master.appendRow(row);
-
-  const mname = monthBackupSheetName_(entry.ym);
+  const plotNo = String(entry && entry.plotNo != null ? entry.plotNo : "").trim();
+  const ym = portalYmCanon_(ss, entry && entry.ym != null ? entry.ym : "");
+  if (!plotNo || !ym) return;
+  const entryNorm = Object.assign({}, entry, {
+    plotNo: plotNo,
+    ym: ym,
+    monthLabel: String(entry && entry.monthLabel != null ? entry.monthLabel : ym)
+  });
+  const row = buildRow_(entryNorm);
+  // At most one row per plot+month per sheet. Master and month tabs are checked independently so a
+  // row present only on collection_data still gets mirrored to collection_m_YYYYMM.
+  if (!collectionAnyRowExists_(master, plotNo, ym)) {
+    master.appendRow(row);
+  }
+  const mname = monthBackupSheetName_(ym);
   if (mname) {
     const msh = ss.getSheetByName(mname) || ss.insertSheet(mname);
     ensureHeaders_(msh);
-    if (collectionAnyRowExists_(msh, plotNo, ym)) return;
-    msh.appendRow(row);
+    if (!collectionAnyRowExists_(msh, plotNo, ym)) {
+      msh.appendRow(row);
+    }
   }
 }
 
@@ -678,7 +1044,23 @@ function doPost(e) {
 
     // Shared portal backend
     if (action === "state") {
-      return json_(getPortalState_(ss), 200);
+      var st0 = getPortalState_(ss);
+      var mobQ = String(data.forUserMobile || "").replace(/\D/g, "");
+      if (mobQ) {
+        try {
+          st0.inbox = readUserInbox_(ss, mobQ);
+        } catch (eInbox) {
+          st0.inbox = [];
+        }
+      }
+      return json_(st0, 200);
+    }
+    if (action === "markUserInboxRead") {
+      var mobM = String(data.forUserMobile || "").replace(/\D/g, "");
+      var idsM = Array.isArray(data.ids) ? data.ids.map(function (x) { return String(x); }) : [];
+      if (!mobM || !idsM.length) return json_({ ok: false, error: "forUserMobile and ids[] required" }, 400);
+      var nM = markUserInboxRead_(ss, mobM, idsM);
+      return json_({ ok: true, updated: nM }, 200);
     }
     if (action === "submitPaymentRequest") {
       var sh = ensureSheetWithHeaders_(ss, PORTAL_PENDING_SHEET, PORTAL_PENDING_HEADERS);
@@ -693,8 +1075,9 @@ function doPost(e) {
       if (paymentExists_(paySh, plotNo, ym)) return json_({ ok:false, error:"already_paid" }, 409);
       var items = rowsToObjects_(sh, PORTAL_PENDING_HEADERS);
       for (var i = 0; i < items.length; i++) {
-        if (String(items[i].plotNo) === plotNo && String(items[i].ym) === ym && String(items[i].requesterMobile) === mob) {
-          return json_({ ok:true, id: items[i].id, updated: true }, 200);
+        var py = ymCellToCanon_(ss, items[i].ym);
+        if (String(items[i].plotNo || "").trim() === plotNo && py === ym) {
+          return json_({ ok:false, error:"pending_exists" }, 409);
         }
       }
       var id = newId_();
@@ -719,7 +1102,7 @@ function doPost(e) {
         return json_({ ok:false, error:"already_paid" }, 409);
       }
       var payId = newId_();
-      var ymA = normalizeYm_(req.ym);
+      var ymA = portalYmCanon_(ss, req.ym);
       paySh2.appendRow([payId, nowIso_(), String(req.plotNo || "").trim(), ymA, Number(req.amount || 0), Number(req.lateFee || 0), "admin", "approved_owner_request", "approved", String(req.requesterMobile || "")]);
       deleteWhere_(pendSh, function(row){ return String(row[0]) === idA; });
       // Also append to collection_data/month tab so the main sheet reflects it reliably.
@@ -737,6 +1120,11 @@ function doPost(e) {
         userAgent: "",
         note: "approved_owner_request_server"
       });
+      var mobAp = String(req.requesterMobile || "").replace(/\D/g, "");
+      if (mobAp) {
+        appendUserInbox_(ss, mobAp, "payment_approved", "Payment approved",
+          "Your maintenance payment for plot " + String(req.plotNo || "").trim() + ", month " + ymA + ", was approved. It is now recorded in the society collection.");
+      }
       audit_(ss, actor, "approvePaymentRequest", { id:idA, paymentId:payId, plotNo:req.plotNo, ym:req.ym });
       invalidatePortalStateCache_();
       return json_({ ok:true, paymentId: payId }, 200);
@@ -746,7 +1134,18 @@ function doPost(e) {
       var actorR = String(data.actor || "admin").trim();
       if (!idR) return json_({ ok:false, error:"id required" }, 400);
       var pendSh2 = ensureSheetWithHeaders_(ss, PORTAL_PENDING_SHEET, PORTAL_PENDING_HEADERS);
+      var pendObjs = rowsToObjects_(pendSh2, PORTAL_PENDING_HEADERS);
+      var reqR = null;
+      for (var pri = 0; pri < pendObjs.length; pri++) if (String(pendObjs[pri].id) === idR) { reqR = pendObjs[pri]; break; }
       var removed = deleteWhere_(pendSh2, function(row){ return String(row[0]) === idR; });
+      if (reqR) {
+        var mobRj = String(reqR.requesterMobile || "").replace(/\D/g, "");
+        var ymrj = portalYmCanon_(ss, reqR.ym);
+        if (mobRj) {
+          appendUserInbox_(ss, mobRj, "payment_rejected", "Payment request not approved",
+            "Your payment request for plot " + String(reqR.plotNo || "").trim() + ", month " + ymrj + ", was rejected by an admin. You may submit a new request if needed.");
+        }
+      }
       audit_(ss, actorR, "rejectPaymentRequest", { id:idR, removed:removed });
       invalidatePortalStateCache_();
       return json_({ ok:true, removed:removed }, 200);
@@ -847,6 +1246,7 @@ function doPost(e) {
       var att = String(data.attachmentUrl || "").trim();
       if (!title || !bodyN) return json_({ ok:false, error:"title and body required" }, 400);
       nSh.appendRow([idN, title, bodyN, aud, Date.now(), by, att]);
+      appendUserInbox_(ss, "*", "notice_added", "New society notice", String(title) + " — see the Notices section on the owner portal.");
       audit_(ss, by, "createNotice", { id:idN, title:title });
       invalidatePortalStateCache_();
       return json_({ ok:true, id:idN }, 200);
@@ -867,9 +1267,133 @@ function doPost(e) {
       if (!bankingIn || typeof bankingIn !== "object") return json_({ ok:false, error:"banking object required" }, 400);
       var wr = writePortalBankingObject_(ss, bankingIn);
       if (!wr.ok) return json_(wr, 400);
+      appendUserInbox_(ss, "*", "banking_updated", "Account & UPI details updated", "Society banking / UPI information was updated. Open Account & UPI Details to review.");
       audit_(ss, actorB, "saveBanking", { ok: true });
       invalidatePortalStateCache_();
       return json_({ ok:true }, 200);
+    }
+    if (action === "saveProjectDocs") {
+      var actorDocs = String(data.actor || "portal").trim();
+      var docsIn = Array.isArray(data.docs) ? data.docs : [];
+      var wrDocs = writePortalProjectDocs_(ss, docsIn);
+      if (!wrDocs.ok) return json_(wrDocs, 400);
+      audit_(ss, actorDocs, "saveProjectDocs", { count: sanitizeProjectDocsList_(docsIn).length });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, count: sanitizeProjectDocsList_(docsIn).length }, 200);
+    }
+    if (action === "saveServiceContacts") {
+      var actorSc = String(data.actor || "portal").trim();
+      var contactsIn = Array.isArray(data.contacts) ? data.contacts : [];
+      var wrSc = writePortalServiceContacts_(ss, contactsIn);
+      if (!wrSc.ok) return json_(wrSc, 400);
+      audit_(ss, actorSc, "saveServiceContacts", { count: sanitizeServiceContactsList_(contactsIn).length });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, count: sanitizeServiceContactsList_(contactsIn).length }, 200);
+    }
+    if (action === "saveOwnerAccess") {
+      var actorOa = String(data.actor || "portal").trim();
+      var mapIn = data.byMobile && typeof data.byMobile === "object" ? data.byMobile : {};
+      var wrOa = writePortalOwnerAccess_(ss, mapIn);
+      if (!wrOa.ok) return json_(wrOa, 400);
+      var cntOa = Object.keys(sanitizeOwnerAccessMap_(mapIn)).length;
+      audit_(ss, actorOa, "saveOwnerAccess", { denyCount: cntOa });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, denyCount: cntOa }, 200);
+    }
+    if (action === "saveOwnerPortalFy") {
+      var actorFy = String(data.actor || "admin").trim();
+      var wrFy = writePortalOwnerFyMayYear_(ss, data.ownerMayYear);
+      if (!wrFy.ok) return json_(wrFy, 400);
+      audit_(ss, actorFy, "saveOwnerPortalFy", { ownerMayYear: Math.round(Number(data.ownerMayYear)) });
+      invalidatePortalStateCache_();
+      return json_({ ok: true }, 200);
+    }
+    if (action === "addGateVisit") {
+      var actorG = String(data.actor || "").trim();
+      if (actorG !== "watchman") return json_({ ok: false, error: "watchman actor required" }, 403);
+      var plotG = String(data.plotNo || "").trim();
+      var vName = String(data.visitorName || "").trim();
+      var vMob = String(data.visitorMobile || "").trim().slice(0, 40);
+      var veh = String(data.vehicle || "").trim().slice(0, 80);
+      var purp = String(data.purpose || "").trim().slice(0, 500);
+      if (!plotG || !vName) return json_({ ok: false, error: "plotNo and visitorName required" }, 400);
+      var ownerDig = lookupPrimaryMobileDigitsForPlot_(ss, plotG);
+      if (!ownerDig) return json_({ ok: false, error: "plot_not_found_or_no_primary_mobile" }, 400);
+      var idG = newId_();
+      var atG = nowIso_();
+      var shG = ensureSheetWithHeaders_(ss, PORTAL_GATE_VISITS_SHEET, PORTAL_GATE_VISITS_HEADERS);
+      shG.appendRow([idG, atG, plotG, ownerDig, vName, vMob, veh, purp, ""]);
+      var titleIn = "Visitor at gate — Plot " + plotG;
+      var bodyIn =
+        "Visitor: " + vName +
+        (vMob ? "\nVisitor mobile: " + vMob : "") +
+        (veh ? "\nVehicle: " + veh : "") +
+        (purp ? "\nPurpose / visiting: " + purp : "") +
+        "\n\nWatchman will share the visitor photo with you on WhatsApp using the society format.";
+      appendUserInbox_(ss, ownerDig, "gate_visitor", titleIn, bodyIn);
+      audit_(ss, "watchman", "addGateVisit", { id: idG, plotNo: plotG, ownerMobile: ownerDig });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, id: idG, ownerMobile: ownerDig, atIso: atG }, 200);
+    }
+    if (action === "addExpense") {
+      var actorE = String(data.actor || "admin").trim();
+      var ymE = normalizeYm_(data.ym);
+      var amountE = Number(data.amount || 0);
+      var catE = String(data.category || "").trim();
+      var descE = String(data.description || "").trim();
+      var paidE = String(data.paidTo || "").trim();
+      if (!ymE || amountE <= 0) return json_({ ok: false, error: "ym and positive amount required" }, 400);
+      var shE = ensureSheetWithHeaders_(ss, PORTAL_EXPENSES_SHEET, PORTAL_EXPENSES_HEADERS);
+      var idE = newId_();
+      shE.appendRow([idE, nowIso_(), ymE, catE, amountE, descE, paidE]);
+      audit_(ss, actorE, "addExpense", { id: idE, ym: ymE, amount: amountE, category: catE });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, id: idE }, 200);
+    }
+    if (action === "updateExpense") {
+      var actorU = String(data.actor || "admin").trim();
+      var idU = String(data.id || "").trim();
+      var ymU = normalizeYm_(data.ym);
+      var amountU = Number(data.amount || 0);
+      var catU = String(data.category || "").trim();
+      var descU = String(data.description || "").trim();
+      var paidU = String(data.paidTo || "").trim();
+      if (!idU || !ymU || amountU <= 0) return json_({ ok: false, error: "id, ym and positive amount required" }, 400);
+      var shU = ensureSheetWithHeaders_(ss, PORTAL_EXPENSES_SHEET, PORTAL_EXPENSES_HEADERS);
+      var lastRowU = shU.getLastRow();
+      if (lastRowU < 2) return json_({ ok: false, error: "no_expenses" }, 404);
+      var valsU = shU.getRange(2, 1, lastRowU, 1).getValues();
+      var targetU = -1;
+      for (var ui = 0; ui < valsU.length; ui++) {
+        if (String(valsU[ui][0]) === idU) { targetU = ui + 2; break; }
+      }
+      if (targetU < 0) return json_({ ok: false, error: "not_found" }, 404);
+      shU.getRange(targetU, 2).setValue(nowIso_());
+      shU.getRange(targetU, 3, 1, 7).setValues([[ymU, catU, amountU, descU, paidU]]);
+      audit_(ss, actorU, "updateExpense", { id: idU, ym: ymU, amount: amountU });
+      invalidatePortalStateCache_();
+      return json_({ ok: true }, 200);
+    }
+    if (action === "deleteExpense") {
+      var actorDel = String(data.actor || "admin").trim();
+      var idDel = String(data.id || "").trim();
+      if (!idDel) return json_({ ok: false, error: "id required" }, 400);
+      var shDel = ensureSheetWithHeaders_(ss, PORTAL_EXPENSES_SHEET, PORTAL_EXPENSES_HEADERS);
+      var lastRowDel = shDel.getLastRow();
+      if (lastRowDel < 2) return json_({ ok: false, error: "no_expenses" }, 404);
+      var valsDel = shDel.getRange(2, 1, lastRowDel, 1).getValues();
+      var targetDel = -1;
+      for (var di = 0; di < valsDel.length; di++) {
+        if (String(valsDel[di][0]) === idDel) {
+          targetDel = di + 2;
+          break;
+        }
+      }
+      if (targetDel < 0) return json_({ ok: false, error: "not_found" }, 404);
+      shDel.deleteRow(targetDel);
+      audit_(ss, actorDel, "deleteExpense", { id: idDel });
+      invalidatePortalStateCache_();
+      return json_({ ok: true }, 200);
     }
 
     if (action === "bulk") {
@@ -898,7 +1422,7 @@ function doPost(e) {
     var entry = data.entry;
     if (entry && typeof entry === "object") {
       appendCollectionRow_(ss, entry);
-      return json_({ ok: true });
+    return json_({ ok: true });
     }
 
     return json_({ ok: false, error: "missing entry or unknown action" }, 400);
