@@ -1934,7 +1934,7 @@
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
             <button class="btn" id="gateWaShareBtn" type="button">Share to owner WhatsApp</button>
           </div>
-          <div class="smallNote" style="margin-top:10px;">After you take or choose a photo, wait a second so it can finish preparing. Then tap <b>Share to owner WhatsApp</b> once: choose <b>WhatsApp</b> in the share sheet — <b>text + visitor photo</b> should appear together (wa.me cannot attach photos). Without a photo, WhatsApp opens straight to the owner number.</div>
+          <div class="smallNote" style="margin-top:10px;">After a photo, wait a second for it to finish preparing. One tap opens <b>WhatsApp to the owner’s number</b> with the text, then the <b>Share</b> sheet — choose <b>WhatsApp</b> again to attach the <b>photo</b> to the same chat. Without a photo, only the owner chat opens with the message.</div>
         </div>
 
         <h4 style="margin:22px 0 8px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;">Recent entries (this device)</h4>
@@ -8104,6 +8104,31 @@
     }
 
     /**
+     * Open WhatsApp with the owner number + message prefilled (same user gesture as Web Share).
+     * Android: whatsapp:// targets the app directly; iOS / desktop: api.whatsapp.com (opens app or web to that chat).
+     */
+    function triggerWhatsAppSendToOwner_(phonePath, messageText){
+      const p = String(phonePath || "").replace(/\D/g, "");
+      if (!p) return;
+      let msg = String(messageText || "");
+      if (msg.length > 3500) msg = msg.slice(0, 3500) + "\n…";
+      const enc = encodeURIComponent(msg);
+      const appUrl = `whatsapp://send?phone=${p}&text=${enc}`;
+      const webUrl = `https://api.whatsapp.com/send?phone=${p}&text=${enc}`;
+      const href = /Android/i.test(navigator.userAgent || "") ? appUrl : webUrl;
+      try {
+        const a = document.createElement("a");
+        a.href = href;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.style.display = "none";
+        (document.body || document.documentElement).appendChild(a);
+        a.click();
+        a.remove();
+      } catch {}
+    }
+
+    /**
      * Must call navigator.share from the same synchronous user gesture as the button click
      * (do not wrap in async/await before share) or many browsers omit files / fall back to text-only.
      */
@@ -8145,18 +8170,18 @@
         if (prep && prep instanceof File && prep.size > 32 && prep.type === "image/jpeg") shareFile = prep;
         else shareFile = gateSharePhotoFileForWebShare_(rawFile);
       }
-      const waUrl = `https://wa.me/${phonePath}?text=${encodeURIComponent(body)}`;
       if (shareFile && navigator.share){
         const textForShare = text.length > 3500 ? text.slice(0, 3500) + "\n…" : text;
         const shareData = { files: [shareFile], text: textForShare };
         const onShareFail = (e) => {
           if (String(e && e.name) === "AbortError") return;
           console.warn(e);
-          window.open(waUrl, "_blank", "noopener,noreferrer");
-          alert("Photo could not be sent via Share. WhatsApp opened with text only — add the visitor photo manually.");
+          triggerWhatsAppSendToOwner_(phonePath, textForShare);
+          alert("Photo could not be sent via Share. WhatsApp opened to the owner number with text — add the visitor photo manually.");
         };
         let sharePromise;
         try {
+          triggerWhatsAppSendToOwner_(phonePath, textForShare);
           sharePromise = navigator.share(shareData);
         } catch (e){
           onShareFail(e);
@@ -8165,8 +8190,8 @@
         sharePromise.catch(onShareFail);
         return;
       }
-      window.open(waUrl, "_blank", "noopener,noreferrer");
-      if (shareFile) alert("This browser cannot Share files to WhatsApp from here. WhatsApp opened with text only — add the visitor photo manually.");
+      triggerWhatsAppSendToOwner_(phonePath, text);
+      if (shareFile) alert("This browser cannot Share files to WhatsApp from here. WhatsApp opened to the owner number with text — add the visitor photo manually.");
     }
 
     function renderUserInbox(){
