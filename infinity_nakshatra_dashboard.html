@@ -1531,7 +1531,7 @@
       <div class="mcRowInner">
         <div class="mcBrand">
           <h3>My Gate — visitor log</h3>
-          <div class="smallNote">All Security entries (tab <strong>portal_my_gate_visitors</strong>). Security can WhatsApp the owner with visitor details and Approve / Reject links.</div>
+          <div class="smallNote">All Security entries (tab <strong>portal_my_gate_visitors</strong>). Security can WhatsApp the owner with visitor details.</div>
         </div>
       </div>
       <div class="scroll-x" style="overflow:auto; max-height:min(320px, 48vh); margin-top:10px;">
@@ -1720,7 +1720,7 @@
         <div class="mcRowInner">
           <div class="mcBrand">
             <h3>My Gate — visitors</h3>
-            <div class="smallNote">Entries logged by society Security for your plot(s). You also get a <b>Notifications</b> alert; Security may WhatsApp you with visitor details and tap links to Approve or Reject.</div>
+            <div class="smallNote">Entries logged by society Security for your plot(s). You also get a <b>Notifications</b> alert; Security may WhatsApp you with visitor details.</div>
           </div>
         </div>
         <div class="scroll-x" style="overflow:auto; max-height:min(260px, 42vh); margin-top:10px;">
@@ -1894,7 +1894,7 @@
         <div class="row">
           <div>
             <strong>Visitor entry</strong>
-            <div class="smallNote">Submit details first (saved to <strong>portal_my_gate_visitors</strong> and visible to Admin / Owner on refresh). Then use <b>Share to owner WhatsApp</b> to open WhatsApp to the plot owner’s number (India: <span class="mono">91</span> + 10 digits) with the message and <b>Approve / Reject</b> tap links. Default login: ID <span class="mono">security</span> / password <span class="mono">Gate@123</span>.</div>
+            <div class="smallNote">Submit details first (saved to <strong>portal_my_gate_visitors</strong> and visible to Admin / Owner on refresh). Then use <b>Share to owner WhatsApp</b> to open WhatsApp to the plot owner’s number (India: <span class="mono">91</span> + 10 digits) with the visitor message. Default login: ID <span class="mono">security</span> / password <span class="mono">Gate@123</span>.</div>
           </div>
         </div>
         <div class="field" style="margin-top:12px; max-width:220px;">
@@ -1929,7 +1929,7 @@
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
             <button class="btn" id="gateWaShareBtn" type="button">Share to owner WhatsApp</button>
           </div>
-          <div class="smallNote" style="margin-top:10px;">The owner gets two clear choices at the bottom of the same message (<b>APPROVE</b> / <b>REJECT</b>) as <b>tappable links</b> (WhatsApp turns URLs into taps). Messages like your bank screenshot with built-in green bordered buttons require <b>WhatsApp Business Cloud API</b> and Meta-approved templates—not something “Share” from a normal website can draw.</div>
+          <div class="smallNote" style="margin-top:10px;">One tap opens WhatsApp to the owner’s number with the visitor details text.</div>
         </div>
 
         <h4 style="margin:22px 0 8px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;">Recent entries (this device)</h4>
@@ -1963,7 +1963,7 @@
           <div class="modalSub">Saved to the spreadsheet. Admin and owner lists update after data refresh.</div>
         </div>
       </div>
-      <p class="smallNote" style="margin:0;">Next: tap <b>Share to owner WhatsApp</b> to send the formatted details with Approve / Reject links for the owner.</p>
+      <p class="smallNote" style="margin:0;">Next: tap <b>Share to owner WhatsApp</b> to send the formatted visitor details to the owner.</p>
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:16px;">
         <button class="btn" id="gateSuccessOkBtn" type="button">OK</button>
       </div>
@@ -8016,62 +8016,6 @@
       }).join("");
     }
 
-    function gateEntryHashToken_(entryId, response){
-      const raw = JSON.stringify({
-        id: String(entryId || "").trim(),
-        r: response === "reject" ? "reject" : "approve"
-      });
-      try {
-        return btoa(raw).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-      } catch {
-        return "";
-      }
-    }
-
-    function buildGateVisitorResponseAppend_(entryId){
-      const id = String(entryId || "").trim();
-      if (!id) return "";
-      const base = location.href.split("#")[0];
-      const aTok = gateEntryHashToken_(id, "approve");
-      const rTok = gateEntryHashToken_(id, "reject");
-      if (!aTok || !rTok) return "";
-      const approveUrl = `${base}#insGate=${aTok}`;
-      const rejectUrl = `${base}#insGate=${rTok}`;
-      return (
-        `\n\n————————————\n*Please confirm*\n————————————\n\n` +
-        `*✅ APPROVE*\n${approveUrl}\n\n` +
-        `*❌ REJECT*\n${rejectUrl}\n\n` +
-        `————————————`
-      );
-    }
-
-    function decodeInsGateHashToken_(tok){
-      let s = String(tok || "").trim();
-      if (!s) return null;
-      s = s.replace(/-/g, "+").replace(/_/g, "/");
-      while (s.length % 4) s += "=";
-      try {
-        return JSON.parse(atob(s));
-      } catch {
-        return null;
-      }
-    }
-
-    function handleInsGateHashOnLoad_(){
-      try {
-        const h = String(location.hash || "");
-        if (!h.startsWith("#insGate=")) return;
-        const o = decodeInsGateHashToken_(h.slice("#insGate=".length));
-        if (!o || typeof o !== "object") return;
-        const id = String(o.id || "").trim();
-        if (!id) return;
-        const r = String(o.r || "");
-        const label = r === "reject" ? "Reject" : "Approve";
-        history.replaceState(null, "", location.pathname + (location.search || ""));
-        alert(`You chose ${label} for visitor entry ${id}. This confirms on your device; tell Security or the office if they should record it officially.`);
-      } catch {}
-    }
-
     /**
      * Open WhatsApp with the owner number + message prefilled (same user gesture as the Share button).
      * Android: whatsapp:// targets the app directly; iOS / desktop: api.whatsapp.com (opens app or web to that chat).
@@ -8111,11 +8055,6 @@
         alert("Enter the plot number and load the owner directory (CSV), or submit the visitor entry first so the owner WhatsApp number can be resolved.");
         return;
       }
-      const entryId = String((ctx && ctx.entryId) || "").trim();
-      if (!entryId){
-        alert("Submit this visitor entry first so Approve / Reject links can be added to the message.");
-        return;
-      }
       const shareCtx = {
         plotNo: plotNo || (ctx && ctx.plotNo) || "",
         visitorName,
@@ -8124,7 +8063,7 @@
         purpose,
         atIso
       };
-      const body = buildGateWhatsAppShareBody_(shareCtx) + buildGateVisitorResponseAppend_(entryId);
+      const body = buildGateWhatsAppShareBody_(shareCtx);
       const phonePath = waMePathFromOwnerDigits_(ownerDig);
       if (!phonePath){
         alert("Owner mobile is missing for this plot.");
@@ -8134,12 +8073,6 @@
       const text = body + destLine;
       triggerWhatsAppSendToOwner_(phonePath, text);
     }
-
-    if (!globalThis.__insGateHashListenerWired){
-      globalThis.__insGateHashListenerWired = true;
-      window.addEventListener("hashchange", handleInsGateHashOnLoad_);
-    }
-    handleInsGateHashOnLoad_();
 
     function renderUserInbox(){
       const tbody = document.getElementById("userInboxTbody");
