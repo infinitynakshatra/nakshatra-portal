@@ -1934,7 +1934,7 @@
           <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
             <button class="btn" id="gateWaShareBtn" type="button">Share to owner WhatsApp</button>
           </div>
-          <div class="smallNote" style="margin-top:10px;">With a visitor photo, your phone may open <b>Share</b> first — choose <b>WhatsApp</b> to send <b>text + image</b> (wa.me cannot attach photos). Without a photo, WhatsApp opens directly to the owner number for this plot.</div>
+          <div class="smallNote" style="margin-top:10px;">With a visitor photo, tap this button once: your phone opens <b>Share</b> — pick <b>WhatsApp</b>, then pick the owner chat — <b>text + photo</b> go together (wa.me cannot attach photos). Without a photo, WhatsApp opens straight to the owner number.</div>
         </div>
 
         <h4 style="margin:22px 0 8px; font-size:12px; font-weight:900; text-transform:uppercase; letter-spacing:0.05em;">Recent entries (this device)</h4>
@@ -8021,7 +8021,34 @@
       }).join("");
     }
 
-    async function gateShareToOwnerWhatsApp_(){
+    /** Camera/file inputs often omit MIME type; WhatsApp + canShare need a concrete image/* type. */
+    function gateSharePhotoFileForWebShare_(file){
+      if (!file) return null;
+      let t = String(file.type || "").trim();
+      if (!t || t === "application/octet-stream"){
+        const n = String(file.name || "").toLowerCase();
+        if (n.endsWith(".png")) t = "image/png";
+        else if (n.endsWith(".webp")) t = "image/webp";
+        else if (n.endsWith(".gif")) t = "image/gif";
+        else t = "image/jpeg";
+      }
+      const ext =
+        t === "image/png" ? "png" :
+        t === "image/webp" ? "webp" :
+        t === "image/gif" ? "gif" : "jpg";
+      const base = String(file.name || "").replace(/[^\w.\-]+/g, "_").replace(/^\.+/, "").slice(0, 96) || `visitor-photo.${ext}`;
+      try {
+        return new File([file], base, { type: t });
+      } catch {
+        return file;
+      }
+    }
+
+    /**
+     * Must call navigator.share from the same synchronous user gesture as the button click
+     * (do not wrap in async/await before share) or many browsers omit files / fall back to text-only.
+     */
+    function gateShareToOwnerWhatsApp_(){
       const plotNo = norm(document.getElementById("gatePlotNo")?.value);
       const ctx = globalThis.__insLastGateShareCtx;
       const visitorName = norm(document.getElementById("gateVisitorName")?.value) || (ctx && ctx.visitorName) || "";
@@ -8043,37 +8070,47 @@
         purpose,
         atIso
       };
-      const text = buildGateWhatsAppShareBody_(shareCtx);
-      const inp = document.getElementById("gateSharePhoto");
-      const file = inp && inp.files && inp.files[0];
+      const body = buildGateWhatsAppShareBody_(shareCtx);
       const phonePath = waMePathFromOwnerDigits_(ownerDig);
       if (!phonePath){
         alert("Owner mobile is missing for this plot.");
         return;
       }
-      const waUrl = `https://wa.me/${phonePath}?text=${encodeURIComponent(text)}`;
-      // wa.me cannot attach images; Web Share API is the reliable way to send text + photo to WhatsApp on supported devices.
-      if (file && navigator.share){
-        try {
-          if (navigator.canShare){
-            if (navigator.canShare({ files: [file], text })){
-              await navigator.share({ files: [file], text, title: "My Gate — Visitor" });
-              return;
-            }
-            if (navigator.canShare({ files: [file] })){
-              await navigator.share({ files: [file], text });
-              return;
-            }
-          }
-          await navigator.share({ files: [file], text, title: "My Gate — Visitor" });
-          return;
-        } catch (e){
+      const destLine = `\n\n_Send to WhatsApp +${phonePath}_`;
+      const text = body + destLine;
+      const inp = document.getElementById("gateSharePhoto");
+      const rawFile = inp && inp.files && inp.files[0];
+      const shareFile = rawFile ? gateSharePhotoFileForWebShare_(rawFile) : null;
+      const waUrl = `https://wa.me/${phonePath}?text=${encodeURIComponent(body)}`;
+      if (shareFile && navigator.share){
+        const onShareFail = (e) => {
           if (String(e && e.name) === "AbortError") return;
           console.warn(e);
+          window.open(waUrl, "_blank", "noopener,noreferrer");
+          alert("Photo could not be sent via Share. WhatsApp opened with text only — add the visitor photo manually.");
+        };
+        let sharePromise;
+        try {
+          if (navigator.canShare){
+            if (navigator.canShare({ files: [shareFile], text })){
+              sharePromise = navigator.share({ files: [shareFile], text, title: "My Gate — Visitor" });
+            } else if (navigator.canShare({ files: [shareFile] })){
+              sharePromise = navigator.share({ files: [shareFile], text });
+            } else {
+              sharePromise = navigator.share({ files: [shareFile], text, title: "My Gate — Visitor" });
+            }
+          } else {
+            sharePromise = navigator.share({ files: [shareFile], text, title: "My Gate — Visitor" });
+          }
+        } catch (e){
+          onShareFail(e);
+          return;
         }
+        sharePromise.catch(onShareFail);
+        return;
       }
       window.open(waUrl, "_blank", "noopener,noreferrer");
-      if (file) alert("Photo could not be sent via the device Share sheet. The chat opened with text only — add the visitor photo manually, or try Share again on your phone.");
+      if (shareFile) alert("This browser cannot Share files to WhatsApp from here. WhatsApp opened with text only — add the visitor photo manually.");
     }
 
     function renderUserInbox(){
@@ -8716,7 +8753,7 @@
         }
       });
       const gateWaShareBtn = document.getElementById("gateWaShareBtn");
-      if (gateWaShareBtn) gateWaShareBtn.addEventListener("click", () => { void gateShareToOwnerWhatsApp_(); });
+      if (gateWaShareBtn) gateWaShareBtn.addEventListener("click", gateShareToOwnerWhatsApp_);
       const gateClearBtn = document.getElementById("gateClearBtn");
       if (gateClearBtn) gateClearBtn.addEventListener("click", () => resetGateForm());
       const gateSubmitBtn = document.getElementById("gateSubmitBtn");
