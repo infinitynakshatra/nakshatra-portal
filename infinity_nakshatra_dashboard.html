@@ -2919,6 +2919,9 @@
       const ex = ownerAccessLoadMerged()[d];
       if (ex === "deny") return true;
       if (ex === "allow") return false;
+      // Do not treat "no payments" as deny until the plot directory is loaded. Otherwise owner login races
+      // CSV /state merge and shows "blocked by administrator" (logging in as Admin first loads data and hides the bug).
+      if (!Array.isArray(allRows) || allRows.length === 0) return false;
       return totalAmountPaidForOwnerMobileDigits_(d) <= 0;
     }
 
@@ -3057,7 +3060,7 @@
       }
       try {
         const sessKick = readSession();
-        if (sessKick && sessKick.role === "user" && isOwnerLoginBlocked(sessKick.userId)){
+        if (sessKick && sessKick.role === "user" && Array.isArray(allRows) && allRows.length > 0 && isOwnerLoginBlocked(sessKick.userId)){
           if (payChart){
             try { payChart.destroy(); } catch {}
             payChart = null;
@@ -5237,7 +5240,7 @@
         if (!p) continue;
         const p1 = digitsOnly(row[COL_PRIMARY_CONTACT]);
         const alt = digitsOnly(row[COL_ALTERNATE_NUMBER] || "");
-        if (p1 === m || (alt && alt === m)) plots.add(p);
+        if (mobileDigitsMatchLast10_(p1, m) || mobileDigitsMatchLast10_(alt, m)) plots.add(p);
       }
       return [...plots];
     }
