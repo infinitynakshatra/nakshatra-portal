@@ -6425,6 +6425,42 @@
         alert("No FY months available for this report.");
         return;
       }
+      /** Plot directory counts for the summary page (dedupe by Plot No.). */
+      function sixMonthPdfDirectorySummaryStats_(){
+        const byPlot = new Map();
+        for (const r of (allRows || [])){
+          const p = norm(plotNoOfRow(r));
+          if (!p) continue;
+          if (!byPlot.has(p)) byPlot.set(p, r);
+        }
+        let totalPlots = 0;
+        let soldPlots = 0;
+        let unsoldPlots = 0;
+        const mobileSet = new Set();
+        let contactMissing = 0;
+        for (const r of byPlot.values()){
+          totalPlots++;
+          const sk = soldKey(r["Sold/Unsold"]);
+          if (sk === "unsold"){
+            unsoldPlots++;
+            continue;
+          }
+          soldPlots++;
+          const pr = digitsOnly(r[COL_PRIMARY_CONTACT] || "");
+          const alt = digitsOnly(r[COL_ALTERNATE_NUMBER] || "");
+          const hasContact = pr.length >= 10 || alt.length >= 10;
+          if (!hasContact) contactMissing++;
+          if (pr.length >= 10) mobileSet.add(pr.slice(-10));
+          else if (alt.length >= 10) mobileSet.add(alt.slice(-10));
+        }
+        return {
+          totalPlots,
+          soldPlots,
+          unsoldPlots,
+          registeredUsers: mobileSet.size,
+          contactMissing
+        };
+      }
       const { jsPDF } = jsp;
       const rangeA = sixMonthReportColumnLabel(slots[0]);
       const rangeB = sixMonthReportColumnLabel(slots[slots.length - 1]);
@@ -6475,6 +6511,19 @@
         body.push(row);
       }
       const foot = [["Total", "", "", ...colSums.map(String), String(Math.round(grandTotal))]];
+      const dirStats = sixMonthPdfDirectorySummaryStats_();
+      const expensePerSlot = slots.map(s => {
+        let t = 0;
+        for (const ex of portalServerState.expenses || []){
+          if (!expenseRowIsValid_(ex)) continue;
+          if (normalizePortalYm(String(ex.ym || "")) !== normalizePortalYm(s.ym)) continue;
+          t += toMoneyNumber(ex.amount);
+        }
+        return Math.round(t);
+      });
+      const expenseGrand = expensePerSlot.reduce((a, b) => a + b, 0);
+      const balancePerSlot = slots.map((_, i) => Math.round(colSums[i] - expensePerSlot[i]));
+      const balanceGrand = Math.round(grandTotal - expenseGrand);
 
       const pageW = 297;
       const pageH = 210;
@@ -6696,19 +6745,96 @@
       drawTitles(doc);
       doc.autoTable(tableOpts(body.slice(rpp * 2, body.length), true, 18));
 
-      const np = doc.internal.getNumberOfPages();
-      doc.setPage(np);
+      const rangeTitle = `${slots[0].shortMonth}-${slots[0].calendarYear} To ${slots[slots.length - 1].shortMonth}-${slots[slots.length - 1].calendarYear}`;
+      doc.addPage();
+      const sm = margin;
+      const sumW = tableW;
+      let ySum = 8;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(`Summary Report As of ${footerDateTimeStr}`, cx, ySum, { align: "center" });
+      ySum += 6.5;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      const sumDesc = "This report shows the maintenance received for the last 6 months along with the monthly expense summary.";
+      const sumDescLines = doc.splitTextToSize(sumDesc, sumW - sm * 2);
+      doc.text(sumDescLines, cx, ySum, { align: "center" });
+      ySum += sumDescLines.length * 3.6 + 5;
+
+      const sumTableBase = {
+        theme: "grid",
+        styles: { font: "helvetica", fontSize: 8, cellPadding: 1.2, halign: "center", valign: "middle", textColor: 20 },
+        headStyles: { font: "helvetica", fontStyle: "bold", fillColor: [230, 238, 248], textColor: 15, fontSize: 8.2 }
+      };
+
+      doc.autoTable({
+        ...sumTableBase,
+        startY: ySum,
+        margin: { left: sm, right: sm },
+        tableWidth: sumW,
+        head: [["Total Plots", "Sold Plots", "Unsold Plots", "Registered Users", "Contact Missing"]],
+        body: [[
+          String(dirStats.totalPlots),
+          String(dirStats.soldPlots),
+          String(dirStats.unsoldPlots),
+          String(dirStats.registeredUsers),
+          String(dirStats.contactMissing)
+        ]]
+      });
+      ySum = doc.lastAutoTable.finalY + 7;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.text(rangeTitle, cx, ySum, { align: "center" });
+      ySum += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+
+      const finW = sumW * 0.72;
+      doc.autoTable({
+        ...sumTableBase,
+        startY: ySum,
+        margin: { left: (pageW - finW) / 2, right: (pageW - finW) / 2 },
+        tableWidth: finW,
+        head: [["Total Amount Received", "Total Expenses", "Balance Amount"]],
+        body: [[`Rs. ${Math.round(grandTotal)}`, `Rs. ${expenseGrand}`, `Rs. ${balanceGrand}`]]
+      });
+      ySum = doc.lastAutoTable.finalY + 8;
+
+      const moHead = slots.map(sixMonthReportColumnLabel);
+      doc.autoTable({
+        startY: ySum,
+        margin: { left: sm, right: sm },
+        tableWidth: sumW,
+        theme: "grid",
+        head: [["Category", ...moHead, "Total"]],
+        body: [
+          ["Received Amount", ...colSums.map(v => `Rs. ${Math.round(v)}`), `Rs. ${Math.round(grandTotal)}`],
+          ["Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${expenseGrand}`],
+          ["Balance", ...balancePerSlot.map(v => `Rs. ${v}`), `Rs. ${balanceGrand}`]
+        ],
+        styles: { font: "helvetica", fontSize: 7.4, cellPadding: 1, halign: "center", valign: "middle", textColor: 20 },
+        headStyles: {
+          font: "helvetica",
+          fontStyle: "bold",
+          fillColor: [191, 219, 252],
+          textColor: 15,
+          fontSize: 7.6
+        },
+        columnStyles: { 0: { halign: "left", cellWidth: 28, fontStyle: "bold" } },
+        didParseCell(data){
+          if (data.section === "body" && data.row.index === 2){
+            data.cell.styles.fillColor = [255, 247, 200];
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      });
+
+      const yThank = (doc.lastAutoTable && typeof doc.lastAutoTable.finalY === "number")
+        ? doc.lastAutoTable.finalY + 10
+        : pageH - 12;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      const fy = (doc.lastAutoTable && typeof doc.lastAutoTable.finalY === "number")
-        ? Math.min(doc.lastAutoTable.finalY + 5, pageH - 4)
-        : pageH - 6;
-      doc.text(
-        `Total Amount Received As of ${footerDateTimeStr} : Rs. ${Math.round(grandTotal)}`,
-        cx,
-        fy,
-        { align: "center" }
-      );
+      doc.text("Thank You!!", cx, Math.min(yThank, pageH - 5), { align: "center" });
 
       doc.save(`Six-Month-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
       if (canvasFontBlobUrl) try { URL.revokeObjectURL(canvasFontBlobUrl); } catch {}
