@@ -1372,10 +1372,10 @@
       </div>
       <div class="statMini">
         <div class="statMiniTop">
-          <h3>Registered Plot Owners</h3>
+          <h3>Existing Members</h3>
         <div class="big" id="registeredPlots">—</div>
         </div>
-        <div class="sub">Unique sold owners with 10-digit primary contact (portal login ID)</div>
+        <div class="sub">Sold plots minus Group Status “Contact Missing” (pool for paid / unpaid counts on the report)</div>
       </div>
     </div>
 
@@ -6341,27 +6341,33 @@
     }
 
     function setStats(){
-      const plotRows = allRows.filter(r => norm(r["Plot No."]) !== "");
-      const totalPlots = plotRows.length;
-      const sold = allRows.filter(r => soldKey(r["Sold/Unsold"]) === "sold").length;
-      const unsold = allRows.filter(r => soldKey(r["Sold/Unsold"]) === "unsold").length;
-      const missing = plotRows.filter(r => soldKey(r["Sold/Unsold"]) !== "unsold" && isContactMissingGroupStatusRow(r)).length;
-      const registered = (() => {
-        const seen = new Set();
-        for (const r of plotRows){
-          if (soldKey(r["Sold/Unsold"]) === "unsold") continue;
-          const d = digitsOnly(r["Primary Contact Number"]);
-          if (d.length < 10) continue;
-          seen.add(d);
+      const byPlot = new Map();
+      for (const r of (allRows || [])){
+        const p = norm(plotNoOfRow(r));
+        if (!p) continue;
+        if (!byPlot.has(p)) byPlot.set(p, r);
+      }
+      let totalPlots = 0;
+      let soldPlots = 0;
+      let unsoldPlots = 0;
+      let contactMissing = 0;
+      for (const [, r] of byPlot.entries()){
+        totalPlots++;
+        const sk = soldKey(r["Sold/Unsold"]);
+        if (sk === "unsold"){
+          unsoldPlots++;
+          continue;
         }
-        return seen.size;
-      })();
-      document.getElementById("totalPlots").textContent = totalPlots;
-      document.getElementById("soldPlots").textContent = sold;
-      document.getElementById("unsoldPlots").textContent = unsold;
-      document.getElementById("contactMissing").textContent = missing;
+        soldPlots++;
+        if (isContactMissingGroupStatusRow(r)) contactMissing++;
+      }
+      const existingMembers = Math.max(0, soldPlots - contactMissing);
+      document.getElementById("totalPlots").textContent = String(totalPlots);
+      document.getElementById("soldPlots").textContent = String(soldPlots);
+      document.getElementById("unsoldPlots").textContent = String(unsoldPlots);
+      document.getElementById("contactMissing").textContent = String(contactMissing);
       const rp = document.getElementById("registeredPlots");
-      if (rp) rp.textContent = registered;
+      if (rp) rp.textContent = String(existingMembers);
     }
 
     function eligiblePlotRowsForCollection(){
@@ -6436,9 +6442,9 @@
         let totalPlots = 0;
         let soldPlots = 0;
         let unsoldPlots = 0;
-        const mobileSet = new Set();
         let contactMissing = 0;
-        for (const r of byPlot.values()){
+        const existingMemberPlotNos = [];
+        for (const [pKey, r] of byPlot.entries()){
           totalPlots++;
           const sk = soldKey(r["Sold/Unsold"]);
           if (sk === "unsold"){
@@ -6446,19 +6452,20 @@
             continue;
           }
           soldPlots++;
-          const pr = digitsOnly(r[COL_PRIMARY_CONTACT] || "");
-          const alt = digitsOnly(r[COL_ALTERNATE_NUMBER] || "");
-          const hasContact = pr.length >= 10 || alt.length >= 10;
-          if (!hasContact) contactMissing++;
-          if (pr.length >= 10) mobileSet.add(pr.slice(-10));
-          else if (alt.length >= 10) mobileSet.add(alt.slice(-10));
+          if (isContactMissingGroupStatusRow(r)){
+            contactMissing++;
+            continue;
+          }
+          if (pKey) existingMemberPlotNos.push(pKey);
         }
+        const existingMembers = Math.max(0, soldPlots - contactMissing);
         return {
           totalPlots,
           soldPlots,
           unsoldPlots,
-          registeredUsers: mobileSet.size,
-          contactMissing
+          existingMembers,
+          contactMissing,
+          existingMemberPlotNos
         };
       }
       const { jsPDF } = jsp;
@@ -6524,6 +6531,18 @@
       const expenseGrand = expensePerSlot.reduce((a, b) => a + b, 0);
       const balancePerSlot = slots.map((_, i) => Math.round(colSums[i] - expensePerSlot[i]));
       const balanceGrand = Math.round(grandTotal - expenseGrand);
+      const poolN = dirStats.existingMemberPlotNos.length;
+      const paidOwnersPerSlot = slots.map(slot => {
+        let c = 0;
+        for (const plotNo of dirStats.existingMemberPlotNos){
+          const entries = paymentsLoadEntries(plotNo);
+          if (Math.round(sumEntriesForYm(entries, slot.ym).amount) > 0) c++;
+        }
+        return c;
+      });
+      const unpaidOwnersPerSlot = paidOwnersPerSlot.map(paid => poolN - paid);
+      const paidOwnersTotalSum = paidOwnersPerSlot.reduce((a, b) => a + b, 0);
+      const unpaidOwnersTotalSum = unpaidOwnersPerSlot.reduce((a, b) => a + b, 0);
 
       const pageW = 297;
       const pageH = 210;
@@ -6772,12 +6791,12 @@
         startY: ySum,
         margin: { left: sm, right: sm },
         tableWidth: sumW,
-        head: [["Total Plots", "Sold Plots", "Unsold Plots", "Registered Users", "Contact Missing"]],
+        head: [["Total Plots", "Sold Plots", "Unsold Plots", "Existing Members", "Contact Missing"]],
         body: [[
           String(dirStats.totalPlots),
           String(dirStats.soldPlots),
           String(dirStats.unsoldPlots),
-          String(dirStats.registeredUsers),
+          String(dirStats.existingMembers),
           String(dirStats.contactMissing)
         ]]
       });
@@ -6808,6 +6827,8 @@
         theme: "grid",
         head: [["Category", ...moHead, "Total"]],
         body: [
+          ["Total Paid Owners", ...paidOwnersPerSlot.map(String), String(paidOwnersTotalSum)],
+          ["Total Unpaid Owners", ...unpaidOwnersPerSlot.map(String), String(unpaidOwnersTotalSum)],
           ["Received Amount", ...colSums.map(v => `Rs. ${Math.round(v)}`), `Rs. ${Math.round(grandTotal)}`],
           ["Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${expenseGrand}`],
           ["Balance", ...balancePerSlot.map(v => `Rs. ${v}`), `Rs. ${balanceGrand}`]
@@ -6820,9 +6841,9 @@
           textColor: 15,
           fontSize: 7.6
         },
-        columnStyles: { 0: { halign: "left", cellWidth: 28, fontStyle: "bold" } },
+        columnStyles: { 0: { halign: "left", cellWidth: 34, fontStyle: "bold" } },
         didParseCell(data){
-          if (data.section === "body" && data.row.index === 2){
+          if (data.section === "body" && data.row.index === 4){
             data.cell.styles.fillColor = [255, 247, 200];
             data.cell.styles.fontStyle = "bold";
           }
