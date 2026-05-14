@@ -6778,10 +6778,10 @@
         return [
           at,
           monthLabel,
-          String(ex.category || "").trim().slice(0, 36),
+          String(ex.category || "").trim().slice(0, 40),
           `Rs. ${Math.round(toMoneyNumber(ex.amount))}`,
-          String(ex.description || "").trim().slice(0, 72),
-          String(ex.paidTo || "").trim().slice(0, 32)
+          String(ex.description || "").trim().slice(0, 200),
+          String(ex.paidTo || "").trim().slice(0, 400)
         ];
       });
       if (!expenseReportBody.length){
@@ -6808,17 +6808,25 @@
         body: expenseReportBody,
         foot: [[`TOTAL (${expenseReportRowsAll.length} entries)`, "", "", `Rs. ${Math.round(expenseGrand)}`, "", ""]],
         showFoot: "lastPage",
-        styles: { font: "helvetica", fontSize: 7, cellPadding: 0.85, valign: "middle", textColor: 20 },
+        styles: { font: "helvetica", fontSize: 7, cellPadding: 0.85, valign: "middle", textColor: 20, overflow: "linebreak" },
         headStyles: { font: "helvetica", fontStyle: "bold", fillColor: [230, 238, 248], textColor: 15, fontSize: 7.2 },
         footStyles: { font: "helvetica", fontStyle: "bold", fillColor: [236, 248, 236], fontSize: 7 },
-        columnStyles: {
-          0: { cellWidth: 34 },
-          1: { cellWidth: 18, halign: "center" },
-          2: { cellWidth: 30 },
-          3: { cellWidth: 24, halign: "right" },
-          4: { cellWidth: Math.max(40, tableW - 34 - 18 - 30 - 24 - 36) },
-          5: { cellWidth: 36 }
-        }
+        columnStyles: (() => {
+          const wDate = 30;
+          const wMonth = 15;
+          const wCat = 26;
+          const wAmt = 20;
+          const wDesc = 52;
+          const wPaid = Math.max(48, tableW - wDate - wMonth - wCat - wAmt - wDesc);
+          return {
+            0: { cellWidth: wDate },
+            1: { cellWidth: wMonth, halign: "center" },
+            2: { cellWidth: wCat },
+            3: { cellWidth: wAmt, halign: "right" },
+            4: { cellWidth: wDesc, halign: "left" },
+            5: { cellWidth: wPaid, halign: "left" }
+          };
+        })()
       });
 
       doc.addPage();
