@@ -6778,14 +6778,14 @@
         return [
           at,
           monthLabel,
-          String(ex.category || "").trim().slice(0, 40),
-          `Rs. ${Math.round(toMoneyNumber(ex.amount))}`,
+          String(ex.category || "").trim().slice(0, 200),
           String(ex.description || "").trim().slice(0, 200),
-          String(ex.paidTo || "").trim().slice(0, 400)
+          String(ex.paidTo || "").trim().slice(0, 400),
+          `Rs. ${Math.round(toMoneyNumber(ex.amount))}`
         ];
       });
       if (!expenseReportBody.length){
-        expenseReportBody.push(["—", "—", "—", "Rs. 0", "No expenses recorded for this six-month period.", "—"]);
+        expenseReportBody.push(["—", "—", "—", "No expenses recorded for this six-month period.", "—", "Rs. 0"]);
       }
 
       doc.addPage();
@@ -6799,32 +6799,55 @@
         doc.setFontSize(7);
         doc.text("(Showing first 200 expense rows; total below includes all rows in this period.)", cx, 19, { align: "center" });
       }
+      const expLine = { lineWidth: 0.12, lineColor: [55, 55, 55] };
       doc.autoTable({
         startY: expenseReportRowsAll.length > 200 ? 23 : 18,
         margin: { left: margin, right: margin, bottom: 10 },
         tableWidth: tableW,
         theme: "grid",
-        head: [["Date / time", "Month", "Category", "Amount (Rs.)", "Description", "Paid to"]],
+        head: [["Date / time", "Month", "Category", "Description", "Paid to", "Amount (Rs.)"]],
         body: expenseReportBody,
-        foot: [[`TOTAL (${expenseReportRowsAll.length} entries)`, "", "", `Rs. ${Math.round(expenseGrand)}`, "", ""]],
+        foot: [[`TOTAL (${expenseReportRowsAll.length} entries)`, "", "", "", "", `Rs. ${Math.round(expenseGrand)}`]],
         showFoot: "lastPage",
-        styles: { font: "helvetica", fontSize: 7, cellPadding: 0.85, valign: "middle", textColor: 20, overflow: "linebreak" },
-        headStyles: { font: "helvetica", fontStyle: "bold", fillColor: [230, 238, 248], textColor: 15, fontSize: 7.2 },
-        footStyles: { font: "helvetica", fontStyle: "bold", fillColor: [236, 248, 236], fontSize: 7 },
+        styles: {
+          font: "helvetica",
+          fontSize: 7,
+          cellPadding: 0.85,
+          valign: "middle",
+          textColor: 20,
+          overflow: "linebreak",
+          halign: "left",
+          ...expLine
+        },
+        headStyles: {
+          font: "helvetica",
+          fontStyle: "bold",
+          fillColor: [230, 238, 248],
+          textColor: 15,
+          fontSize: 7.2,
+          ...expLine
+        },
+        footStyles: {
+          font: "helvetica",
+          fontStyle: "bold",
+          fillColor: [236, 248, 236],
+          fontSize: 7,
+          ...expLine
+        },
         columnStyles: (() => {
           const wDate = 30;
           const wMonth = 15;
-          const wCat = 26;
-          const wAmt = 20;
-          const wDesc = 52;
-          const wPaid = Math.max(48, tableW - wDate - wMonth - wCat - wAmt - wDesc);
+          const wCat = 42;
+          const wDesc = 44;
+          const wAmt = 24;
+          const wPaid = Math.max(40, tableW - wDate - wMonth - wCat - wDesc - wAmt);
           return {
-            0: { cellWidth: wDate },
-            1: { cellWidth: wMonth, halign: "center" },
-            2: { cellWidth: wCat },
-            3: { cellWidth: wAmt, halign: "right" },
-            4: { cellWidth: wDesc, halign: "left" },
-            5: { cellWidth: wPaid, halign: "left" }
+            0: { cellWidth: wDate, halign: "left" },
+            1: { cellWidth: wMonth, halign: "left" },
+            2: { cellWidth: wCat, halign: "left" },
+            3: { cellWidth: wDesc, halign: "left" },
+            4: { cellWidth: wPaid, halign: "left" },
+            5: { cellWidth: wAmt, halign: "right" }
           };
         })()
       });
