@@ -6614,15 +6614,26 @@
       const sixMoPdfRowsPerPage = 40;
       const fs = 7;
       const pad = 0.55;
-      const subLine = `Six Month Transaction Summary Report (${rangeA} To ${rangeB})`;
+      const societyPdfLine = "INFINITY NAKSHATRA SOCIETY, SHIRASWADI (49/A)";
+      const sixMonthReportSubtitle = "Six-Month Maintenance Collection & Expense Transaction Summary Report";
 
-      function drawTitles(d){
-        d.setFont("helvetica", "bold");
-        d.setFontSize(9);
-        d.text("INFINITY NAKSHATRA SOCIETY", cx, 5.8, { align: "center" });
+      function paintSocietyLineEveryPage(d){
+        const total = d.internal.getNumberOfPages();
+        for (let i = 1; i <= total; i++){
+          d.setPage(i);
+          d.setFont("helvetica", "bold");
+          d.setFontSize(11);
+          d.setTextColor(20, 20, 20);
+          d.text(societyPdfLine, cx, 4, { align: "center" });
+        }
+      }
+
+      function drawSixMonthMaintenancePageTitles(d){
         d.setFont("helvetica", "normal");
-        d.setFontSize(6.4);
-        d.text(subLine, cx, 10, { align: "center" });
+        d.setFontSize(8.8);
+        d.text(sixMonthReportSubtitle, cx, 9.8, { align: "center" });
+        d.setFontSize(7.4);
+        d.text(`(${rangeA} To ${rangeB})`, cx, 14.6, { align: "center" });
       }
 
       const firstMonthCol = 3;
@@ -6692,8 +6703,8 @@
       }
 
       const tableOpts = (bodySlice, includeFoot, marginBottom) => ({
-        startY: 12,
-        margin: { left: margin, right: margin, top: 12, bottom: marginBottom },
+        startY: 17,
+        margin: { left: margin, right: margin, top: 17, bottom: marginBottom },
         tableWidth: tableW,
         head: head,
         body: bodySlice,
@@ -6753,15 +6764,15 @@
       });
 
       const rpp = sixMoPdfRowsPerPage;
-      drawTitles(doc);
+      drawSixMonthMaintenancePageTitles(doc);
       doc.autoTable(tableOpts(body.slice(0, rpp), false, 8));
 
       doc.addPage();
-      drawTitles(doc);
+      drawSixMonthMaintenancePageTitles(doc);
       doc.autoTable(tableOpts(body.slice(rpp, rpp * 2), false, 8));
 
       doc.addPage();
-      drawTitles(doc);
+      drawSixMonthMaintenancePageTitles(doc);
       doc.autoTable(tableOpts(body.slice(rpp * 2, body.length), true, 18));
 
       const rangeTitle = `${slots[0].shortMonth}-${slots[0].calendarYear} To ${slots[slots.length - 1].shortMonth}-${slots[slots.length - 1].calendarYear}`;
@@ -6791,17 +6802,17 @@
       doc.addPage();
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.text(`Expense Report — ${rangeTitle}`, cx, 8, { align: "center" });
+      doc.text(`Expense Report — ${rangeTitle}`, cx, 11, { align: "center" });
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.6);
-      doc.text(`As of ${footerDateTimeStr}`, cx, 14, { align: "center" });
+      doc.text(`As of ${footerDateTimeStr}`, cx, 17, { align: "center" });
       if (expenseReportRowsAll.length > 200){
         doc.setFontSize(7);
-        doc.text("(Showing first 200 expense rows; total below includes all rows in this period.)", cx, 19, { align: "center" });
+        doc.text("(Showing first 200 expense rows; total below includes all rows in this period.)", cx, 22, { align: "center" });
       }
       const expLine = { lineWidth: 0.12, lineColor: [55, 55, 55] };
       doc.autoTable({
-        startY: expenseReportRowsAll.length > 200 ? 23 : 18,
+        startY: expenseReportRowsAll.length > 200 ? 26 : 21,
         margin: { left: margin, right: margin, bottom: 10 },
         tableWidth: tableW,
         theme: "grid",
@@ -6834,13 +6845,17 @@
           fontSize: 7,
           ...expLine
         },
+        didParseCell: function (data) {
+          if (data.column.index === 5) data.cell.styles.halign = "right";
+        },
         columnStyles: (() => {
           const wDate = 30;
           const wMonth = 15;
           const wCat = 42;
-          const wDesc = 44;
           const wAmt = 24;
-          const wPaid = Math.max(40, tableW - wDate - wMonth - wCat - wDesc - wAmt);
+          const remDescPaid = tableW - wDate - wMonth - wCat - wAmt;
+          const wDesc = remDescPaid / 2;
+          const wPaid = remDescPaid / 2;
           return {
             0: { cellWidth: wDate, halign: "left" },
             1: { cellWidth: wMonth, halign: "left" },
@@ -6855,7 +6870,7 @@
       doc.addPage();
       const sm = margin;
       const sumW = tableW;
-      let ySum = 8;
+      let ySum = 11;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.text(`Summary Report As of ${footerDateTimeStr}`, cx, ySum, { align: "center" });
@@ -6944,6 +6959,7 @@
       doc.setFontSize(10);
       doc.text("Thank You!!", cx, Math.min(yThank, pageH - 5), { align: "center" });
 
+      paintSocietyLineEveryPage(doc);
       doc.save(`Six-Month-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
       if (canvasFontBlobUrl) try { URL.revokeObjectURL(canvasFontBlobUrl); } catch {}
     }
