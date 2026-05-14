@@ -6765,6 +6765,62 @@
       doc.autoTable(tableOpts(body.slice(rpp * 2, body.length), true, 18));
 
       const rangeTitle = `${slots[0].shortMonth}-${slots[0].calendarYear} To ${slots[slots.length - 1].shortMonth}-${slots[slots.length - 1].calendarYear}`;
+      const slotYmSetForExpensePdf = new Set(slots.map(s => normalizePortalYm(s.ym)));
+      const expenseReportRowsAll = (portalServerState.expenses || []).filter(ex => {
+        if (!expenseRowIsValid_(ex)) return false;
+        return slotYmSetForExpensePdf.has(normalizePortalYm(String(ex.ym || "")));
+      }).sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      const expenseReportBody = expenseReportRowsAll.slice(0, 200).map(ex => {
+        const ym = normalizePortalYm(String(ex.ym || ""));
+        const slot = slots.find(s => normalizePortalYm(s.ym) === ym);
+        const monthLabel = slot ? sixMonthReportColumnLabel(slot) : ym;
+        const at = String(ex.atIso || "").replace("T", " ").slice(0, 19);
+        return [
+          at,
+          monthLabel,
+          String(ex.category || "").trim().slice(0, 36),
+          `Rs. ${Math.round(toMoneyNumber(ex.amount))}`,
+          String(ex.description || "").trim().slice(0, 72),
+          String(ex.paidTo || "").trim().slice(0, 32)
+        ];
+      });
+      if (!expenseReportBody.length){
+        expenseReportBody.push(["—", "—", "—", "Rs. 0", "No expenses recorded for this six-month period.", "—"]);
+      }
+
+      doc.addPage();
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(`Expense Report — ${rangeTitle}`, cx, 8, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.6);
+      doc.text(`As of ${footerDateTimeStr}`, cx, 14, { align: "center" });
+      if (expenseReportRowsAll.length > 200){
+        doc.setFontSize(7);
+        doc.text("(Showing first 200 expense rows; total below includes all rows in this period.)", cx, 19, { align: "center" });
+      }
+      doc.autoTable({
+        startY: expenseReportRowsAll.length > 200 ? 23 : 18,
+        margin: { left: margin, right: margin, bottom: 10 },
+        tableWidth: tableW,
+        theme: "grid",
+        head: [["Date / time", "Month", "Category", "Amount (Rs.)", "Description", "Paid to"]],
+        body: expenseReportBody,
+        foot: [[`TOTAL (${expenseReportRowsAll.length} entries)`, "", "", `Rs. ${Math.round(expenseGrand)}`, "", ""]],
+        showFoot: "lastPage",
+        styles: { font: "helvetica", fontSize: 7, cellPadding: 0.85, valign: "middle", textColor: 20 },
+        headStyles: { font: "helvetica", fontStyle: "bold", fillColor: [230, 238, 248], textColor: 15, fontSize: 7.2 },
+        footStyles: { font: "helvetica", fontStyle: "bold", fillColor: [236, 248, 236], fontSize: 7 },
+        columnStyles: {
+          0: { cellWidth: 34 },
+          1: { cellWidth: 18, halign: "center" },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 24, halign: "right" },
+          4: { cellWidth: Math.max(40, tableW - 34 - 18 - 30 - 24 - 36) },
+          5: { cellWidth: 36 }
+        }
+      });
+
       doc.addPage();
       const sm = margin;
       const sumW = tableW;
