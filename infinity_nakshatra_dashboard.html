@@ -6545,6 +6545,8 @@
       const unpaidOwnersTotalSum = unpaidOwnersPerSlot.reduce((a, b) => a + b, 0);
       const expectedAmtPerSlot = slots.map(() => Math.round(poolN * 350));
       const expectedAmtGrand = Math.round(poolN * 350 * slots.length);
+      const pendingAmtPerSlot = slots.map((_, i) => Math.max(0, Math.round(expectedAmtPerSlot[i] - colSums[i])));
+      const pendingAmtGrand = Math.max(0, Math.round(expectedAmtGrand - grandTotal));
 
       const pageW = 297;
       const pageH = 210;
@@ -6935,6 +6937,7 @@
           ["Total Unpaid Owners", ...unpaidOwnersPerSlot.map(String), String(unpaidOwnersTotalSum)],
           ["Expected Amount", ...expectedAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${expectedAmtGrand}`],
           ["Received Amount", ...colSums.map(v => `Rs. ${Math.round(v)}`), `Rs. ${Math.round(grandTotal)}`],
+          ["Pending Amount", ...pendingAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${pendingAmtGrand}`],
           ["Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${expenseGrand}`],
           ["Balance", ...balancePerSlot.map(v => `Rs. ${v}`), `Rs. ${balanceGrand}`]
         ],
@@ -6948,7 +6951,7 @@
         },
         columnStyles: { 0: { halign: "left", cellWidth: 34, fontStyle: "bold" } },
         didParseCell(data){
-          if (data.section === "body" && data.row.index === 5){
+          if (data.section === "body" && data.row.index === 6){
             data.cell.styles.fillColor = [255, 247, 200];
             data.cell.styles.fontStyle = "bold";
           }
