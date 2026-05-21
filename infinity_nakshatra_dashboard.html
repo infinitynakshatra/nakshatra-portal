@@ -945,6 +945,27 @@
       margin-left:auto;
       padding-bottom:1px;
     }
+    .societyDetailsFormDatesRowAll{
+      flex-wrap:nowrap;
+      overflow-x:auto;
+      margin-top:12px;
+      padding-bottom:4px;
+    }
+    .societyDetailsFormDatesRowAll .field{
+      flex:0 0 auto;
+      min-width:min(155px, 18vw);
+    }
+    .societyDetailsFormDatesRowAll .socRegNumberField{
+      flex:1 0 min(200px, 22vw);
+      max-width:320px;
+    }
+    .societyAdhocIntroNote{
+      color:var(--warn);
+      font-size:12px;
+      line-height:1.45;
+      font-weight:600;
+      margin:4px 0 8px;
+    }
     .societyDetailsViewGrid{
       display:grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -1903,7 +1924,7 @@
           <button class="btn adminOnly" type="button" id="societyDetailsSaveBtn" style="flex-shrink:0;">Save details</button>
         </div>
         <div class="err adminOnly" id="societyDetailsErr" style="margin-top:8px;"></div>
-        <div class="societyDetailsForm adminOnly">
+        <div class="societyDetailsFormDatesRow societyDetailsFormDatesRowAll adminOnly">
           <div class="field">
             <label for="socProjectStarted">Date of the Project Started</label>
             <input id="socProjectStarted" type="date" />
@@ -1912,8 +1933,10 @@
             <label for="socAdhocFormation">Date of Adhoc Committee Formation</label>
             <input id="socAdhocFormation" type="date" />
           </div>
-        </div>
-        <div class="societyDetailsFormDatesRow adminOnly">
+          <div class="field">
+            <label for="socEndOfAdhocTenure">End of Ad Hoc Committee Tenure</label>
+            <input id="socEndOfAdhocTenure" type="date" />
+          </div>
           <div class="field">
             <label for="socSocietyFormation">Date of Society Formation</label>
             <input id="socSocietyFormation" type="date" />
@@ -1922,12 +1945,15 @@
             <label for="socRegNumber">Society Registration Number</label>
             <input id="socRegNumber" type="text" autocomplete="off" placeholder="Registration number" />
           </div>
-          <div class="socAdhocAddWrap">
+        </div>
+        <div class="societyDetailsFormDatesRow adminOnly" style="justify-content:flex-end; margin-top:6px;">
+          <div class="socAdhocAddWrap" style="margin-left:0;">
             <button class="btn secondary tiny" type="button" id="socAdhocAddBtn">Add Member</button>
           </div>
         </div>
         <div class="societyDetailsAdhocBlock adminOnly">
-        <h4 class="societyDetailsSectionTitle">Current Adhoc Committee Members</h4>
+        <h4 class="societyDetailsSectionTitle">Current Adhoc Committee Members:</h4>
+        <p class="societyAdhocIntroNote">The Ad Hoc Committee has been formed to manage and maintain ongoing activities within the project. There are no specific individual roles or responsibilities assigned; all decisions are taken collectively by the committee members.</p>
         <div class="scroll-x" style="overflow:auto; max-height:min(280px, 40vh); margin-top:8px;">
           <table class="adminDirTable societyMembersTable">
             <thead>
@@ -2210,7 +2236,8 @@
         <div class="cardWide" id="userSocietyDetailsSection">
           <strong>Project/Society Details &amp; General Body Committee Members</strong>
           <div class="societyDetailsViewGrid" id="userSocietyDetailsView"></div>
-          <h4 class="societyDetailsSectionTitle">Current Adhoc Committee Members</h4>
+          <h4 class="societyDetailsSectionTitle">Current Adhoc Committee Members:</h4>
+          <p class="societyAdhocIntroNote">The Ad Hoc Committee has been formed to manage and maintain ongoing activities within the project. There are no specific individual roles or responsibilities assigned; all decisions are taken collectively by the committee members.</p>
           <div class="scroll-x" style="overflow:auto; max-height:min(280px, 40vh); margin-top:8px;">
             <table class="adminDirTable societyMembersTable">
               <thead>
@@ -5387,6 +5414,7 @@
       return {
         projectStartedDate: "",
         adhocFormationDate: "",
+        endOfAdhocTenureDate: "",
         adhocMembers: [],
         societyFormationDate: "",
         societyRegistrationNumber: "",
@@ -5423,6 +5451,7 @@
       return {
         projectStartedDate: norm(o.projectStartedDate),
         adhocFormationDate: norm(o.adhocFormationDate),
+        endOfAdhocTenureDate: norm(o.endOfAdhocTenureDate),
         adhocMembers: adhoc,
         societyFormationDate: norm(o.societyFormationDate),
         societyRegistrationNumber: norm(o.societyRegistrationNumber),
@@ -5497,6 +5526,7 @@
       };
       setDate("socProjectStarted", d.projectStartedDate);
       setDate("socAdhocFormation", d.adhocFormationDate);
+      setDate("socEndOfAdhocTenure", d.endOfAdhocTenureDate);
       setDate("socSocietyFormation", d.societyFormationDate);
       setDate("socGbFrom", d.gbFromDate);
       setDate("socGbTo", d.gbToDate);
@@ -5561,6 +5591,7 @@
         view.innerHTML = `
           <div><div class="k">Date of the Project Started</div><div>${escapeHtml(formatSocietyDateDisplay_(d.projectStartedDate))}</div></div>
           <div><div class="k">Date of Adhoc Committee Formation</div><div>${escapeHtml(formatSocietyDateDisplay_(d.adhocFormationDate))}</div></div>
+          <div><div class="k">End of Ad Hoc Committee Tenure</div><div>${escapeHtml(formatSocietyDateDisplay_(d.endOfAdhocTenureDate))}</div></div>
           <div><div class="k">Date of Society Formation</div><div>${escapeHtml(formatSocietyDateDisplay_(d.societyFormationDate))}</div></div>
           <div><div class="k">Society Registration Number</div><div>${escapeHtml(d.societyRegistrationNumber || "—")}</div></div>
         `;
@@ -5614,6 +5645,7 @@
       const d = getSocietyDetailsEdit_();
       d.projectStartedDate = document.getElementById("socProjectStarted")?.value || "";
       d.adhocFormationDate = document.getElementById("socAdhocFormation")?.value || "";
+      d.endOfAdhocTenureDate = document.getElementById("socEndOfAdhocTenure")?.value || "";
       d.societyFormationDate = document.getElementById("socSocietyFormation")?.value || "";
       d.societyRegistrationNumber = norm(document.getElementById("socRegNumber")?.value);
       d.gbFromDate = document.getElementById("socGbFrom")?.value || "";
