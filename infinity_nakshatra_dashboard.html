@@ -464,7 +464,7 @@
       gap:6px;
     }
     #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix .mcKpiCard{
-      min-height:52px;
+      min-height:62px;
     }
     @media (max-width: 1100px){
       #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -562,24 +562,45 @@
       padding:7px 10px;
       display:flex;
       flex-direction:column;
-      gap:3px;
+      gap:0;
       min-width:0;
       align-items:stretch;
     }
-    #adminMaintenanceMcRow .mcKpiCard span{
+    #adminMaintenanceMcRow .mcKpiCardHead{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:8px;
+      min-width:0;
+    }
+    #adminMaintenanceMcRow .mcKpiCardLabel{
       font-size:10px;
       color:var(--muted);
       font-weight:700;
       line-height:1.2;
-      align-self:flex-start;
+      flex:1;
+      min-width:0;
     }
-    #adminMaintenanceMcRow .mcKpiCard b{
+    #adminMaintenanceMcRow .mcKpiCardValue{
       font-size:15px;
       font-weight:900;
       line-height:1.15;
       font-variant-numeric: tabular-nums;
       text-align:right;
-      align-self:stretch;
+      flex-shrink:0;
+      margin:0;
+    }
+    #adminMaintenanceMcRow .mcKpiCardFoot{
+      margin-top:auto;
+      padding-top:6px;
+      font-size:9px;
+      color:var(--muted);
+      font-weight:600;
+      line-height:1.25;
+    }
+    #adminMaintenanceMcRow .mcKpiCardFootEmpty{
+      min-height:1.25em;
+      padding-top:6px;
     }
     #adminMaintenanceMcRow .mcFilterToolbar{
       border-radius:12px;
@@ -1485,12 +1506,48 @@
             <p class="mcFyMetaLine" id="adminMcFyMetaLine"><span id="adminMcFyMetaNote" class="mono">—</span></p>
           </div>
           <div class="mcKpiStrip mcKpiStripSix" aria-label="Maintenance summary">
-            <div class="mcKpiCard"><span>Expected Amount</span><b id="mcExpected">—</b></div>
-            <div class="mcKpiCard"><span>Maintenance collected</span><b id="mcMaintenanceCollectedSummary">—</b></div>
-            <div class="mcKpiCard"><span>Pending/Due Amount</span><b id="mcPending">—</b></div>
-            <div class="mcKpiCard"><span>Late Fee Amount</span><b id="lateFeeReceived">—</b></div>
-            <div class="mcKpiCard"><span>Expenses</span><b id="mcExpensesSummary">—</b></div>
-            <div class="mcKpiCard"><span>Balance</span><b id="mcBalanceSummary">—</b></div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Expected Amount</span>
+                <b class="mcKpiCardValue" id="mcExpected">—</b>
+              </div>
+              <span class="mcKpiCardFoot" id="mcExpectedFoot">From — Members</span>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Maintenance collected</span>
+                <b class="mcKpiCardValue" id="mcMaintenanceCollectedSummary">—</b>
+              </div>
+              <span class="mcKpiCardFoot" id="mcMaintCollectedFoot">Payment Received from — owners.</span>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Pending/Due Amount</span>
+                <b class="mcKpiCardValue" id="mcPending">—</b>
+              </div>
+              <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Late Fee Amount</span>
+                <b class="mcKpiCardValue" id="lateFeeReceived">—</b>
+              </div>
+              <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Expenses</span>
+                <b class="mcKpiCardValue" id="mcExpensesSummary">—</b>
+              </div>
+              <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Balance</span>
+                <b class="mcKpiCardValue" id="mcBalanceSummary">—</b>
+              </div>
+              <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
+            </div>
           </div>
           <div class="adminExpenseBlock" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
             <h4 class="mcSubSectionTitle">Add expenses</h4>
@@ -1725,6 +1782,7 @@
           <button class="btn secondary" id="userBankViewBtn" type="button" data-i18n="user.btn.bank">Account & UPI Details</button>
           <button class="btn secondary" id="userAddPayBtn" type="button" data-i18n="user.btn.addPayment">Add Payment</button>
           <a class="btn topbarIconLink" id="userWhatsAppBtn" href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer" aria-label="Join WhatsApp Group"><img src="assets/whatsapp.png" width="22" height="22" alt="" /></a>
+          <a class="btn topbarIconLink" id="userLocationBtn" href="https://maps.app.goo.gl/VoAmet24MYUdTDZ99?g_st=aw" target="_blank" rel="noreferrer" aria-label="Society location on Google Maps"><img src="assets/loc.png" width="22" height="22" alt="" /></a>
           <div class="profileWrap">
             <button class="profileBtn topbarIconOnly" id="userProfileBtn" type="button" aria-expanded="false" aria-label="Profile"><img src="assets/user.png" width="22" height="22" alt="" /></button>
             <div class="profilePanel" id="userProfilePanel" role="menu" aria-label="Profile menu">
@@ -4124,7 +4182,7 @@
       return (I18N.en && I18N.en[key]) || key;
     }
     function applyUserLanguage(){
-      const skipI18nTextIds = new Set(["userWhatsAppBtn", "userProfileBtn"]);
+      const skipI18nTextIds = new Set(["userWhatsAppBtn", "userLocationBtn", "userProfileBtn"]);
       document.querySelectorAll("[data-i18n]").forEach(el => {
         const k = el.getAttribute("data-i18n");
         if (!k || skipI18nTextIds.has(el.id)) return;
@@ -7335,6 +7393,27 @@
       if (canvasFontBlobUrl) try { URL.revokeObjectURL(canvasFontBlobUrl); } catch {}
     }
 
+    /** Owners who paid maintenance for every selected month (same rule as Payment completed owners modal). */
+    function countPaymentCompletedOwnersForMc_(selectedYms){
+      if (!selectedYms || !selectedYms.length) return 0;
+      const rowsList = maintenanceCollectionPlotRows();
+      let n = 0;
+      for (const r of rowsList){
+        const plotNo = plotNoOfRow(r);
+        if (!plotNo) continue;
+        const entries = paymentsLoadEntries(plotNo);
+        let missedInFilter = false;
+        for (const ym of selectedYms){
+          if (sumEntriesForYm(entries, ym).amount <= 0){
+            missedInFilter = true;
+            break;
+          }
+        }
+        if (!missedInFilter) n++;
+      }
+      return n;
+    }
+
     function updateMaintenanceCollectionCards(){
       const expectedEl = document.getElementById("mcExpected");
       const pendingEl = document.getElementById("mcPending");
@@ -7393,6 +7472,13 @@
       expectedEl.textContent = String(Math.round(expected));
       pendingEl.textContent = String(Math.round(pending));
       lateFeeEl.textContent = String(Math.round(lateFee));
+      const expectedFoot = document.getElementById("mcExpectedFoot");
+      if (expectedFoot) expectedFoot.textContent = `From ${existingN} Members`;
+      const maintFoot = document.getElementById("mcMaintCollectedFoot");
+      if (maintFoot){
+        const doneOwners = countPaymentCompletedOwnersForMc_(selectedYms);
+        maintFoot.textContent = `Payment Received from ${doneOwners} owners.`;
+      }
 
       const selYmSet = new Set(selectedYms.map(y => normalizePortalYm(String(y))));
       let expensesSum = 0;
