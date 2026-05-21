@@ -906,6 +906,29 @@
       box-shadow:var(--shadow);
     }
     .userGuideBanner strong{color:var(--accent);}
+    .societyDetailsForm{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap:10px 14px;
+      margin-top:12px;
+    }
+    .societyDetailsForm .field{margin:0;}
+    .societyDetailsSectionTitle{
+      margin:16px 0 6px;
+      font-size:11px;
+      font-weight:900;
+      color:var(--text);
+      text-transform:uppercase;
+      letter-spacing:0.04em;
+    }
+    .societyDetailsViewGrid{
+      display:grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap:8px 14px;
+      margin-top:10px;
+      font-size:13px;
+    }
+    .societyDetailsViewGrid .k{color:var(--muted); font-size:11px; font-weight:700;}
     .portalDashLead{color:var(--warn); font-weight:900; font-size:1.08em;}
     .portalDashSub{font-size:inherit; font-weight:inherit; color:inherit;}
     .mcOwnerPortalFyLabel{color:#fff; font-weight:700;}
@@ -1765,6 +1788,71 @@
         </div>
       </div>
     </div>
+
+    <div class="grid" style="margin-top:12px;">
+      <div class="cardWide" id="adminSocietyDetailsSection">
+        <div class="row" style="align-items:flex-start;">
+          <div style="flex:1; min-width:min(240px, 100%);">
+            <strong>Project/Society Details &amp; General Body Committee Members</strong>
+            <div class="smallNote">Maintain project dates, registration, and committee members. Shown on the owner portal.</div>
+          </div>
+          <button class="btn adminOnly" type="button" id="societyDetailsSaveBtn" style="flex-shrink:0;">Save details</button>
+        </div>
+        <div class="err adminOnly" id="societyDetailsErr" style="margin-top:8px;"></div>
+        <div class="societyDetailsForm adminOnly">
+          <div class="field">
+            <label for="socProjectStarted">Date of the Project Started</label>
+            <input id="socProjectStarted" type="date" />
+          </div>
+          <div class="field">
+            <label for="socAdhocFormation">Date of Adhoc Committee Formation</label>
+            <input id="socAdhocFormation" type="date" />
+          </div>
+          <div class="field">
+            <label for="socSocietyFormation">Date of Society Formation</label>
+            <input id="socSocietyFormation" type="date" />
+          </div>
+          <div class="field" style="grid-column:1 / -1; max-width:420px;">
+            <label for="socRegNumber">Society Registration Number</label>
+            <input id="socRegNumber" type="text" autocomplete="off" placeholder="Registration number" />
+          </div>
+        </div>
+        <h4 class="societyDetailsSectionTitle adminOnly">Current Adhoc Committee Members</h4>
+        <div class="adminOnly" style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+          <button class="btn secondary tiny" type="button" id="socAdhocAddBtn">Add Member</button>
+        </div>
+        <div class="scroll-x adminOnly" style="overflow:auto; max-height:min(280px, 40vh);">
+          <table class="adminDirTable">
+            <thead>
+              <tr><th>Sr. No.</th><th>Name</th><th>Plot No.</th><th>Mobile</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="adminAdhocMembersTbody"><tr><td colspan="5">—</td></tr></tbody>
+          </table>
+        </div>
+        <h4 class="societyDetailsSectionTitle adminOnly">General Body Committee Members</h4>
+        <div class="societyDetailsForm adminOnly" style="margin-top:8px;">
+          <div class="field">
+            <label for="socGbFrom">From</label>
+            <input id="socGbFrom" type="date" />
+          </div>
+          <div class="field">
+            <label for="socGbTo">To</label>
+            <input id="socGbTo" type="date" />
+          </div>
+        </div>
+        <div class="adminOnly" style="display:flex; justify-content:flex-end; margin:8px 0;">
+          <button class="btn secondary tiny" type="button" id="socGbAddBtn">Add Member</button>
+        </div>
+        <div class="scroll-x adminOnly" style="overflow:auto; max-height:min(320px, 48vh);">
+          <table class="adminDirTable">
+            <thead>
+              <tr><th>Sr. No.</th><th>Name</th><th>Plot/House No.</th><th>Role</th><th>Responsibility</th><th>Mobile</th><th>Actions</th></tr>
+            </thead>
+            <tbody id="adminGbMembersTbody"><tr><td colspan="7">—</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
     </div>
 
     <div class="wrap" id="userRoot" style="display:none;">
@@ -2005,6 +2093,32 @@
                 </tr>
               </thead>
               <tbody id="userPayRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid" style="margin-top:12px;">
+        <div class="cardWide" id="userSocietyDetailsSection">
+          <strong>Project/Society Details &amp; General Body Committee Members</strong>
+          <div class="societyDetailsViewGrid" id="userSocietyDetailsView"></div>
+          <h4 class="societyDetailsSectionTitle">Current Adhoc Committee Members</h4>
+          <div class="scroll-x" style="overflow:auto; max-height:min(280px, 40vh); margin-top:8px;">
+            <table class="adminDirTable">
+              <thead>
+                <tr><th>Sr. No.</th><th>Name</th><th>Plot No.</th><th>Mobile</th></tr>
+              </thead>
+              <tbody id="userAdhocMembersTbody"><tr><td colspan="4">—</td></tr></tbody>
+            </table>
+          </div>
+          <h4 class="societyDetailsSectionTitle">General Body Committee Members</h4>
+          <p class="smallNote" id="userGbPeriodNote" style="margin:6px 0 8px;">—</p>
+          <div class="scroll-x" style="overflow:auto; max-height:min(320px, 48vh);">
+            <table class="adminDirTable">
+              <thead>
+                <tr><th>Sr. No.</th><th>Name</th><th>Plot/House No.</th><th>Role</th><th>Responsibility</th><th>Mobile</th></tr>
+              </thead>
+              <tbody id="userGbMembersTbody"><tr><td colspan="6">—</td></tr></tbody>
             </table>
           </div>
         </div>
@@ -2646,6 +2760,49 @@
     </div>
   </div>
 
+  <div class="backdrop" id="socAdhocMemberBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" style="width:min(480px, 96vw);">
+      <div class="modalHead">
+        <div class="modalTitle" id="socAdhocMemberModalTitle">Add Adhoc member</div>
+        <button class="btn secondary" id="socAdhocMemberCloseBtn" type="button">Close</button>
+      </div>
+      <input type="hidden" id="socAdhocMemberEditId" value="" />
+      <div class="field"><label for="socAdhocName">Name</label><input id="socAdhocName" type="text" autocomplete="off" /></div>
+      <div class="field"><label for="socAdhocPlot">Plot No.</label><input id="socAdhocPlot" type="text" autocomplete="off" /></div>
+      <div class="field"><label for="socAdhocMobile">Mobile</label><input id="socAdhocMobile" type="tel" inputmode="tel" autocomplete="off" /></div>
+      <div class="err" id="socAdhocMemberErr"></div>
+      <button class="btn" id="socAdhocMemberSaveBtn" type="button" style="margin-top:12px;">Save member</button>
+    </div>
+  </div>
+
+  <div class="backdrop" id="socGbMemberBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" style="width:min(560px, 96vw);">
+      <div class="modalHead">
+        <div class="modalTitle" id="socGbMemberModalTitle">Add General Body member</div>
+        <button class="btn secondary" id="socGbMemberCloseBtn" type="button">Close</button>
+      </div>
+      <input type="hidden" id="socGbMemberEditId" value="" />
+      <div class="field"><label for="socGbName">Name</label><input id="socGbName" type="text" autocomplete="off" /></div>
+      <div class="field"><label for="socGbPlotHouse">Plot/House No.</label><input id="socGbPlotHouse" type="text" autocomplete="off" /></div>
+      <div class="field">
+        <label for="socGbRole">Role</label>
+        <select id="socGbRole">
+          <option value="">Select role…</option>
+          <option value="President / Chairman">President / Chairman</option>
+          <option value="Vice President / Vice Chairman">Vice President / Vice Chairman</option>
+          <option value="Secretary / General Secretary">Secretary / General Secretary</option>
+          <option value="Treasurer / Financial Secretary">Treasurer / Financial Secretary</option>
+          <option value="Assistant / Joint Secretary">Assistant / Joint Secretary</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field"><label for="socGbResponsibility">Responsibility</label><textarea id="socGbResponsibility" rows="4" autocomplete="off"></textarea></div>
+      <div class="field"><label for="socGbMobile">Mobile</label><input id="socGbMobile" type="tel" inputmode="tel" autocomplete="off" /></div>
+      <div class="err" id="socGbMemberErr"></div>
+      <button class="btn" id="socGbMemberSaveBtn" type="button" style="margin-top:12px;">Save member</button>
+    </div>
+  </div>
+
   <div class="backdrop" id="meetingDocBackdrop" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="meetingDocModalTitle" style="width:min(560px, 96vw);">
       <div class="modalHead">
@@ -2736,6 +2893,7 @@
     /** Shared project documents (admin-managed; same browser for demo). */
     const LS_PROJECT_DOCS = "ins_project_docs_v1";
     const LS_MEETING_DOCS = "ins_meeting_docs_v1";
+    const LS_SOCIETY_DETAILS = "ins_society_details_v1";
     const LS_SERVICE_CONTACTS = "ins_service_contacts_v1";
     /** Per-login keys: which doc ids this user has "liked" (toggle). */
     const LS_DOC_USER_LIKES = "ins_doc_user_likes_v1";
@@ -3055,7 +3213,7 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], banking: null, inbox: [], projectDocs: [], meetingDocs: [], serviceContacts: [], ownerAccess: {}, ownerPortalMayYear: null, gateVisits: [] };
+    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], banking: null, inbox: [], projectDocs: [], meetingDocs: [], societyDetails: null, serviceContacts: [], ownerAccess: {}, ownerPortalMayYear: null, gateVisits: [] };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
@@ -3240,6 +3398,7 @@
         inbox: Array.isArray(j.inbox) ? j.inbox : [],
         projectDocs: Array.isArray(j.projectDocs) ? j.projectDocs : [],
         meetingDocs: Array.isArray(j.meetingDocs) ? j.meetingDocs : [],
+        societyDetails: (j.societyDetails && typeof j.societyDetails === "object") ? j.societyDetails : null,
         serviceContacts: Array.isArray(j.serviceContacts) ? j.serviceContacts : [],
         ownerAccess: (j.ownerAccess && typeof j.ownerAccess === "object" && !Array.isArray(j.ownerAccess)) ? j.ownerAccess : {},
         ownerPortalMayYear: ownerPortalMayYearSynced,
@@ -3264,6 +3423,8 @@
       renderProjectDocsTables();
       renderMeetingDocsTables();
       renderServiceContactsTables();
+      invalidateSocietyDetailsEditCache();
+      renderSocietyDetailsPanels();
       // Refresh UI that depends on payments/pending after server state arrives.
       try {
         renderAdminPendingApprovalPanel();
@@ -5103,6 +5264,381 @@
       renderMeetingDocsTables();
     }
 
+    const GB_ROLE_RESPONSIBILITY_TEXT = {
+      "President / Chairman": "Provides overall guidance, leads meetings, and ensures compliance with society rules.",
+      "Vice President / Vice Chairman": "Assists the President and steps into the leadership role in their absence.",
+      "Secretary / General Secretary": "Handles all administrative duties, maintains the minutes of meetings, manages official correspondence, and keeps custody of documents.",
+      "Treasurer / Financial Secretary": "Manages the society's funds, bank accounts, maintenance dues, and prepares the annual financial statements.",
+      "Assistant / Joint Secretary": "Supports the Secretary with daily tasks and administrative operations.",
+      "Other": ""
+    };
+
+    let societyDetailsEditCache = null;
+
+    function defaultSocietyDetails(){
+      return {
+        projectStartedDate: "",
+        adhocFormationDate: "",
+        adhocMembers: [],
+        societyFormationDate: "",
+        societyRegistrationNumber: "",
+        gbFromDate: "",
+        gbToDate: "",
+        gbMembers: []
+      };
+    }
+
+    function mapSocietyMember_(m, kind){
+      const id = String(m?.id || "").trim();
+      const name = norm(m?.name);
+      if (!id || !name) return null;
+      if (kind === "adhoc"){
+        return { id, name, plotNo: norm(m?.plotNo), mobile: norm(m?.mobile) };
+      }
+      return {
+        id,
+        name,
+        plotHouseNo: norm(m?.plotHouseNo),
+        role: norm(m?.role),
+        responsibility: norm(m?.responsibility),
+        mobile: norm(m?.mobile)
+      };
+    }
+
+    function mapSocietyDetails_(o){
+      const base = defaultSocietyDetails();
+      if (!o || typeof o !== "object") return base;
+      const adhoc = (Array.isArray(o.adhocMembers) ? o.adhocMembers : [])
+        .map(m => mapSocietyMember_(m, "adhoc")).filter(Boolean);
+      const gb = (Array.isArray(o.gbMembers) ? o.gbMembers : [])
+        .map(m => mapSocietyMember_(m, "gb")).filter(Boolean);
+      return {
+        projectStartedDate: norm(o.projectStartedDate),
+        adhocFormationDate: norm(o.adhocFormationDate),
+        adhocMembers: adhoc,
+        societyFormationDate: norm(o.societyFormationDate),
+        societyRegistrationNumber: norm(o.societyRegistrationNumber),
+        gbFromDate: norm(o.gbFromDate),
+        gbToDate: norm(o.gbToDate),
+        gbMembers: gb
+      };
+    }
+
+    function societyDetailsLoad(){
+      try {
+        let localDetails = null;
+        const raw = localStorage.getItem(LS_SOCIETY_DETAILS);
+        if (raw){
+          const o = JSON.parse(raw);
+          localDetails = mapSocietyDetails_(o?.details || o);
+        }
+        if (portalServerState.loaded && isServerEnabled()){
+          return mapSocietyDetails_(portalServerState.societyDetails);
+        }
+        return localDetails || defaultSocietyDetails();
+      } catch {
+        return defaultSocietyDetails();
+      }
+    }
+
+    async function portalServerSaveSocietyDetails(details){
+      if (!isServerEnabled()) return { ok:false, skipped:true };
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "saveSocietyDetails",
+        actor: "admin",
+        details: details || defaultSocietyDetails()
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed" };
+      return { ok:true };
+    }
+
+    function invalidateSocietyDetailsEditCache(){
+      societyDetailsEditCache = null;
+    }
+
+    function getSocietyDetailsEdit_(){
+      if (!societyDetailsEditCache){
+        societyDetailsEditCache = JSON.parse(JSON.stringify(societyDetailsLoad()));
+      }
+      return societyDetailsEditCache;
+    }
+
+    function makeSocMemberId(){
+      return `socm_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+    }
+
+    function formatSocietyDateDisplay_(iso){
+      const s = norm(iso);
+      if (!s) return "—";
+      const d = new Date(s + "T12:00:00");
+      if (!Number.isFinite(d.getTime())) return s;
+      return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    }
+
+    function fillAdminSocietyDetailsInputs_(d){
+      const setDate = (id, v) => {
+        const el = document.getElementById(id);
+        if (el) el.value = norm(v);
+      };
+      setDate("socProjectStarted", d.projectStartedDate);
+      setDate("socAdhocFormation", d.adhocFormationDate);
+      setDate("socSocietyFormation", d.societyFormationDate);
+      setDate("socGbFrom", d.gbFromDate);
+      setDate("socGbTo", d.gbToDate);
+      const reg = document.getElementById("socRegNumber");
+      if (reg) reg.value = d.societyRegistrationNumber || "";
+    }
+
+    function renderAdminSocietyDetailsPanel(){
+      const adhocTb = document.getElementById("adminAdhocMembersTbody");
+      const gbTb = document.getElementById("adminGbMembersTbody");
+      if (!adhocTb && !gbTb) return;
+      const d = getSocietyDetailsEdit_();
+      fillAdminSocietyDetailsInputs_(d);
+      if (adhocTb){
+        if (!d.adhocMembers.length){
+          adhocTb.innerHTML = `<tr><td colspan="5">No members added yet.</td></tr>`;
+        } else {
+          adhocTb.innerHTML = d.adhocMembers.map((m, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${escapeHtml(m.name)}</td>
+              <td>${escapeHtml(m.plotNo || "—")}</td>
+              <td class="mono">${escapeHtml(m.mobile || "—")}</td>
+              <td>
+                <button type="button" class="btn secondary tiny" data-soc-adhoc-edit="${escapeHtml(m.id)}">Edit</button>
+                <button type="button" class="btn danger tiny" data-soc-adhoc-del="${escapeHtml(m.id)}">Delete</button>
+              </td>
+            </tr>
+          `).join("");
+        }
+      }
+      if (gbTb){
+        if (!d.gbMembers.length){
+          gbTb.innerHTML = `<tr><td colspan="7">No members added yet.</td></tr>`;
+        } else {
+          gbTb.innerHTML = d.gbMembers.map((m, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${escapeHtml(m.name)}</td>
+              <td>${escapeHtml(m.plotHouseNo || "—")}</td>
+              <td>${escapeHtml(m.role || "—")}</td>
+              <td>${escapeHtml(m.responsibility || "—")}</td>
+              <td class="mono">${escapeHtml(m.mobile || "—")}</td>
+              <td>
+                <button type="button" class="btn secondary tiny" data-soc-gb-edit="${escapeHtml(m.id)}">Edit</button>
+                <button type="button" class="btn danger tiny" data-soc-gb-del="${escapeHtml(m.id)}">Delete</button>
+              </td>
+            </tr>
+          `).join("");
+        }
+      }
+    }
+
+    function renderUserSocietyDetailsPanel(){
+      const view = document.getElementById("userSocietyDetailsView");
+      const adhocTb = document.getElementById("userAdhocMembersTbody");
+      const gbTb = document.getElementById("userGbMembersTbody");
+      const period = document.getElementById("userGbPeriodNote");
+      if (!view && !adhocTb && !gbTb) return;
+      const d = societyDetailsLoad();
+      if (view){
+        view.innerHTML = `
+          <div><div class="k">Date of the Project Started</div><div>${escapeHtml(formatSocietyDateDisplay_(d.projectStartedDate))}</div></div>
+          <div><div class="k">Date of Adhoc Committee Formation</div><div>${escapeHtml(formatSocietyDateDisplay_(d.adhocFormationDate))}</div></div>
+          <div><div class="k">Date of Society Formation</div><div>${escapeHtml(formatSocietyDateDisplay_(d.societyFormationDate))}</div></div>
+          <div><div class="k">Society Registration Number</div><div>${escapeHtml(d.societyRegistrationNumber || "—")}</div></div>
+        `;
+      }
+      if (period){
+        const from = formatSocietyDateDisplay_(d.gbFromDate);
+        const to = formatSocietyDateDisplay_(d.gbToDate);
+        period.textContent = (d.gbFromDate || d.gbToDate)
+          ? `From ${from} To ${to}`
+          : "—";
+      }
+      if (adhocTb){
+        if (!d.adhocMembers.length){
+          adhocTb.innerHTML = `<tr><td colspan="4">No members added yet.</td></tr>`;
+        } else {
+          adhocTb.innerHTML = d.adhocMembers.map((m, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${escapeHtml(m.name)}</td>
+              <td>${escapeHtml(m.plotNo || "—")}</td>
+              <td class="mono">${escapeHtml(m.mobile || "—")}</td>
+            </tr>
+          `).join("");
+        }
+      }
+      if (gbTb){
+        if (!d.gbMembers.length){
+          gbTb.innerHTML = `<tr><td colspan="6">No members added yet.</td></tr>`;
+        } else {
+          gbTb.innerHTML = d.gbMembers.map((m, i) => `
+            <tr>
+              <td>${i + 1}</td>
+              <td>${escapeHtml(m.name)}</td>
+              <td>${escapeHtml(m.plotHouseNo || "—")}</td>
+              <td>${escapeHtml(m.role || "—")}</td>
+              <td>${escapeHtml(m.responsibility || "—")}</td>
+              <td class="mono">${escapeHtml(m.mobile || "—")}</td>
+            </tr>
+          `).join("");
+        }
+      }
+    }
+
+    function renderSocietyDetailsPanels(){
+      const sess = readSession();
+      if (sess && sess.role === "admin") renderAdminSocietyDetailsPanel();
+      if (sess && sess.role === "user") renderUserSocietyDetailsPanel();
+    }
+
+    function syncSocietyDetailsEditFromAdminInputs_(){
+      const d = getSocietyDetailsEdit_();
+      d.projectStartedDate = document.getElementById("socProjectStarted")?.value || "";
+      d.adhocFormationDate = document.getElementById("socAdhocFormation")?.value || "";
+      d.societyFormationDate = document.getElementById("socSocietyFormation")?.value || "";
+      d.societyRegistrationNumber = norm(document.getElementById("socRegNumber")?.value);
+      d.gbFromDate = document.getElementById("socGbFrom")?.value || "";
+      d.gbToDate = document.getElementById("socGbTo")?.value || "";
+    }
+
+    function saveSocietyDetailsFromAdmin(){
+      const errEl = document.getElementById("societyDetailsErr");
+      setErr(errEl, "");
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return;
+      syncSocietyDetailsEditFromAdminInputs_();
+      const clean = mapSocietyDetails_(getSocietyDetailsEdit_());
+      societyDetailsEditCache = JSON.parse(JSON.stringify(clean));
+      try {
+        localStorage.setItem(LS_SOCIETY_DETAILS, JSON.stringify({ v: 1, details: clean }));
+      } catch {
+        setErr(errEl, "Could not save society details (storage may be full).");
+        return;
+      }
+      if (portalServerState.loaded && isServerEnabled()){
+        portalServerState.societyDetails = clean;
+      }
+      if (!isServerEnabled()){
+        alert("Society details saved.");
+        renderSocietyDetailsPanels();
+        return;
+      }
+      void (async () => {
+        const sr = await portalServerSaveSocietyDetails(clean);
+        if (!sr.ok){
+          setErr(errEl, String(sr.error || "Server save failed."));
+          return;
+        }
+        invalidateSocietyDetailsEditCache();
+        await portalServerFetchState();
+        renderSocietyDetailsPanels();
+        alert("Society details saved.");
+      })();
+    }
+
+    function openSocAdhocMemberModal(editId){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return;
+      setErr(document.getElementById("socAdhocMemberErr"), "");
+      document.getElementById("socAdhocMemberEditId").value = editId ? String(editId) : "";
+      document.getElementById("socAdhocMemberModalTitle").textContent = editId ? "Edit Adhoc member" : "Add Adhoc member";
+      const d = getSocietyDetailsEdit_();
+      const m = editId ? d.adhocMembers.find(x => String(x.id) === String(editId)) : null;
+      document.getElementById("socAdhocName").value = m ? m.name : "";
+      document.getElementById("socAdhocPlot").value = m ? m.plotNo : "";
+      document.getElementById("socAdhocMobile").value = m ? m.mobile : "";
+      showBackdrop("socAdhocMemberBackdrop", true);
+    }
+
+    function saveSocAdhocMemberFromModal(){
+      const errEl = document.getElementById("socAdhocMemberErr");
+      setErr(errEl, "");
+      const name = norm(document.getElementById("socAdhocName")?.value);
+      if (!name){ setErr(errEl, "Enter member name."); return; }
+      const plotNo = norm(document.getElementById("socAdhocPlot")?.value);
+      const mobile = norm(document.getElementById("socAdhocMobile")?.value);
+      const editId = norm(document.getElementById("socAdhocMemberEditId")?.value);
+      const d = getSocietyDetailsEdit_();
+      if (editId){
+        const m = d.adhocMembers.find(x => String(x.id) === editId);
+        if (m){
+          m.name = name;
+          m.plotNo = plotNo;
+          m.mobile = mobile;
+        }
+      } else {
+        d.adhocMembers.push({ id: makeSocMemberId(), name, plotNo, mobile });
+      }
+      syncSocietyDetailsEditFromAdminInputs_();
+      showBackdrop("socAdhocMemberBackdrop", false);
+      renderAdminSocietyDetailsPanel();
+    }
+
+    function deleteSocAdhocMember(id){
+      if (!confirm("Remove this Adhoc committee member?")) return;
+      const d = getSocietyDetailsEdit_();
+      d.adhocMembers = d.adhocMembers.filter(m => String(m.id) !== String(id));
+      renderAdminSocietyDetailsPanel();
+    }
+
+    function openSocGbMemberModal(editId){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return;
+      setErr(document.getElementById("socGbMemberErr"), "");
+      document.getElementById("socGbMemberEditId").value = editId ? String(editId) : "";
+      document.getElementById("socGbMemberModalTitle").textContent = editId ? "Edit General Body member" : "Add General Body member";
+      const d = getSocietyDetailsEdit_();
+      const m = editId ? d.gbMembers.find(x => String(x.id) === String(editId)) : null;
+      document.getElementById("socGbName").value = m ? m.name : "";
+      document.getElementById("socGbPlotHouse").value = m ? m.plotHouseNo : "";
+      document.getElementById("socGbRole").value = m ? m.role : "";
+      document.getElementById("socGbResponsibility").value = m ? m.responsibility : "";
+      document.getElementById("socGbMobile").value = m ? m.mobile : "";
+      showBackdrop("socGbMemberBackdrop", true);
+    }
+
+    function saveSocGbMemberFromModal(){
+      const errEl = document.getElementById("socGbMemberErr");
+      setErr(errEl, "");
+      const name = norm(document.getElementById("socGbName")?.value);
+      const role = norm(document.getElementById("socGbRole")?.value);
+      if (!name){ setErr(errEl, "Enter member name."); return; }
+      if (!role){ setErr(errEl, "Select a role."); return; }
+      const plotHouseNo = norm(document.getElementById("socGbPlotHouse")?.value);
+      const responsibility = norm(document.getElementById("socGbResponsibility")?.value);
+      const mobile = norm(document.getElementById("socGbMobile")?.value);
+      const editId = norm(document.getElementById("socGbMemberEditId")?.value);
+      const d = getSocietyDetailsEdit_();
+      const row = { id: editId || makeSocMemberId(), name, plotHouseNo, role, responsibility, mobile };
+      if (editId){
+        const idx = d.gbMembers.findIndex(x => String(x.id) === editId);
+        if (idx >= 0) d.gbMembers[idx] = row;
+      } else {
+        d.gbMembers.push(row);
+      }
+      syncSocietyDetailsEditFromAdminInputs_();
+      showBackdrop("socGbMemberBackdrop", false);
+      renderAdminSocietyDetailsPanel();
+    }
+
+    function deleteSocGbMember(id){
+      if (!confirm("Remove this General Body committee member?")) return;
+      const d = getSocietyDetailsEdit_();
+      d.gbMembers = d.gbMembers.filter(m => String(m.id) !== String(id));
+      renderAdminSocietyDetailsPanel();
+    }
+
     function setAdminChrome(on){
       document.body.classList.toggle("adminSession", !!on);
     }
@@ -5146,6 +5682,8 @@
         renderMeetingDocsTables();
         renderServiceContactsTables();
         renderPortalNotificationsPanels();
+        invalidateSocietyDetailsEditCache();
+        renderSocietyDetailsPanels();
         return;
       }
 
@@ -5172,6 +5710,7 @@
         renderMeetingDocsTables();
         renderServiceContactsTables();
         renderPortalNotificationsPanels();
+        renderSocietyDetailsPanels();
         return;
       }
 
@@ -9428,6 +9967,51 @@
       const prevNotifModalCloseBtn = document.getElementById("prevNotifModalCloseBtn");
       if (prevNotifModalCloseBtn) prevNotifModalCloseBtn.addEventListener("click", () => showBackdrop("prevNotifBackdrop", false));
 
+      const societyDetailsSaveBtn = document.getElementById("societyDetailsSaveBtn");
+      if (societyDetailsSaveBtn) societyDetailsSaveBtn.addEventListener("click", saveSocietyDetailsFromAdmin);
+      const socAdhocAddBtn = document.getElementById("socAdhocAddBtn");
+      if (socAdhocAddBtn) socAdhocAddBtn.addEventListener("click", () => openSocAdhocMemberModal(null));
+      const socGbAddBtn = document.getElementById("socGbAddBtn");
+      if (socGbAddBtn) socGbAddBtn.addEventListener("click", () => openSocGbMemberModal(null));
+      const socAdhocMemberCloseBtn = document.getElementById("socAdhocMemberCloseBtn");
+      if (socAdhocMemberCloseBtn) socAdhocMemberCloseBtn.addEventListener("click", () => showBackdrop("socAdhocMemberBackdrop", false));
+      const socAdhocMemberSaveBtn = document.getElementById("socAdhocMemberSaveBtn");
+      if (socAdhocMemberSaveBtn) socAdhocMemberSaveBtn.addEventListener("click", saveSocAdhocMemberFromModal);
+      const socGbMemberCloseBtn = document.getElementById("socGbMemberCloseBtn");
+      if (socGbMemberCloseBtn) socGbMemberCloseBtn.addEventListener("click", () => showBackdrop("socGbMemberBackdrop", false));
+      const socGbMemberSaveBtn = document.getElementById("socGbMemberSaveBtn");
+      if (socGbMemberSaveBtn) socGbMemberSaveBtn.addEventListener("click", saveSocGbMemberFromModal);
+      const socGbRole = document.getElementById("socGbRole");
+      if (socGbRole && !globalThis.__insSocGbRoleWired){
+        globalThis.__insSocGbRoleWired = true;
+        socGbRole.addEventListener("change", () => {
+          const resp = document.getElementById("socGbResponsibility");
+          if (!resp) return;
+          const txt = GB_ROLE_RESPONSIBILITY_TEXT[socGbRole.value];
+          if (txt !== undefined) resp.value = txt;
+        });
+      }
+      const adminAdhocMembersTbody = document.getElementById("adminAdhocMembersTbody");
+      if (adminAdhocMembersTbody && !globalThis.__insSocAdhocTbWired){
+        globalThis.__insSocAdhocTbWired = true;
+        adminAdhocMembersTbody.addEventListener("click", (ev) => {
+          const ed = ev.target.closest("[data-soc-adhoc-edit]");
+          if (ed){ openSocAdhocMemberModal(ed.getAttribute("data-soc-adhoc-edit")); return; }
+          const del = ev.target.closest("[data-soc-adhoc-del]");
+          if (del) deleteSocAdhocMember(del.getAttribute("data-soc-adhoc-del"));
+        });
+      }
+      const adminGbMembersTbody = document.getElementById("adminGbMembersTbody");
+      if (adminGbMembersTbody && !globalThis.__insSocGbTbWired){
+        globalThis.__insSocGbTbWired = true;
+        adminGbMembersTbody.addEventListener("click", (ev) => {
+          const ed = ev.target.closest("[data-soc-gb-edit]");
+          if (ed){ openSocGbMemberModal(ed.getAttribute("data-soc-gb-edit")); return; }
+          const del = ev.target.closest("[data-soc-gb-del]");
+          if (del) deleteSocGbMember(del.getAttribute("data-soc-gb-del"));
+        });
+      }
+
       const serviceContactAddBtn = document.getElementById("serviceContactAddBtn");
       if (serviceContactAddBtn) serviceContactAddBtn.addEventListener("click", () => openServiceContactModal(null));
       const serviceContactModalCloseBtn = document.getElementById("serviceContactModalCloseBtn");
@@ -9796,6 +10380,7 @@
       renderProjectDocsTables();
       renderMeetingDocsTables();
       renderServiceContactsTables();
+      renderSocietyDetailsPanels();
       renderAdminPendingApprovalPanel();
 
       const sess = readSession();
