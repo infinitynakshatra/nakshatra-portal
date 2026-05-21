@@ -895,7 +895,7 @@
       font-size:12px;
     }
     .userGuideBanner{
-      margin:0 0 14px;
+      margin:14px 0 14px;
       padding:14px 18px;
       border-radius:var(--radius);
       border:1px solid rgba(85,214,255,0.28);
@@ -1774,8 +1774,6 @@
           <div class="title">
             <h1>Infinity Nakshatra Society</h1>
             <p id="userTagline"><span class="portalDashLead">Owner Dashboard</span><span class="portalDashSub"> : Society Maintenance and Expense Management.</span></p>
-            <p class="portalDashSub" style="margin:4px 0 0; font-size:13px; line-height:1.45;">You can view all details related to your plot, including paid and pending maintenance amounts, society notices, MyGate visitor details, meeting documents, and other relevant records.</p>
-            <p class="portalDashSub" style="margin:4px 0 0; font-size:13px; line-height:1.45;">This login is set up based on your contact number. If you own multiple plots, the admin has linked your login using the same contact number and name.</p>
           </div>
         </div>
         <div class="pillrow">
@@ -1795,6 +1793,11 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <div class="userGuideBanner" id="userIntroBanner">
+        <p style="margin:0 0 10px;">You can view all details related to your plot, including paid and pending maintenance amounts, society notices, MyGate visitor details, meeting documents, and other relevant records.</p>
+        <p style="margin:0;">This login is set up based on your contact number. If you own multiple plots, the admin has linked your login using the same contact number and name.</p>
       </div>
 
       <div class="userGuideBanner" id="userGuideBanner"></div>
@@ -1984,7 +1987,6 @@
           <div class="row">
             <div>
               <strong>Month-wise maintenance payments</strong>
-              <div class="smallNote">Chart and table use payment records saved in this browser for the <b>selected plot</b>. If you own multiple plots, pick which one to view; the summary row above totals every linked plot. Expected and pending in that row use the <b>active FY</b> only (admin sets the owner portal FY); this chart and table also show paid months from earlier FYs on this portal. Sheet data refreshes automatically in the background. Use the top bar for <b>Add Payment</b> or Account &amp; UPI Details.</div>
             </div>
           </div>
           <div class="field" id="userPlotPickWrap" style="display:none; margin-top:12px; max-width:360px;">
@@ -4144,7 +4146,7 @@
     }
 
     function defaultBankingGuide(){
-      return "Pay the maintenance amount via NEFT/IMPS/Account Transfer using the account details provided, or scan the UPI QR code. Please include your plot number in the payment remarks. After completing the payment, use the \"Add Payment\" option on the portal to ensure your plot record matches the amount received in the society account.";
+      return "Pay the maintenance amount via NEFT/IMPS/account transfer using the account details provided, or scan the UPI QR code shared in the group. Please mention your plot number in the payment remarks. After completing the payment, use the \"Add Payment\" option on the portal to submit the payment details so that your plot records can be matched with the amount received in the society account.";
     }
     /** Previous default so loadBankingConfig can upgrade stored guidelines without admin edit. */
     const LEGACY_BANKING_GUIDE =
@@ -4152,6 +4154,8 @@
     /** Prior portal default (NEFT/IMPS only) — migrate to defaultBankingGuide() on load. */
     const LEGACY_BANKING_GUIDE_V2 =
       "Pay the maintenance amount via NEFT/IMPS using the account details provided, or scan the UPI QR code. Please include your plot number in the payment remarks. After completing the payment, use the \"Add Payment\" option on the portal to ensure your plot record matches the amount received in the society account.";
+    const LEGACY_BANKING_GUIDE_V3 =
+      "Pay the maintenance amount via NEFT/IMPS/Account Transfer using the account details provided, or scan the UPI QR code. Please include your plot number in the payment remarks. After completing the payment, use the \"Add Payment\" option on the portal to ensure your plot record matches the amount received in the society account.";
 
     const I18N = {
       en: {
@@ -4214,7 +4218,7 @@
     function mergeBankingFromObject_(o, base){
         const rawGuide = norm(o.guidelines);
         const guidelines =
-        !rawGuide || rawGuide === LEGACY_BANKING_GUIDE || rawGuide === LEGACY_BANKING_GUIDE_V2
+        !rawGuide || rawGuide === LEGACY_BANKING_GUIDE || rawGuide === LEGACY_BANKING_GUIDE_V2 || rawGuide === LEGACY_BANKING_GUIDE_V3
             ? defaultBankingGuide()
             : rawGuide;
         return {
