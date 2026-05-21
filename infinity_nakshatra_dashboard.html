@@ -921,6 +921,30 @@
       text-transform:uppercase;
       letter-spacing:0.04em;
     }
+    #adminSocietyDetailsSection .societyDetailsAdhocBlock .societyDetailsSectionTitle{
+      margin:8px 0 6px;
+    }
+    .societyDetailsFormDatesRow{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:flex-end;
+      gap:10px 14px;
+      margin-top:10px;
+    }
+    .societyDetailsFormDatesRow .field{
+      margin:0;
+      flex:0 1 min(220px, 100%);
+      min-width:min(180px, 100%);
+    }
+    .societyDetailsFormDatesRow .socRegNumberField{
+      flex:1 1 min(260px, 100%);
+      max-width:420px;
+    }
+    .societyDetailsFormDatesRow .socAdhocAddWrap{
+      flex:0 0 auto;
+      margin-left:auto;
+      padding-bottom:1px;
+    }
     .societyDetailsViewGrid{
       display:grid;
       grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
@@ -929,6 +953,86 @@
       font-size:13px;
     }
     .societyDetailsViewGrid .k{color:var(--muted); font-size:11px; font-weight:700;}
+    .societyMembersTable thead th{
+      padding:4px 6px;
+      font-size:10px;
+      line-height:1.2;
+      min-width:0;
+    }
+    .societyMembersTable tbody td{
+      padding:3px 6px;
+      font-size:11px;
+      line-height:1.2;
+      min-width:0 !important;
+      vertical-align:middle;
+    }
+    .societyMembersTable tbody td.socMemberSrCell{
+      width:2.25rem;
+      max-width:2.75rem;
+      min-width:0 !important;
+      text-align:center;
+      padding:3px 4px;
+      white-space:nowrap;
+    }
+    .societyMembersTable tbody td.socMemberActionsCell{
+      display:flex;
+      flex-direction:row;
+      flex-wrap:nowrap;
+      align-items:center;
+      justify-content:flex-start;
+      gap:6px;
+      white-space:nowrap;
+      min-width:9.25rem !important;
+      width:auto;
+      vertical-align:middle;
+    }
+    .societyMembersTable tbody td.socMemberActionsCell .btn{
+      flex-shrink:0;
+      padding:4px 8px;
+      font-size:10px;
+      border-radius:7px;
+    }
+    .societyMembersTable tbody td.socMemberRespCell{
+      font-size:10px;
+      line-height:1.2;
+      max-width:min(220px, 32vw);
+    }
+    .societyMembersTable thead th{
+      padding:4px 6px;
+      font-size:10px;
+      line-height:1.2;
+    }
+    .societyMembersTable tbody td{
+      padding:3px 6px;
+      font-size:11px;
+      line-height:1.2;
+      vertical-align:middle;
+      min-width:0;
+    }
+    .societyMembersTable tbody td.socSrCell{
+      width:2rem;
+      max-width:2.75rem;
+      min-width:0 !important;
+      text-align:center;
+      padding:3px 4px;
+      white-space:nowrap;
+    }
+    .societyMembersTable tbody td.docActionsCell{
+      display:flex;
+      flex-direction:row;
+      flex-wrap:nowrap;
+      align-items:center;
+      justify-content:flex-start;
+      gap:6px;
+      white-space:nowrap;
+      min-width:9.25rem !important;
+      vertical-align:middle;
+    }
+    .societyMembersTable tbody td.docActionsCell .btn{
+      flex-shrink:0;
+      padding:4px 8px;
+      font-size:10px;
+    }
     .portalDashLead{color:var(--warn); font-weight:900; font-size:1.08em;}
     .portalDashSub{font-size:inherit; font-weight:inherit; color:inherit;}
     .mcOwnerPortalFyLabel{color:#fff; font-weight:700;}
@@ -1808,26 +1912,30 @@
             <label for="socAdhocFormation">Date of Adhoc Committee Formation</label>
             <input id="socAdhocFormation" type="date" />
           </div>
+        </div>
+        <div class="societyDetailsFormDatesRow adminOnly">
           <div class="field">
             <label for="socSocietyFormation">Date of Society Formation</label>
             <input id="socSocietyFormation" type="date" />
           </div>
-          <div class="field" style="grid-column:1 / -1; max-width:420px;">
+          <div class="field socRegNumberField">
             <label for="socRegNumber">Society Registration Number</label>
             <input id="socRegNumber" type="text" autocomplete="off" placeholder="Registration number" />
           </div>
+          <div class="socAdhocAddWrap">
+            <button class="btn secondary tiny" type="button" id="socAdhocAddBtn">Add Member</button>
+          </div>
         </div>
-        <h4 class="societyDetailsSectionTitle adminOnly">Current Adhoc Committee Members</h4>
-        <div class="adminOnly" style="display:flex; justify-content:flex-end; margin-bottom:8px;">
-          <button class="btn secondary tiny" type="button" id="socAdhocAddBtn">Add Member</button>
-        </div>
-        <div class="scroll-x adminOnly" style="overflow:auto; max-height:min(280px, 40vh);">
-          <table class="adminDirTable">
+        <div class="societyDetailsAdhocBlock adminOnly">
+        <h4 class="societyDetailsSectionTitle">Current Adhoc Committee Members</h4>
+        <div class="scroll-x" style="overflow:auto; max-height:min(280px, 40vh); margin-top:8px;">
+          <table class="adminDirTable societyMembersTable">
             <thead>
-              <tr><th>Sr. No.</th><th>Name</th><th>Plot No.</th><th>Mobile</th><th>Actions</th></tr>
+              <tr><th>Sr. No.</th><th>Name</th><th>Plot/House No.</th><th>Mobile</th><th>Actions</th></tr>
             </thead>
             <tbody id="adminAdhocMembersTbody"><tr><td colspan="5">—</td></tr></tbody>
           </table>
+        </div>
         </div>
         <h4 class="societyDetailsSectionTitle adminOnly">General Body Committee Members</h4>
         <div class="societyDetailsForm adminOnly" style="margin-top:8px;">
@@ -1844,7 +1952,7 @@
           <button class="btn secondary tiny" type="button" id="socGbAddBtn">Add Member</button>
         </div>
         <div class="scroll-x adminOnly" style="overflow:auto; max-height:min(320px, 48vh);">
-          <table class="adminDirTable">
+          <table class="adminDirTable societyMembersTable">
             <thead>
               <tr><th>Sr. No.</th><th>Name</th><th>Plot/House No.</th><th>Role</th><th>Responsibility</th><th>Mobile</th><th>Actions</th></tr>
             </thead>
@@ -2104,9 +2212,9 @@
           <div class="societyDetailsViewGrid" id="userSocietyDetailsView"></div>
           <h4 class="societyDetailsSectionTitle">Current Adhoc Committee Members</h4>
           <div class="scroll-x" style="overflow:auto; max-height:min(280px, 40vh); margin-top:8px;">
-            <table class="adminDirTable">
+            <table class="adminDirTable societyMembersTable">
               <thead>
-                <tr><th>Sr. No.</th><th>Name</th><th>Plot No.</th><th>Mobile</th></tr>
+                <tr><th>Sr. No.</th><th>Name</th><th>Plot/House No.</th><th>Mobile</th></tr>
               </thead>
               <tbody id="userAdhocMembersTbody"><tr><td colspan="4">—</td></tr></tbody>
             </table>
@@ -2114,7 +2222,7 @@
           <h4 class="societyDetailsSectionTitle">General Body Committee Members</h4>
           <p class="smallNote" id="userGbPeriodNote" style="margin:6px 0 8px;">—</p>
           <div class="scroll-x" style="overflow:auto; max-height:min(320px, 48vh);">
-            <table class="adminDirTable">
+            <table class="adminDirTable societyMembersTable">
               <thead>
                 <tr><th>Sr. No.</th><th>Name</th><th>Plot/House No.</th><th>Role</th><th>Responsibility</th><th>Mobile</th></tr>
               </thead>
@@ -2768,7 +2876,7 @@
       </div>
       <input type="hidden" id="socAdhocMemberEditId" value="" />
       <div class="field"><label for="socAdhocName">Name</label><input id="socAdhocName" type="text" autocomplete="off" /></div>
-      <div class="field"><label for="socAdhocPlot">Plot No.</label><input id="socAdhocPlot" type="text" autocomplete="off" /></div>
+      <div class="field"><label for="socAdhocPlot">Plot/House No.</label><input id="socAdhocPlot" type="text" autocomplete="off" /></div>
       <div class="field"><label for="socAdhocMobile">Mobile</label><input id="socAdhocMobile" type="tel" inputmode="tel" autocomplete="off" /></div>
       <div class="err" id="socAdhocMemberErr"></div>
       <button class="btn" id="socAdhocMemberSaveBtn" type="button" style="margin-top:12px;">Save member</button>
@@ -5408,11 +5516,11 @@
         } else {
           adhocTb.innerHTML = d.adhocMembers.map((m, i) => `
             <tr>
-              <td>${i + 1}</td>
+              <td class="socMemberSrCell">${i + 1}</td>
               <td>${escapeHtml(m.name)}</td>
               <td>${escapeHtml(m.plotNo || "—")}</td>
               <td class="mono">${escapeHtml(m.mobile || "—")}</td>
-              <td>
+              <td class="socMemberActionsCell">
                 <button type="button" class="btn secondary tiny" data-soc-adhoc-edit="${escapeHtml(m.id)}">Edit</button>
                 <button type="button" class="btn danger tiny" data-soc-adhoc-del="${escapeHtml(m.id)}">Delete</button>
               </td>
@@ -5426,13 +5534,13 @@
         } else {
           gbTb.innerHTML = d.gbMembers.map((m, i) => `
             <tr>
-              <td>${i + 1}</td>
+              <td class="socMemberSrCell">${i + 1}</td>
               <td>${escapeHtml(m.name)}</td>
               <td>${escapeHtml(m.plotHouseNo || "—")}</td>
               <td>${escapeHtml(m.role || "—")}</td>
-              <td>${escapeHtml(m.responsibility || "—")}</td>
+              <td class="socMemberRespCell">${escapeHtml(m.responsibility || "—")}</td>
               <td class="mono">${escapeHtml(m.mobile || "—")}</td>
-              <td>
+              <td class="socMemberActionsCell">
                 <button type="button" class="btn secondary tiny" data-soc-gb-edit="${escapeHtml(m.id)}">Edit</button>
                 <button type="button" class="btn danger tiny" data-soc-gb-del="${escapeHtml(m.id)}">Delete</button>
               </td>
@@ -5470,7 +5578,7 @@
         } else {
           adhocTb.innerHTML = d.adhocMembers.map((m, i) => `
             <tr>
-              <td>${i + 1}</td>
+              <td class="socMemberSrCell">${i + 1}</td>
               <td>${escapeHtml(m.name)}</td>
               <td>${escapeHtml(m.plotNo || "—")}</td>
               <td class="mono">${escapeHtml(m.mobile || "—")}</td>
@@ -5484,11 +5592,11 @@
         } else {
           gbTb.innerHTML = d.gbMembers.map((m, i) => `
             <tr>
-              <td>${i + 1}</td>
+              <td class="socMemberSrCell">${i + 1}</td>
               <td>${escapeHtml(m.name)}</td>
               <td>${escapeHtml(m.plotHouseNo || "—")}</td>
               <td>${escapeHtml(m.role || "—")}</td>
-              <td>${escapeHtml(m.responsibility || "—")}</td>
+              <td class="socMemberRespCell">${escapeHtml(m.responsibility || "—")}</td>
               <td class="mono">${escapeHtml(m.mobile || "—")}</td>
             </tr>
           `).join("");
