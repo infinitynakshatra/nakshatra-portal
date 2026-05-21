@@ -460,15 +460,17 @@
     .mcBrand .smallNote{color:var(--muted);}
     #adminMaintenanceMcRow .mcKpiStrip{
       display:grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap:6px;
     }
-    #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSummary{
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+    #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix .mcKpiCard{
+      min-height:52px;
+    }
+    @media (max-width: 1100px){
+      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
     }
     @media (max-width: 900px){
       #adminMaintenanceMcRow .mcKpiStrip{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSummary{ grid-template-columns: 1fr; }
     }
     @media (max-width: 440px){
       #adminMaintenanceMcRow .mcKpiStrip{ grid-template-columns: 1fr; }
@@ -1358,7 +1360,7 @@
           <h3>Sold Plots</h3>
         <div class="big" id="soldPlots">—</div>
         </div>
-        <div class="sub">Total Sold Plots</div>
+        <div class="sub" id="soldPlotsSub">Total Sold Plots</div>
       </div>
       <div class="statMini statMiniUnsold adminOnly">
         <div class="statMiniTop">
@@ -1482,17 +1484,13 @@
             </div>
             <p class="mcFyMetaLine" id="adminMcFyMetaLine"><span id="adminMcFyMetaNote" class="mono">—</span></p>
           </div>
-          <div class="mcKpiStrip mcKpiStripSummary" aria-label="Maintenance vs expenses summary">
-            <div class="mcKpiCard"><span>Maintenance collected</span><b id="mcMaintenanceCollectedSummary">—</b></div>
-            <div class="mcKpiCard"><span>Expenses</span><b id="mcExpensesSummary">—</b></div>
-            <div class="mcKpiCard"><span>Balance</span><b id="mcBalanceSummary">—</b></div>
-          </div>
-          <h4 class="mcSubSectionTitle">Maintenance Collection</h4>
-          <div class="mcKpiStrip" aria-label="Collection amounts for selected months">
-            <div class="mcKpiCard"><span>Received Amount</span><b id="mcReceived">—</b></div>
+          <div class="mcKpiStrip mcKpiStripSix" aria-label="Maintenance summary">
             <div class="mcKpiCard"><span>Expected Amount</span><b id="mcExpected">—</b></div>
+            <div class="mcKpiCard"><span>Maintenance collected</span><b id="mcMaintenanceCollectedSummary">—</b></div>
             <div class="mcKpiCard"><span>Pending/Due Amount</span><b id="mcPending">—</b></div>
             <div class="mcKpiCard"><span>Late Fee Amount</span><b id="lateFeeReceived">—</b></div>
+            <div class="mcKpiCard"><span>Expenses</span><b id="mcExpensesSummary">—</b></div>
+            <div class="mcKpiCard"><span>Balance</span><b id="mcBalanceSummary">—</b></div>
           </div>
           <div class="adminExpenseBlock" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
             <h4 class="mcSubSectionTitle">Add expenses</h4>
@@ -1642,12 +1640,12 @@
 
     <div class="grid" style="margin-top:12px;">
       <div class="cardWide" id="adminServiceContactsSection">
-        <div class="row">
-          <div>
+        <div class="row" style="align-items:flex-start;">
+          <div style="flex:1; min-width:min(240px, 100%);">
             <strong>Service Contacts</strong>
-            <div class="smallNote">This contact list is maintained for all society members to support their day-to-day maintenance and household service needs within the project/society. Members can share trusted service provider contacts in the WhatsApp group if they would like those contacts to be added to the portal.</div>
+            <div class="smallNote">This contact list is maintained for all society members to support their day-to-day maintenance and household service needs within the project/society.<br>Members can share trusted service provider contacts in the WhatsApp group if they would like those contacts to be added to the portal.</div>
           </div>
-          <button class="btn secondary adminOnly" type="button" id="serviceContactAddBtn">Add contact</button>
+          <button class="btn secondary adminOnly" type="button" id="serviceContactAddBtn" style="flex-shrink:0; margin-left:auto;">Add contact</button>
         </div>
         <div class="scroll-x" style="overflow:auto; margin-top:12px; max-height:min(380px, 52vh);">
           <table class="adminDirTable serviceContactsTable">
@@ -1841,7 +1839,7 @@
         <div class="row">
           <div>
             <strong>Project Documents</strong>
-            <div class="smallNote">Here you can view and download all project-related common documents and also show appreciation.<br><br>Please contact the admin if any required document is missing from the list, especially those needed for house construction approvals or plot resale.</div>
+            <div class="smallNote">Here you can view and download all project-related common documents and also show your appreciation by clicking the Like button.<br><br>Please contact the admin if any required document is missing from the list, especially those needed for house construction approvals or plot resale.</div>
           </div>
         </div>
         <div class="scroll-x" style="overflow:auto; margin-top:12px; max-height:min(380px, 52vh);">
@@ -2563,7 +2561,7 @@
   </div>
 
   <div class="backdrop" id="prevNotifBackdrop" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="prevNotifModalTitle" style="width:min(720px, 96vw);">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="prevNotifModalTitle" style="width:min(960px, 96vw);">
       <div class="modalHead">
         <div>
           <div class="modalTitle" id="prevNotifModalTitle">Previous Notifications</div>
@@ -6709,6 +6707,11 @@
       const existingMembers = Math.max(0, soldPlots - contactMissing);
       document.getElementById("totalPlots").textContent = String(totalPlots);
       document.getElementById("soldPlots").textContent = String(soldPlots);
+      const soldSub = document.getElementById("soldPlotsSub");
+      if (soldSub){
+        const soldPct = totalPlots > 0 ? ((soldPlots / totalPlots) * 100).toFixed(2) : "0.00";
+        soldSub.textContent = `Total Sold Plots are ${soldPct}%`;
+      }
       document.getElementById("unsoldPlots").textContent = String(unsoldPlots);
       document.getElementById("contactMissing").textContent = String(contactMissing);
       const rp = document.getElementById("registeredPlots");
@@ -7334,10 +7337,9 @@
 
     function updateMaintenanceCollectionCards(){
       const expectedEl = document.getElementById("mcExpected");
-      const receivedEl = document.getElementById("mcReceived");
       const pendingEl = document.getElementById("mcPending");
       const lateFeeEl = document.getElementById("lateFeeReceived");
-      if (!expectedEl || !receivedEl || !pendingEl || !lateFeeEl) return;
+      if (!expectedEl || !pendingEl || !lateFeeEl) return;
 
       // Avoid overwriting KPIs with empty math only on the *first* load (no rows yet).
       // During CSV refresh we still have the previous allRows — keep KPIs updated so server
@@ -7389,7 +7391,6 @@
       const pending = Math.max(0, expected - received);
 
       expectedEl.textContent = String(Math.round(expected));
-      receivedEl.textContent = String(Math.round(received));
       pendingEl.textContent = String(Math.round(pending));
       lateFeeEl.textContent = String(Math.round(lateFee));
 
