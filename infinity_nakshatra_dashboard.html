@@ -4452,6 +4452,18 @@
       "Pay the maintenance amount via NEFT/IMPS using the account details provided, or scan the UPI QR code. Please include your plot number in the payment remarks. After completing the payment, use the \"Add Payment\" option on the portal to ensure your plot record matches the amount received in the society account.";
     const LEGACY_BANKING_GUIDE_V3 =
       "Pay the maintenance amount via NEFT/IMPS/Account Transfer using the account details provided, or scan the UPI QR code. Please include your plot number in the payment remarks. After completing the payment, use the \"Add Payment\" option on the portal to ensure your plot record matches the amount received in the society account.";
+    /** Omit from owner portal only (may still appear in admin banking guidelines). */
+    const OWNER_BANKING_TEMP_ACCOUNT_NOTE =
+      "Note: This is a temporary joint account created by society residents. An official savings account in the name of Infinity Nakshatra Society will be opened once the society registration process is completed.";
+
+    function ownerFacingBankingGuideText(raw){
+      let s = String(raw || "");
+      const body = OWNER_BANKING_TEMP_ACCOUNT_NOTE.replace(/^Note:\s*/i, "").trim();
+      [OWNER_BANKING_TEMP_ACCOUNT_NOTE, body, "Note: " + body].forEach(part => {
+        if (part) s = s.split(part).join(" ");
+      });
+      return norm(s);
+    }
 
     const I18N = {
       en: {
@@ -4584,21 +4596,23 @@
     function renderUserGuideBanner(){
       const el = document.getElementById("userGuideBanner");
       if (!el) return;
-      const g = norm(loadBankingConfig().guidelines) || defaultBankingGuide();
+      const g = ownerFacingBankingGuideText(norm(loadBankingConfig().guidelines) || defaultBankingGuide());
       el.innerHTML = `<strong>How to pay maintenance</strong> — ${escapeHtml(g)}`;
     }
     function fillBankViewModal(){
       const c = loadBankingConfig();
+      const sess = readSession();
       const sub = document.getElementById("bankViewSub");
       if (sub){
-        const sess = readSession();
         sub.textContent = sess && sess.role === "admin"
           ? "Same information owners see (read only on their portal)."
           : "Use these details or scan the QR to pay society maintenance.";
       }
       const guide = document.getElementById("bankViewGuideBanner");
       if (guide){
-        const g = escapeHtml(norm(c.guidelines) || defaultBankingGuide());
+        let rawG = norm(c.guidelines) || defaultBankingGuide();
+        if (sess && sess.role === "user") rawG = ownerFacingBankingGuideText(rawG);
+        const g = escapeHtml(rawG);
         guide.innerHTML = g.replace(/\n/g, "<br/>");
       }
       const kv = document.getElementById("bankViewKv");
