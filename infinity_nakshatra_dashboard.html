@@ -2230,17 +2230,6 @@
           <div style="margin-top:12px;">
             <canvas id="payChart" height="120" style="width:100%; max-height:320px;"></canvas>
           </div>
-          <div class="scroll-x" style="overflow:auto; margin-top:12px;">
-            <table class="adminDirTable">
-              <thead>
-                <tr>
-                  <th>Month</th>
-                  <th>Amount</th>
-                </tr>
-              </thead>
-              <tbody id="userPayRows"></tbody>
-            </table>
-          </div>
         </div>
       </div>
 
@@ -9264,14 +9253,10 @@
         const sums = sumEntriesForYm(entries, s.ym);
         return { label: s.label, amount: Number(sums.amount) || 0 };
       });
-      const tbody = document.getElementById("userPayRows");
       if (!pairs.length){
-        tbody.innerHTML = `<tr><td colspan="2">No payments saved yet for this plot.</td></tr>`;
         if (payChart){ payChart.destroy(); payChart = null; }
         return;
       }
-
-      tbody.innerHTML = pairs.map(p => `<tr><td>${escapeHtml(p.label)}</td><td>${escapeHtml(String(p.amount || 0))}</td></tr>`).join("");
 
       const ctx = document.getElementById("payChart");
       if (payChart) payChart.destroy();
@@ -9283,8 +9268,9 @@
       const expectedPerMonth = Number(MC_PER_MONTH) || 350;
       const paidFlags = pairs.map(p => (Number(p.amount) || 0) >= (expectedPerMonth - 0.01));
       const statusLabels = paidFlags.map(x => (x ? "PAID" : "UNPAID"));
-      const barColors = paidFlags.map(x => x ? "rgba(108,255,201,0.55)" : "rgba(255,107,107,0.60)");
-      const barBorders = paidFlags.map(x => x ? "rgba(108,255,201,0.95)" : "rgba(255,107,107,0.95)");
+      // Modern palette: emerald (paid) + slate/rose (unpaid)
+      const barColors = paidFlags.map(x => x ? "rgba(16,185,129,0.62)" : "rgba(244,63,94,0.58)");
+      const barBorders = paidFlags.map(x => x ? "rgba(16,185,129,0.95)" : "rgba(244,63,94,0.92)");
 
       const paidUnpaidLabelPlugin = {
         id: "insPaidUnpaidLabels",
@@ -9295,7 +9281,7 @@
             const ds = chart.data.datasets && chart.data.datasets[0];
             const labels = (ds && ds.statusLabels) || [];
             ctx.save();
-            ctx.fillStyle = "rgba(8,18,25,0.85)";
+            ctx.fillStyle = "rgba(255,255,255,0.92)";
             ctx.font = "800 11px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -9369,7 +9355,6 @@
       const plotNo = getUserFocusedPlotNo(rows, userDigits);
       if (plotNo) renderUserPaymentsChartAndTable(plotNo);
       else {
-        document.getElementById("userPayRows").innerHTML = `<tr><td colspan="2">—</td></tr>`;
         if (payChart){ payChart.destroy(); payChart = null; }
       }
       renderPortalNotificationsPanels();
