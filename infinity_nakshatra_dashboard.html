@@ -150,7 +150,25 @@
     }
     .backdrop.show{display:flex;}
     #appRoot, #adminRoot, #userRoot{min-width:0; max-width:100%;}
-    #payChart{max-width:100%; height:auto !important;}
+    .payChartScroll{
+      margin-top:12px;
+      max-width:100%;
+      overflow-x:auto;
+      -webkit-overflow-scrolling:touch;
+      overscroll-behavior-x:contain;
+    }
+    .payChartInner{
+      position:relative;
+      width:100%;
+      height:280px;
+      min-height:220px;
+    }
+    #payChart{
+      display:block;
+      width:100% !important;
+      height:100% !important;
+      max-height:320px;
+    }
     .modal{
       width:min(920px, 100%);
       background:rgba(10,31,45,0.92);
@@ -2227,8 +2245,10 @@
             <label for="userPlotFocus">View payments for plot</label>
             <select id="userPlotFocus"></select>
           </div>
-          <div style="margin-top:12px;">
-            <canvas id="payChart" height="120" style="width:100%; max-height:320px;"></canvas>
+          <div class="payChartScroll scroll-x" id="payChartScroll">
+            <div class="payChartInner" id="payChartInner">
+              <canvas id="payChart"></canvas>
+            </div>
           </div>
         </div>
       </div>
@@ -9246,6 +9266,24 @@
       })();
     }
 
+    function applyPayChartLayout_(barCount){
+      const inner = document.getElementById("payChartInner");
+      if (!inner) return;
+      const n = Math.max(1, Number(barCount) || 12);
+      const mobile = window.matchMedia("(max-width: 720px)").matches;
+      const chartH = mobile ? 248 : 280;
+      inner.style.height = chartH + "px";
+      if (mobile){
+        const slotW = 48;
+        const w = n * slotW + 36;
+        inner.style.width = w + "px";
+        inner.style.minWidth = w + "px";
+      } else {
+        inner.style.width = "100%";
+        inner.style.minWidth = "";
+      }
+    }
+
     function renderUserPaymentsChartAndTable(plotNo){
       const slots = getOwnerHistorySlots();
       const entries = paymentsLoadEntries(plotNo);
@@ -9257,6 +9295,8 @@
         if (payChart){ payChart.destroy(); payChart = null; }
         return;
       }
+
+      applyPayChartLayout_(pairs.length);
 
       const ctx = document.getElementById("payChart");
       if (payChart) payChart.destroy();
@@ -9320,6 +9360,7 @@
         },
         options: {
           responsive: true,
+          maintainAspectRatio: false,
           plugins: {
             legend: { display: false },
             tooltip: {
@@ -9349,6 +9390,7 @@
         },
         plugins: [paidUnpaidLabelPlugin]
       });
+      try { payChart.resize(); } catch {}
     }
 
     function refreshUserView(){
