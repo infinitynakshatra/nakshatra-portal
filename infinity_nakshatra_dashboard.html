@@ -1131,6 +1131,18 @@
     .adminNotesBlock dl{margin:0; display:grid; gap:6px;}
     .adminNotesBlock dt{margin:0; font-size:11px; color:var(--muted); font-weight:800; text-transform:uppercase; letter-spacing:0.04em;}
     .adminNotesBlock dd{margin:0; font-size:14px; font-weight:700; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; word-break:break-all;}
+    .projectDetailsScroll{
+      overflow:auto;
+      flex:1;
+      min-height:0;
+      max-height:min(68vh, 640px);
+      margin-top:10px;
+      padding-right:4px;
+      line-height:1.5;
+    }
+    .projectDetailsScroll .adminNotesBlock ul{margin:6px 0 0; padding-left:18px;}
+    .projectDetailsScroll .adminNotesBlock li{margin:4px 0;}
+    .projectDetailsScroll .adminNotesBlock p{margin:6px 0 0;}
     .btn{
       display:inline-flex;
       align-items:center;
@@ -2028,6 +2040,7 @@
         <div class="pillrow">
           <button class="btn secondary" id="userBankViewBtn" type="button" data-i18n="user.btn.bank">Account & UPI Details</button>
           <button class="btn secondary" id="userAddPayBtn" type="button" data-i18n="user.btn.addPayment">Add Payment</button>
+          <button class="btn secondary" id="userProjectDetailsBtn" type="button">Project Details</button>
           <a class="btn secondary" id="userPmrdaRulesBtn" href="https://drive.google.com/file/d/1oHf5kC-y6-VdGTM_7eKeq5LaPZ7mofVG/view?usp=drive_link" target="_blank" rel="noreferrer">PMRDA Construction Rules</a>
           <a class="btn topbarIconLink" id="userWhatsAppBtn" href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer" aria-label="Join WhatsApp Group"><img src="assets/whatsapp.png" width="22" height="22" alt="" /></a>
           <a class="btn topbarIconLink" id="userLocationBtn" href="https://maps.app.goo.gl/VoAmet24MYUdTDZ99?g_st=aw" target="_blank" rel="noreferrer" aria-label="Society location on Google Maps"><img src="assets/loc.png" width="22" height="22" alt="" /></a>
@@ -2708,6 +2721,128 @@
           </thead>
           <tbody id="doneRows"></tbody>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="projectDetailsBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="projectDetailsTitle" style="width:min(720px, 96vw); max-height:min(92vh, 720px); display:flex; flex-direction:column;">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="projectDetailsTitle">INFINITY NAKSHATRA – Project Details</div>
+          <div class="modalSub">Project overview, land, amenities, and developer information</div>
+        </div>
+        <button class="btn secondary" id="projectDetailsCloseBtn" type="button">Close</button>
+      </div>
+      <div class="projectDetailsScroll smallNote">
+        <div class="adminNotesBlock">
+          <h4>Project Overview</h4>
+          <dl>
+            <dt>Project Name</dt><dd>INFINITY NAKSHATRA</dd>
+            <dt>Approved &amp; Sanctioned By</dt><dd>Pune Metropolitan Region Development Authority (PMRDA, Pune)</dd>
+            <dt>Project Type</dt><dd>Clear Title Collector NA Plots</dd>
+          </dl>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Land &amp; Ownership Details</h4>
+          <p><strong>Land Owners</strong></p>
+          <ul>
+            <li>Mr. Sandeep Chandmal Dugad</li>
+            <li>Mr. Gaurav Pramod Dugad</li>
+          </ul>
+          <p><strong>Power of Attorney Holders</strong></p>
+          <ul>
+            <li>Mr. Vitthal Dyanoba Devkar</li>
+            <li>Mr. Vishal Prabhakar Kute — Power of Attorney Holder: Mr. Amit Prakash Sasane</li>
+            <li>Mr. Avinash Kaluram Kute — Power of Attorney Holder: Mr. Amit Prakash Sasane</li>
+          </ul>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Project Area &amp; Layout</h4>
+          <dl>
+            <dt>Total Land Area</dt><dd>3 Hectares 99 Ares (9.86 Acres | 39,900 Sq. Mtr.)</dd>
+            <dt>Gat Number</dt><dd>49</dd>
+            <dt>Total Residential Plots</dt><dd>109</dd>
+            <dt>Internal Road Width</dt><dd>12 M &amp; 9 M Roads</dd>
+          </dl>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Amenity &amp; Open Space Details</h4>
+          <p><strong>Amenity Spaces</strong></p>
+          <ul>
+            <li>Amenity Space 1: 2,300.80 Sq. Mtr. — Handed over to PMRDA; temporary access/use permitted</li>
+            <li>Amenity Space 2: 3,633.80 Sq. Mtr. — Handed over to PMRDA; temporary access/use permitted</li>
+          </ul>
+          <p><strong>Open Spaces</strong></p>
+          <ul>
+            <li>Open Space 1: 2,567.40 Sq. Mtr. — Owned by Residents</li>
+            <li>Open Space 2: 1,492.40 Sq. Mtr. — Owned by Residents</li>
+          </ul>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>FSI Details</h4>
+          <dl>
+            <dt>Approved Project-Level FSI</dt><dd>1.58</dd>
+            <dt>Applicable FSI</dt><dd>1.4 (As per PMRDA norms and applicable road width regulations)</dd>
+          </dl>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Road Connectivity</h4>
+          <ul>
+            <li>Access Road: 9 M road towards Balaji Nisarg Society</li>
+            <li>Main Entrance Approach Road: 7.5 M</li>
+            <li>Existing Road Width: 6 M</li>
+          </ul>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Electricity Infrastructure</h4>
+          <ul>
+            <li>250 KV Transformer installed for the project</li>
+            <li>10 Years Service Warranty Available</li>
+          </ul>
+          <p><strong>Service Vendor</strong></p>
+          <p>Mr. Anil Kotwal<br>CSK Enterprises</p>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Project Amenities</h4>
+          <ul>
+            <li>Gated Community</li>
+            <li>Electricity Infrastructure</li>
+            <li>9 M &amp; 12 M Concrete Roads</li>
+            <li>Tree Plantation</li>
+            <li>Garden Area</li>
+            <li>Main Entrance Gate</li>
+            <li>Street Lights &amp; Walkway</li>
+            <li>Water Supply</li>
+            <li>Drainage System</li>
+            <li>Security Cabin</li>
+            <li>Children’s Play Area</li>
+            <li>Senior Citizen Sitting Area</li>
+            <li>Multifunctional Hall with Common Toilet</li>
+            <li>Open Gym</li>
+            <li>Dedicated Temple Area</li>
+          </ul>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Project Address</h4>
+          <p style="margin:0; font-weight:700; line-height:1.45;">
+            INFINITY NAKSHATRA<br>
+            Gat No. 49, Near Kadam Corner,<br>
+            Shiraswadi, Pune – 412207, Maharashtra, India
+          </p>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Developer Details</h4>
+          <p><strong>Developed By</strong></p>
+          <p>Gajanan Developers, Wagholi</p>
+          <p><strong>Developer Partners</strong></p>
+          <ul>
+            <li>Mr. Avinash Kute</li>
+            <li>Mr. Vishal Kute</li>
+            <li>Mr. Ganesh Kute</li>
+            <li>Mr. Amit Sasane</li>
+          </ul>
+        </div>
       </div>
     </div>
   </div>
@@ -10191,6 +10326,10 @@
       });
       const userBankViewBtn = document.getElementById("userBankViewBtn");
       if (userBankViewBtn) userBankViewBtn.addEventListener("click", openBankingViewModal);
+      const userProjectDetailsBtn = document.getElementById("userProjectDetailsBtn");
+      if (userProjectDetailsBtn) userProjectDetailsBtn.addEventListener("click", () => showBackdrop("projectDetailsBackdrop", true));
+      const projectDetailsCloseBtn = document.getElementById("projectDetailsCloseBtn");
+      if (projectDetailsCloseBtn) projectDetailsCloseBtn.addEventListener("click", () => showBackdrop("projectDetailsBackdrop", false));
 
       const adminAddPayBtn = document.getElementById("adminAddPayBtn");
       if (adminAddPayBtn) adminAddPayBtn.addEventListener("click", () => {
