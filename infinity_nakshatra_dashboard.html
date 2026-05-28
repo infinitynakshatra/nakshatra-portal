@@ -9311,8 +9311,11 @@
             statusLabels,
             backgroundColor: barColors,
             borderColor: barBorders,
-            borderWidth: 1,
-            borderSkipped: false
+            borderWidth: 0,
+            borderSkipped: false,
+            borderRadius: 12,
+            barThickness: 26,
+            maxBarThickness: 28
           }]
         },
         options: {
@@ -9331,14 +9334,18 @@
             }
           },
           scales: {
-            x: { ticks: { color: "#b8c7d3" }, grid: { color: "rgba(255,255,255,0.10)" } },
+            x: {
+              ticks: { color: "#b8c7d3" },
+              grid: { color: "rgba(255,255,255,0.06)" }
+            },
             y: {
               min: 0,
               max: expectedPerMonth,
               ticks: { color: "#b8c7d3", callback: (v) => (Number(v) === expectedPerMonth ? String(expectedPerMonth) : "") },
-              grid: { color: "rgba(255,255,255,0.10)" }
+              grid: { color: "rgba(255,255,255,0.06)" }
             }
-          }
+          },
+          layout: { padding: { top: 8, bottom: 4 } }
         },
         plugins: [paidUnpaidLabelPlugin]
       });
