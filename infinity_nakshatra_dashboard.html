@@ -186,22 +186,36 @@
     .kvGrid{display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:12px;}
     @media (max-width: 720px){ .kvGrid{grid-template-columns: 1fr;} }
     .payEditor{margin-top:12px;}
-    /* Plot Owners Directory — compact row height */
+    /* Portal tables — minimum row height (admin + owner) */
     .adminDirTable{margin-top:10px;}
-    .adminDirTable thead th{
-      padding:7px 8px;
+    .adminDirTable thead th,
+    .listTable thead th,
+    .seePayTable thead th{
+      padding:4px 6px;
       font-size:11px;
+      line-height:1.15;
     }
-    .adminDirTable tbody td{
-      padding:6px 8px;
+    .adminDirTable tbody td,
+    .listTable tbody td,
+    .seePayTable tbody td{
+      padding:3px 6px;
       font-size:12px;
-      line-height:1.25;
+      line-height:1.15;
+      vertical-align:middle;
       min-width:96px;
     }
-    .adminDirTable tbody td .btn{
-      padding:6px 10px;
-      font-size:11px;
-      border-radius:8px;
+    .adminDirTable tbody td .btn,
+    .adminDirTable tbody td a.btn,
+    .listTable tbody td .btn,
+    .listTable tbody td a.btn,
+    .seePayTable tbody td .btn,
+    .seePayTable tbody td a.btn{
+      padding:2px 7px;
+      font-size:10px;
+      line-height:1.1;
+      min-height:0;
+      border-radius:6px;
+      box-shadow:none;
     }
     .plotChipRow{display:flex; flex-wrap:wrap; gap:6px; align-items:center;}
     .plotChipRow .plotChip{padding:4px 9px; font-size:11px; border-radius:999px;}
@@ -212,7 +226,15 @@
     .docNoCell, .docNoTh{width:3.2rem; max-width:3.2rem; min-width:3.2rem; text-align:center; white-space:nowrap;}
     .docNameTh{width:14rem; max-width:18rem;}
     .docDetailsFullCell{white-space:normal; word-break:break-word; overflow-wrap:anywhere; line-height:1.4;}
-    .docActionsSmall .btn{padding:4px 7px; font-size:10px; border-radius:8px;}
+    .docActionsSmall .btn,
+    .docActionsSmall a.btn{
+      padding:1px 6px;
+      font-size:9px;
+      line-height:1.05;
+      min-height:0;
+      border-radius:5px;
+      box-shadow:none;
+    }
     /* Service contacts — compact Sr./Contact; full wrapped Service details (user + admin tables) */
     .serviceContactsTable{
       table-layout:fixed;
@@ -220,7 +242,9 @@
     }
     .serviceContactsTable thead th,
     .serviceContactsTable tbody td{
-      vertical-align:top;
+      vertical-align:middle;
+      padding:3px 6px;
+      line-height:1.15;
     }
     .serviceContactsTable thead th:nth-child(1),
     .serviceContactsTable tbody td.svcSrCell{
@@ -229,7 +253,7 @@
       min-width:0 !important;
       box-sizing:border-box;
       text-align:center;
-      padding:6px 4px;
+      padding:3px 4px;
       white-space:nowrap;
     }
     .serviceContactsTable thead th:nth-child(2),
@@ -338,8 +362,10 @@
       font-size:12px;
     }
     .modalPayAdd table{margin-top:8px;}
-    .modalPayAdd thead th{padding:7px 8px; font-size:11px;}
-    .modalPayAdd tbody td{padding:5px 8px; font-size:12px;}
+    .modalPayAdd thead th{padding:4px 6px; font-size:11px; line-height:1.15;}
+    .modalPayAdd tbody td{padding:3px 6px; font-size:12px; line-height:1.15; vertical-align:middle;}
+    .modalPayAdd tbody td .btn,
+    .modalPayAdd tbody td a.btn{padding:2px 7px; font-size:10px; line-height:1.1; min-height:0; border-radius:6px; box-shadow:none;}
     .modalSeePay{
       width:min(980px, 96vw);
       max-height:92vh;
@@ -403,7 +429,14 @@
     .miniStatsRow{display:flex; justify-content:space-between; gap:8px; font-size:11px; color:var(--muted);}
     .miniStatsRow b{color:var(--text); font-size:12px;}
     .miniStatsActions{display:flex; gap:6px; flex-wrap:wrap; margin-top:8px;}
-    .btn.tiny{padding:6px 8px; border-radius:9px; font-size:11px; box-shadow:none;}
+    .btn.tiny{
+      padding:2px 7px;
+      border-radius:6px;
+      font-size:10px;
+      line-height:1.1;
+      box-shadow:none;
+      min-height:0;
+    }
     .listTable{width:100%; min-width:max-content;}
     .listTable tbody td{white-space:nowrap;}
 
@@ -490,13 +523,11 @@
       min-height:62px;
     }
     @media (max-width: 1100px){
-      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
-    @media (max-width: 900px){
-      #adminMaintenanceMcRow .mcKpiStrip{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 440px){
-      #adminMaintenanceMcRow .mcKpiStrip{ grid-template-columns: 1fr; }
+    @media (max-width: 520px){
+      #adminMaintenanceMcRow .mcKpiStrip,
+      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: 1fr; }
     }
     #adminMaintenanceMcRow .mcSubSectionTitle{
       margin:0 0 5px;
@@ -739,7 +770,7 @@
     .docActionsCell{
       display:flex;
       flex-flow:row wrap;
-      gap:6px;
+      gap:4px;
       align-items:center;
       white-space:normal;
     }
@@ -1032,9 +1063,11 @@
     }
     .societyMembersTable tbody td.socMemberActionsCell .btn{
       flex-shrink:0;
-      padding:4px 8px;
-      font-size:10px;
-      border-radius:7px;
+      padding:2px 6px;
+      font-size:9px;
+      line-height:1.05;
+      min-height:0;
+      border-radius:5px;
     }
     .societyMembersTable tbody td.socMemberRespCell{
       font-size:10px;
@@ -1042,14 +1075,14 @@
       max-width:min(220px, 32vw);
     }
     .societyMembersTable thead th{
-      padding:4px 6px;
+      padding:3px 6px;
       font-size:10px;
-      line-height:1.2;
+      line-height:1.15;
     }
     .societyMembersTable tbody td{
-      padding:3px 6px;
+      padding:2px 6px;
       font-size:11px;
-      line-height:1.2;
+      line-height:1.15;
       vertical-align:middle;
       min-width:0;
     }
@@ -1074,8 +1107,10 @@
     }
     .societyMembersTable tbody td.docActionsCell .btn{
       flex-shrink:0;
-      padding:4px 8px;
-      font-size:10px;
+      padding:2px 6px;
+      font-size:9px;
+      line-height:1.05;
+      min-height:0;
     }
     .portalDashLead{color:var(--warn); font-weight:900; font-size:1.08em;}
     .portalDashSub{font-size:inherit; font-weight:inherit; color:inherit;}
@@ -1445,8 +1480,86 @@
         word-break:break-word;
         white-space:normal;
       }
-      .adminDirTable tbody td{min-width:88px;}
+      .adminDirTable tbody td{min-width:72px;}
       thead th{white-space:normal;}
+      /* Admin mobile: KPI cards, tables, filters */
+      #adminMaintenanceMcRow .mcKpiCard{
+        min-height:0;
+        padding:8px 10px;
+      }
+      #adminMaintenanceMcRow .mcKpiCardHead{
+        flex-direction:column;
+        align-items:flex-start;
+        gap:4px;
+      }
+      #adminMaintenanceMcRow .mcKpiCardValue{
+        text-align:left;
+        width:100%;
+        font-size:17px;
+      }
+      #adminMaintenanceMcRow .mcKpiCardLabel{
+        font-size:11px;
+        line-height:1.25;
+      }
+      #adminMaintenanceMcRow .mcCollectionHead .mcBtns,
+      #adminRoot .mcRowInner > .mcBtns{
+        width:100%;
+        flex-direction:column;
+        align-items:stretch;
+        justify-content:flex-start;
+      }
+      #adminMaintenanceMcRow .mcCollectionHead .mcBtns .btn,
+      #adminRoot .mcRowInner > .mcBtns .btn{
+        width:100%;
+        justify-content:center;
+      }
+      .expenseFormPaidRow{
+        flex-direction:column;
+        align-items:stretch;
+      }
+      .expenseFormPaidRowBtns{
+        width:100%;
+        flex-direction:column;
+        align-items:stretch;
+      }
+      .expenseFormPaidRowBtns .btn{
+        width:100%;
+        justify-content:center;
+      }
+      .mcOwnerPortalFyHelp{display:block; margin-top:4px;}
+      #adminRoot .scroll-x{
+        overflow-x:auto;
+        overflow-y:auto;
+        width:100%;
+        max-width:100%;
+      }
+      #adminRoot .scroll-x > table.adminDirTable{ min-width:560px; }
+      #adminRoot .scroll-x > table.serviceContactsTable{ min-width:440px; }
+      .scroll-x thead th,
+      .scroll-x .adminDirTable thead th{ white-space:nowrap; }
+      .cardWide > .row{
+        flex-direction:column;
+        align-items:stretch;
+      }
+      #adminDirFilters,
+      .filtersPanel{
+        width:100%;
+        flex:1 1 100%;
+        flex-direction:column;
+        align-items:stretch;
+      }
+      .filtersPanel input[type="search"],
+      .filtersPanel select{
+        width:100%;
+        min-width:0 !important;
+        flex:1 1 auto;
+      }
+      .serviceContactsTable tbody td.docActionsCell{
+        min-width:0 !important;
+        max-width:none;
+        white-space:normal;
+        flex-wrap:wrap;
+      }
     }
     @media (max-width: 620px){
       .card{grid-column: span 12;}
@@ -1466,6 +1579,15 @@
       .title h1{font-size:19px;}
       .topbar .title h1{font-size:16px;}
       .btn, a.btn{min-height:44px;}
+      .adminDirTable .btn,
+      .adminDirTable a.btn,
+      .listTable .btn,
+      .listTable a.btn,
+      .seePayTable .btn,
+      .seePayTable a.btn,
+      .societyMembersTable .btn,
+      .societyMembersTable a.btn,
+      .btn.tiny{min-height:0;}
     }
   </style>
 </head>
