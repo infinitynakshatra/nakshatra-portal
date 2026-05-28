@@ -190,6 +190,11 @@
     .payPendingActions{display:flex; flex-direction:row; flex-wrap:nowrap; gap:6px; align-items:center; white-space:nowrap;}
     .docDetailsCell{max-width:min(320px, 38vw); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
     .docNameCell{font-weight:800;}
+    /* Docs tables: compact No/Name, allow full Details text */
+    .docNoCell, .docNoTh{width:3.2rem; max-width:3.2rem; min-width:3.2rem; text-align:center; white-space:nowrap;}
+    .docNameTh{width:14rem; max-width:18rem;}
+    .docDetailsFullCell{white-space:normal; word-break:break-word; overflow-wrap:anywhere; line-height:1.4;}
+    .docActionsSmall .btn{padding:5px 9px; font-size:11px; border-radius:8px;}
     /* Service contacts — compact Sr./Contact; full wrapped Service details (user + admin tables) */
     .serviceContactsTable{
       table-layout:fixed;
@@ -1741,6 +1746,7 @@
         </div>
         <div class="mcBtns">
           <button class="btn secondary tiny adminOnly" id="adminNoticeAddBtn" type="button">Add notice</button>
+          <button class="btn secondary tiny adminOnly" id="adminPrevNoticesBtn" type="button">Notices – Previous Months</button>
         </div>
       </div>
       <div class="scroll-x" style="overflow:auto; max-height:min(260px, 42vh); margin-top:10px;">
@@ -1766,6 +1772,9 @@
         <div class="mcBrand">
           <h3>My Gate — visitor log</h3>
           <div class="smallNote">All Security entries entered by security person.</div>
+        </div>
+        <div class="mcBtns">
+          <button class="btn secondary tiny adminOnly" id="adminPrevGateBtn" type="button">Visitor Records – Previous Dates</button>
         </div>
       </div>
       <div class="scroll-x" style="overflow:auto; max-height:min(320px, 48vh); margin-top:10px;">
@@ -1801,8 +1810,8 @@
           <table class="adminDirTable">
             <thead>
               <tr>
-                <th>No.</th>
-                <th>Document name</th>
+                <th class="docNoTh">No.</th>
+                <th class="docNameTh">Document Name</th>
                 <th>Details</th>
                 <th>Download</th>
                 <th>Like</th>
@@ -1827,8 +1836,8 @@
           <table class="adminDirTable">
             <thead>
               <tr>
-                <th>No.</th>
-                <th>Document name</th>
+                <th class="docNoTh">No.</th>
+                <th class="docNameTh">Document Name</th>
                 <th>Details</th>
                 <th>Download</th>
                 <th>Like</th>
@@ -2052,11 +2061,12 @@
       </div>
 
       <div class="mcRow" id="userGateRow" style="margin-top:12px;">
-        <div class="mcRowInner">
+        <div class="mcRowInner" style="align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
           <div class="mcBrand">
-            <h3>My Gate — visitors</h3>
-            <div class="smallNote">Entries logged by society Security for your plot(s). You also get a <b>Notifications</b> alert; Security may WhatsApp you with visitor details.</div>
+            <h3>My Gate — Visitors Log</h3>
+            <div class="smallNote">Entries logged by society security for your plot/house. You will also receive notification alerts, and security may contact you via WhatsApp with visitor details.</div>
           </div>
+          <button class="btn secondary tiny" id="userPrevGateBtn" type="button" style="align-self:flex-start;">Visitor Records – Previous Dates</button>
         </div>
         <div class="scroll-x" style="overflow:auto; max-height:min(260px, 42vh); margin-top:10px;">
           <table class="adminDirTable">
@@ -2078,11 +2088,12 @@
       </div>
 
       <div class="mcRow" id="userNoticesRow" style="margin-top:12px;">
-        <div class="mcRowInner">
+        <div class="mcRowInner" style="align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap;">
           <div class="mcBrand">
             <h3 data-i18n="user.h.notices">Notices</h3>
             <div class="smallNote" data-i18n="user.note.notices">Latest notices from the society.</div>
           </div>
+          <button class="btn secondary tiny" id="userPrevNoticesBtn" type="button" style="align-self:flex-start;">Notices – Previous Months</button>
         </div>
         <div class="scroll-x" style="overflow:auto; max-height:min(260px, 42vh); margin-top:10px;">
           <table class="adminDirTable">
@@ -2114,7 +2125,7 @@
             <div class="mcKpi"><span data-i18n="user.kpi.lateFee">Late fee</span><b id="userSumLate">—</b></div>
           </div>
         </div>
-        <div class="sub mcRightNote" id="userSumFoot" style="text-align:right;">—</div>
+        <div class="sub mcRightNote" id="userSumFoot" style="text-align:justify; text-align-last:right;">—</div>
       </div>
 
     <div class="grid" style="margin-top:12px;">
@@ -2129,8 +2140,8 @@
           <table class="adminDirTable">
             <thead>
               <tr>
-                <th>No.</th>
-                <th>Document name</th>
+                <th class="docNoTh">No.</th>
+                <th class="docNameTh">Document Name</th>
                 <th>Details</th>
                 <th>Download</th>
                 <th>Like</th>
@@ -2153,8 +2164,8 @@
           <table class="adminDirTable">
             <thead>
               <tr>
-                <th>No.</th>
-                <th>Document name</th>
+                <th class="docNoTh">No.</th>
+                <th class="docNameTh">Document Name</th>
                 <th>Details</th>
                 <th>Download</th>
                 <th>Like</th>
@@ -2889,6 +2900,62 @@
           </thead>
           <tbody id="prevNotifTbody">
             <tr><td colspan="3">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="prevGateBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="prevGateModalTitle" style="width:min(980px, 96vw);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="prevGateModalTitle">Visitor Records – Previous Dates</div>
+          <div class="modalSub">Visitor log entries from dates before today.</div>
+        </div>
+        <button class="btn secondary" id="prevGateModalCloseBtn" type="button">Close</button>
+      </div>
+      <div class="scroll-x" style="overflow:auto; max-height:min(460px, 64vh); margin-top:10px;">
+        <table class="adminDirTable">
+          <thead>
+            <tr>
+              <th>When</th>
+              <th>Plot</th>
+              <th>Visitor</th>
+              <th>Visitor mobile</th>
+              <th>Vehicle</th>
+              <th>Purpose</th>
+            </tr>
+          </thead>
+          <tbody id="prevGateTbody">
+            <tr><td colspan="6">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="prevNoticesBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="prevNoticesModalTitle" style="width:min(980px, 96vw);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="prevNoticesModalTitle">Notices – Previous Months</div>
+          <div class="modalSub">Notices from months before the current month.</div>
+        </div>
+        <button class="btn secondary" id="prevNoticesModalCloseBtn" type="button">Close</button>
+      </div>
+      <div class="scroll-x" style="overflow:auto; max-height:min(460px, 64vh); margin-top:10px;">
+        <table class="adminDirTable">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Title</th>
+              <th>Details</th>
+              <th>Attachment</th>
+            </tr>
+          </thead>
+          <tbody id="prevNoticesTbody">
+            <tr><td colspan="4">—</td></tr>
           </tbody>
         </table>
       </div>
@@ -3890,12 +3957,15 @@
         .filter(noticeRowIsRenderable)
         .slice()
         .sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
+      const curMonthKey = noticesCurrentMonthKey_();
+      const curMonth = notices.filter(n => monthKeyFromMs_(n.createdAt) === curMonthKey);
+      const prevMonths = notices.filter(n => monthKeyFromMs_(n.createdAt) && monthKeyFromMs_(n.createdAt) !== curMonthKey);
       const userT = document.getElementById("userNoticesTbody");
       if (userT){
-        if (!notices.length){
+        if (!curMonth.length){
           userT.innerHTML = `<tr><td colspan="4">—</td></tr>`;
         } else {
-          userT.innerHTML = notices.slice(0, 20).map(n => {
+          userT.innerHTML = curMonth.slice(0, 20).map(n => {
             const att = norm(n.attachmentUrl) ? `<a class="btn secondary tiny" href="${escapeHtml(String(n.attachmentUrl))}" target="_blank" rel="noreferrer">Open</a>` : "—";
             return `<tr>
               <td class="mono">${escapeHtml(fmtDateFromMs(n.createdAt))}</td>
@@ -3908,10 +3978,10 @@
       }
       const adminT = document.getElementById("adminNoticesTbody");
       if (adminT){
-        if (!notices.length){
+        if (!curMonth.length){
           adminT.innerHTML = `<tr><td colspan="5">No notices yet.</td></tr>`;
         } else {
-          adminT.innerHTML = notices.slice(0, 50).map(n => {
+          adminT.innerHTML = curMonth.slice(0, 50).map(n => {
             const att = norm(n.attachmentUrl) ? `<a class="btn secondary tiny" href="${escapeHtml(String(n.attachmentUrl))}" target="_blank" rel="noreferrer">Open</a>` : "—";
             return `<tr>
               <td class="mono">${escapeHtml(fmtDateFromMs(n.createdAt))}</td>
@@ -3923,6 +3993,35 @@
           }).join("");
         }
       }
+    }
+
+    function renderPreviousNoticesModal(){
+      const tbody = document.getElementById("prevNoticesTbody");
+      if (!tbody) return;
+      const notices = (portalServerState.notices || [])
+        .filter(noticeRowIsRenderable)
+        .slice()
+        .sort((a,b) => (Number(b.createdAt)||0) - (Number(a.createdAt)||0));
+      const curMonthKey = noticesCurrentMonthKey_();
+      const prev = notices.filter(n => monthKeyFromMs_(n.createdAt) && monthKeyFromMs_(n.createdAt) !== curMonthKey);
+      if (!prev.length){
+        tbody.innerHTML = `<tr><td colspan="4">No previous notices.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = prev.slice(0, 200).map(n => {
+        const att = norm(n.attachmentUrl) ? `<a class="btn secondary tiny" href="${escapeHtml(String(n.attachmentUrl))}" target="_blank" rel="noreferrer">Open</a>` : "—";
+        return `<tr>
+          <td class="mono">${escapeHtml(fmtDateFromMs(n.createdAt))}</td>
+          <td><b>${escapeHtml(norm(n.title) || "—")}</b></td>
+          <td>${escapeHtml(norm(n.body) || "")}</td>
+          <td>${att}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function openPreviousNoticesModal(){
+      renderPreviousNoticesModal();
+      showBackdrop("prevNoticesBackdrop", true);
     }
 
     function groupStatusRaw(r){
@@ -5106,20 +5205,20 @@
           const liked = hasUserLikedDoc(d.id);
           const lc = Math.max(0, Number(d.likeCount) || 0);
           const likeLabel = liked ? "Liked" : "Like";
-          const likeBtn = `<button type="button" class="btn secondary tiny" data-doc-like="${escapeHtml(String(d.id))}">${escapeHtml(likeLabel)} (${escapeHtml(String(lc))})</button>`;
+          const likeBtn = `<span class="docActionsSmall"><button type="button" class="btn secondary tiny" data-doc-like="${escapeHtml(String(d.id))}">${escapeHtml(likeLabel)} (${escapeHtml(String(lc))})</button></span>`;
           const nameCell = `<td class="docNameCell">${escapeHtml(d.name)}</td>`;
-          const detCell = `<td class="docDetailsCell" title="${escapeHtml(d.details)}">${d.details ? escapeHtml(d.details) : "—"}</td>`;
+          const detCell = `<td class="docDetailsFullCell">${d.details ? escapeHtml(d.details) : "—"}</td>`;
           const actions = includeActions
-            ? `<td class="docActionsCell">
+            ? `<td class="docActionsCell docActionsSmall">
                  <button type="button" class="btn secondary tiny" data-doc-edit="${escapeHtml(String(d.id))}">Edit</button>
                  <button type="button" class="btn danger tiny" data-doc-delete="${escapeHtml(String(d.id))}">Delete</button>
                </td>`
             : "";
           return `<tr>
-            <td>${no}</td>
+            <td class="docNoCell">${no}</td>
             ${nameCell}
             ${detCell}
-            <td>${downHtml}</td>
+            <td class="docActionsSmall">${downHtml}</td>
             <td>${likeBtn}</td>
             ${actions}
           </tr>`;
@@ -5317,20 +5416,20 @@
           const liked = hasUserLikedDoc(d.id);
           const lc = Math.max(0, Number(d.likeCount) || 0);
           const likeLabel = liked ? "Liked" : "Like";
-          const likeBtn = `<button type="button" class="btn secondary tiny" data-mtg-doc-like="${escapeHtml(String(d.id))}">${escapeHtml(likeLabel)} (${escapeHtml(String(lc))})</button>`;
+          const likeBtn = `<span class="docActionsSmall"><button type="button" class="btn secondary tiny" data-mtg-doc-like="${escapeHtml(String(d.id))}">${escapeHtml(likeLabel)} (${escapeHtml(String(lc))})</button></span>`;
           const nameCell = `<td class="docNameCell">${escapeHtml(d.name)}</td>`;
-          const detCell = `<td class="docDetailsCell" title="${escapeHtml(d.details)}">${d.details ? escapeHtml(d.details) : "—"}</td>`;
+          const detCell = `<td class="docDetailsFullCell">${d.details ? escapeHtml(d.details) : "—"}</td>`;
           const actions = includeActions
-            ? `<td class="docActionsCell">
+            ? `<td class="docActionsCell docActionsSmall">
                  <button type="button" class="btn secondary tiny" data-mtg-doc-edit="${escapeHtml(String(d.id))}">Edit</button>
                  <button type="button" class="btn danger tiny" data-mtg-doc-delete="${escapeHtml(String(d.id))}">Delete</button>
                </td>`
             : "";
           return `<tr>
-            <td>${no}</td>
+            <td class="docNoCell">${no}</td>
             ${nameCell}
             ${detCell}
-            <td>${downHtml}</td>
+            <td class="docActionsSmall">${downHtml}</td>
             <td>${likeBtn}</td>
             ${actions}
           </tr>`;
@@ -9272,9 +9371,14 @@
         tb.innerHTML = `<tr><td colspan="7">Visitor log loads when Apps Script API is configured.</td></tr>`;
         return;
       }
-      const list = [...(portalServerState.gateVisits || [])].sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
-      if (!list.length){
+      const listAll = [...(portalServerState.gateVisits || [])].sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      const list = listAll.filter(g => gateVisitIsToday_(g.atIso));
+      if (!listAll.length){
         tb.innerHTML = `<tr><td colspan="7">No gate entries yet.</td></tr>`;
+        return;
+      }
+      if (!list.length){
+        tb.innerHTML = `<tr><td colspan="7">No visitor records for today. Use <b>Visitor Records – Previous Dates</b> to view older entries.</td></tr>`;
         return;
       }
       tb.innerHTML = list.slice(0, 200).map(g => {
@@ -9289,6 +9393,42 @@
           <td>${escapeHtml(String(g.purpose || ""))}</td>
         </tr>`;
       }).join("");
+    }
+
+    function renderPreviousGateVisitsModal(){
+      const tbody = document.getElementById("prevGateTbody");
+      if (!tbody) return;
+      if (!isServerEnabled() || !portalServerState.loaded || !Array.isArray(portalServerState.gateVisits)){
+        tbody.innerHTML = `<tr><td colspan="6">Visitor log loads when Apps Script API is configured.</td></tr>`;
+        return;
+      }
+      const sess = readSession();
+      const all = (sess && sess.role === "user")
+        ? userGateVisitsFilteredForSession_()
+        : [...(portalServerState.gateVisits || [])];
+      const list = all
+        .filter(g => !gateVisitIsToday_(g.atIso))
+        .sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      if (!list.length){
+        tbody.innerHTML = `<tr><td colspan="6">No previous visitor records.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = list.slice(0, 200).map(g => {
+        const when = g.atIso ? escapeHtml(String(g.atIso).replace("T", " ").slice(0, 19)) : "—";
+        return `<tr>
+          <td class="mono">${when}</td>
+          <td>${escapeHtml(String(g.plotNo || ""))}</td>
+          <td>${escapeHtml(String(g.visitorName || ""))}</td>
+          <td class="mono">${escapeHtml(String(g.visitorMobile || ""))}</td>
+          <td>${escapeHtml(String(g.vehicle || ""))}</td>
+          <td>${escapeHtml(String(g.purpose || ""))}</td>
+        </tr>`;
+      }).join("");
+    }
+
+    function openPreviousGateVisitsModal(){
+      renderPreviousGateVisitsModal();
+      showBackdrop("prevGateBackdrop", true);
     }
 
     function userGateVisitsFilteredForSession_(){
@@ -9322,9 +9462,14 @@
         tb.innerHTML = `<tr><td colspan="6">Visitor log loads when Apps Script API is configured.</td></tr>`;
         return;
       }
-      const list = userGateVisitsFilteredForSession_().sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
-      if (!list.length){
+      const listAll = userGateVisitsFilteredForSession_().sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      const list = listAll.filter(g => gateVisitIsToday_(g.atIso));
+      if (!listAll.length){
         tb.innerHTML = `<tr><td colspan="6">No visitors logged for your plot(s) yet.</td></tr>`;
+        return;
+      }
+      if (!list.length){
+        tb.innerHTML = `<tr><td colspan="6">No visitor records for today. Use <b>Visitor Records – Previous Dates</b> to view older entries.</td></tr>`;
         return;
       }
       tb.innerHTML = list.slice(0, 100).map(g => {
@@ -9485,6 +9630,24 @@
       const k = inboxLocalDateKey_(atIso);
       if (!k) return false;
       return k === new Date().toLocaleDateString(undefined, { year: "numeric", month: "2-digit", day: "2-digit" });
+    }
+
+    function gateVisitIsToday_(atIso){
+      return inboxNotificationIsToday_(atIso);
+    }
+
+    function monthKeyFromMs_(ms){
+      const n = Number(ms) || 0;
+      if (!n) return "";
+      const d = new Date(n);
+      if (!Number.isFinite(d.getTime())) return "";
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      return `${y}-${m}`;
+    }
+
+    function noticesCurrentMonthKey_(){
+      return monthKeyFromMs_(Date.now());
     }
 
     function inboxRowHtml_(it){
@@ -10120,6 +10283,20 @@
       if (adminPrevNotifBtn) adminPrevNotifBtn.addEventListener("click", openPreviousNotificationsModal);
       const prevNotifModalCloseBtn = document.getElementById("prevNotifModalCloseBtn");
       if (prevNotifModalCloseBtn) prevNotifModalCloseBtn.addEventListener("click", () => showBackdrop("prevNotifBackdrop", false));
+
+      const userPrevGateBtn = document.getElementById("userPrevGateBtn");
+      if (userPrevGateBtn) userPrevGateBtn.addEventListener("click", openPreviousGateVisitsModal);
+      const adminPrevGateBtn = document.getElementById("adminPrevGateBtn");
+      if (adminPrevGateBtn) adminPrevGateBtn.addEventListener("click", openPreviousGateVisitsModal);
+      const prevGateModalCloseBtn = document.getElementById("prevGateModalCloseBtn");
+      if (prevGateModalCloseBtn) prevGateModalCloseBtn.addEventListener("click", () => showBackdrop("prevGateBackdrop", false));
+
+      const userPrevNoticesBtn = document.getElementById("userPrevNoticesBtn");
+      if (userPrevNoticesBtn) userPrevNoticesBtn.addEventListener("click", openPreviousNoticesModal);
+      const adminPrevNoticesBtn = document.getElementById("adminPrevNoticesBtn");
+      if (adminPrevNoticesBtn) adminPrevNoticesBtn.addEventListener("click", openPreviousNoticesModal);
+      const prevNoticesModalCloseBtn = document.getElementById("prevNoticesModalCloseBtn");
+      if (prevNoticesModalCloseBtn) prevNoticesModalCloseBtn.addEventListener("click", () => showBackdrop("prevNoticesBackdrop", false));
 
       const societyDetailsSaveBtn = document.getElementById("societyDetailsSaveBtn");
       if (societyDetailsSaveBtn) societyDetailsSaveBtn.addEventListener("click", saveSocietyDetailsFromAdmin);
