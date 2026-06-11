@@ -8779,10 +8779,12 @@
       }
 
       const moHead = slots.map(sixMonthReportColumnLabel);
+      const columnTotalsPerSlot = paidOwnersPerSlot.map((paid, i) => paid + unpaidOwnersPerSlot[i]);
       const summaryCategoryBody = isShort
         ? [
-            ["Total Paid Owners", ...paidOwnersPerSlot.map(String), String(paidOwnersTotalSum)],
-            ["Total Unpaid Owners", ...unpaidOwnersPerSlot.map(String), String(unpaidOwnersTotalSum)]
+            ["Total Paid Owners", ...paidOwnersPerSlot.map(String)],
+            ["Total Unpaid Owners", ...unpaidOwnersPerSlot.map(String)],
+            ["Total", ...columnTotalsPerSlot.map(String)]
           ]
         : [
             ["Total Paid Owners", ...paidOwnersPerSlot.map(String), String(paidOwnersTotalSum)],
@@ -8798,7 +8800,7 @@
         margin: { left: sm, right: sm },
         tableWidth: sumW,
         theme: "grid",
-        head: [["Category", ...moHead, "Total"]],
+        head: isShort ? [["Category", ...moHead]] : [["Category", ...moHead, "Total"]],
         body: summaryCategoryBody,
         styles: { font: "helvetica", fontSize: 7.4, cellPadding: 1, halign: "center", valign: "middle", textColor: 20 },
         headStyles: {
@@ -8810,7 +8812,13 @@
         },
         columnStyles: { 0: { halign: "left", cellWidth: 34, fontStyle: "bold" } },
         didParseCell(data){
-          if (isShort) return;
+          if (isShort){
+            if (data.section === "body" && data.row.index === 2){
+              data.cell.styles.fillColor = [255, 247, 200];
+              data.cell.styles.fontStyle = "bold";
+            }
+            return;
+          }
           if (data.section === "body" && data.row.index === 6){
             data.cell.styles.fillColor = [255, 247, 200];
             data.cell.styles.fontStyle = "bold";
