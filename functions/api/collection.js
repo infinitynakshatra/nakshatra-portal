@@ -5,7 +5,7 @@
  */
 
 const DEFAULT_EXEC_URL =
-  "https://script.google.com/macros/s/AKfycbzb0rCrAZsblO78Py05zq5gRuEUmX6pU1G6D_5kDQE37KkZ3b2q_BF1ccG1FoUtyytu/exec";
+  "https://script.google.com/macros/s/AKfycbymDJTDSDm-p9jSL7Y1TMJs3tb5ZKXJAQTlqq6b49hcO4Zr4sGS4bOslKEOfgOtJQ8w/exec";
 
 function corsHeaders() {
   return {

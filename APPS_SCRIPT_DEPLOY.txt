@@ -66,6 +66,12 @@ Push to GitHub → Cloudflare Pages redeploys → then:
 Optional: Cloudflare Pages → Settings → Environment variables:
   APPS_SCRIPT_EXEC_URL = your full /exec URL
 
+IMPORTANT — Web app access for Cloudflare relay:
+  Apps Script → Deploy → Manage deployments → Edit (pencil)
+  - Execute as: Me
+  - Who has access: Anyone   (NOT "Anyone with Google account")
+  Anonymous POST from Cloudflare /api/collection requires "Anyone".
+
 ----------------------------------------------------------------------
 My Gate (Security visitor log)
 ----------------------------------------------------------------------
