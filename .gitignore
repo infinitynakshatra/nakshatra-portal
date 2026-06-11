@@ -1,0 +1,15 @@
+node_modules/
+apps-script/
+.clasp.json.bak
+_repo_check/
+
+# Local secrets / env (never commit)
+.env
+.env.*
+
+# OS / editor
+Thumbs.db
+.DS_Store
+
+# Optional generated deck (keep source .md if you prefer)
+# PORTAL_SLIDE_DECK.pptx

@@ -1,4 +1,6 @@
-# Cursor / Agent session starter — Infinity Nakshatra Society portal
+# Cursor / Agent session starter — Nakshatra
+
+**Cursor project name:** Nakshatra — open `Nakshatra.code-workspace` (File → Open Workspace from File) so the sidebar and window title use that label.
 
 Paste the block below as the **first message** when you open a new agent, or add it to **Project Rules** for this folder.
 
@@ -9,7 +11,7 @@ You are working in this workspace:
 
   C:\HC\Reports\cursor\Nakshatra
 
-Treat this folder as the project root. Do not assume another repo unless I say so.
+Treat this folder as the project root (**Nakshatra**). Do not assume another repo unless I say so.
 
 ## What this project is
 - **Infinity Nakshatra Society** portal: single-file web app `infinity_nakshatra_dashboard.html` (HTML + inline CSS + inline JavaScript).

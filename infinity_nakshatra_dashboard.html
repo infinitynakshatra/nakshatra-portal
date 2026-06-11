@@ -3728,7 +3728,26 @@
       return effectiveOwnerAccessDenied_(mobileDigits);
     }
 
-    /** Explicit deny / allow overrides portal default (default: Deny if total paid is 0, else Allow). */
+    /** Calendar month immediately before `date` (YYYY-MM), e.g. Jun-2026 → 2026-05. */
+    function portalYmForPreviousCalendarMonth_(date){
+      const d = date instanceof Date ? date : new Date();
+      const prev = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+      return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    /** True when every plot linked to this mobile has maintenance amount > 0 for `ym`. */
+    function ownerPreviousMonthMaintenancePaid_(mobDigits, ym){
+      const plots = plotNosForOwnerMobileDigits_(mobDigits);
+      if (!plots.length) return false;
+      const want = normalizePortalYm(ym || portalYmForPreviousCalendarMonth_(new Date()));
+      for (const plotNo of plots){
+        const entries = paymentsLoadEntries(plotNo);
+        if (toMoneyNumber(sumEntriesForYm(entries, want).amount) <= 0) return false;
+      }
+      return true;
+    }
+
+    /** Explicit deny / allow overrides portal default (default: Deny unless previous calendar month maintenance is paid). */
     function effectiveOwnerAccessDenied_(mobileDigits){
       const d = digitsOnly(String(mobileDigits || ""));
       if (d.length < 10) return false;
@@ -3738,7 +3757,7 @@
       // Do not treat "no payments" as deny until the plot directory is loaded. Otherwise owner login races
       // CSV /state merge and shows "blocked by administrator" (logging in as Admin first loads data and hides the bug).
       if (!Array.isArray(allRows) || allRows.length === 0) return false;
-      return totalAmountPaidForOwnerMobileDigits_(d) <= 0;
+      return !ownerPreviousMonthMaintenancePaid_(d);
     }
 
     function ownerAccessPersistLocalSparse(sparseDenyMap){
@@ -3772,7 +3791,8 @@
         return `<td class="ownerAccessCell"><span class="smallNote">—</span></td>`;
       }
       const denied = effectiveOwnerAccessDenied_(mob);
-      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="Default: Deny if total paid is 0, Allow if paid; override here.">
+      const prevYmLabel = ymPendingAdminLabel(portalYmForPreviousCalendarMonth_(new Date()));
+      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="Default: Allow only if ${escapeHtml(prevYmLabel)} maintenance is paid (previous calendar month); override here.">
         <option value="allow" ${denied ? "" : "selected"}>Allow</option>
         <option value="deny" ${denied ? "selected" : ""}>Deny</option>
       </select></td>`;
@@ -3786,8 +3806,7 @@
       const merged = { ...ownerAccessLoadMerged() };
       if (value === "deny") merged[d] = "deny";
       else {
-        const paid = totalAmountPaidForOwnerMobileDigits_(d);
-        if (paid <= 0) merged[d] = "allow";
+        if (!ownerPreviousMonthMaintenancePaid_(d)) merged[d] = "allow";
         else delete merged[d];
       }
       const sparse = sanitizeOwnerAccessMap_(merged);

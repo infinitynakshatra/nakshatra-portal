@@ -1,0 +1,14 @@
+---
+description: Infinity Nakshatra Society portal — project identity and root path
+alwaysApply: true
+---
+
+# Project: Nakshatra
+
+This workspace is **Nakshatra** (Infinity Nakshatra Society portal).
+
+- **Project root:** `C:\HC\Reports\cursor\Nakshatra`
+- **GitHub:** https://github.com/infinitynakshatra/nakshatra-portal
+- **Deploy:** `DEPLOY_FROM_CURSOR.md` — `npm run apps-script:deploy` / `git push origin main`
+
+When referring to this codebase in chat or docs, use the name **Nakshatra** unless the user asks for the full society name.

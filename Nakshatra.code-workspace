@@ -1,0 +1,11 @@
+{
+  "folders": [
+    {
+      "name": "Nakshatra",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "window.title": "${activeEditorShort}${separator}Nakshatra${separator}${rootName}"
+  }
+}

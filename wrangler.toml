@@ -1,0 +1,7 @@
+# Cloudflare Pages — static site at repo root (no build step).
+# If the dashboard "Git URL" import asks for Wrangler, this file satisfies it.
+# Prefer: Workers & Pages → Create → Pages → Connect to Git → GitHub → pick repo (no URL paste).
+
+name = "nakshatra-portal"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "."

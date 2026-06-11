@@ -1,0 +1,69 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Nakshatra: Git status",
+      "type": "npm",
+      "script": "git:status",
+      "group": "none",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Nakshatra: Git pull (main)",
+      "type": "npm",
+      "script": "git:pull",
+      "group": "none",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Nakshatra: Git push (main)",
+      "type": "npm",
+      "script": "git:push",
+      "group": "none",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Nakshatra: Apps Script login (once)",
+      "type": "npm",
+      "script": "apps-script:login",
+      "group": "none",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Nakshatra: Apps Script push (code only)",
+      "type": "npm",
+      "script": "apps-script:push",
+      "group": { "kind": "build", "isDefault": false },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Nakshatra: Apps Script deploy (push + live web app)",
+      "type": "npm",
+      "script": "apps-script:deploy",
+      "group": { "kind": "build", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Nakshatra: Apps Script pull from Google",
+      "type": "npm",
+      "script": "apps-script:pull",
+      "group": "none",
+      "presentation": { "reveal": "always", "panel": "shared" },
+      "problemMatcher": []
+    },
+    {
+      "label": "Nakshatra: Open Apps Script in browser",
+      "type": "npm",
+      "script": "apps-script:open",
+      "group": "none",
+      "presentation": { "reveal": "silent", "panel": "shared" },
+      "problemMatcher": []
+    }
+  ]
+}

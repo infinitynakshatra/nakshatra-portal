@@ -40,6 +40,10 @@ const PORTAL_BANKING_SHEET = "portal_banking_config";
 const PORTAL_BANKING_HEADERS = ["key", "jsonPayload"];
 const PORTAL_PROJECT_DOCS_SHEET = "portal_project_docs";
 const PORTAL_PROJECT_DOCS_HEADERS = ["key", "jsonPayload"];
+const PORTAL_MEETING_DOCS_SHEET = "portal_meeting_docs";
+const PORTAL_MEETING_DOCS_HEADERS = ["key", "jsonPayload"];
+const PORTAL_SOCIETY_DETAILS_SHEET = "portal_society_details";
+const PORTAL_SOCIETY_DETAILS_HEADERS = ["key", "jsonPayload"];
 const PORTAL_SERVICE_CONTACTS_SHEET = "portal_service_contacts";
 const PORTAL_SERVICE_CONTACTS_HEADERS = ["key", "jsonPayload"];
 const PORTAL_OWNER_ACCESS_SHEET = "portal_owner_access";
@@ -232,6 +236,20 @@ function readPortalGateVisits_(ss) {
   return rows.slice(0, 400);
 }
 
+function findPortalGateVisitRowNum_(ss, id) {
+  var want = String(id || "").trim();
+  if (!want) return -1;
+  var sh = ss.getSheetByName(PORTAL_GATE_VISITS_SHEET);
+  if (!sh || sh.getLastRow() < 2) return -1;
+  var lr = sh.getLastRow();
+  var ids = sh.getRange(2, 1, lr, 1).getDisplayValues();
+  var i;
+  for (i = 0; i < ids.length; i++) {
+    if (String(ids[i][0] || "").trim() === want) return i + 2;
+  }
+  return -1;
+}
+
 function plotNoCellMatchesPlotInput_(cellVal, plotInput) {
   var a = String(cellVal != null ? cellVal : "").trim();
   var b = String(plotInput || "").trim();
@@ -351,6 +369,92 @@ function writePortalProjectDocs_(ss, docs) {
   var clean = sanitizeProjectDocsList_(docs);
   var payload = JSON.stringify({ v: 1, docs: clean });
   if (payload.length > 48000) return { ok: false, error: "project_docs_payload_too_large" };
+  var row = ["default", payload];
+  if (sh.getLastRow() < 2) sh.appendRow(row);
+  else sh.getRange(2, 1, 1, 2).setValues([row]);
+  return { ok: true };
+}
+
+function readPortalMeetingDocs_(ss) {
+  var sh = ss.getSheetByName(PORTAL_MEETING_DOCS_SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var cell = sh.getRange(2, 2).getValue();
+  var s = String(cell || "").trim();
+  if (!s) return [];
+  try {
+    var o = JSON.parse(s);
+    var arr = o && Array.isArray(o.docs) ? o.docs : [];
+    return sanitizeProjectDocsList_(arr);
+  } catch (e) {
+    return [];
+  }
+}
+
+function writePortalMeetingDocs_(ss, docs) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_MEETING_DOCS_SHEET, PORTAL_MEETING_DOCS_HEADERS);
+  var clean = sanitizeProjectDocsList_(docs);
+  var payload = JSON.stringify({ v: 1, docs: clean });
+  if (payload.length > 48000) return { ok: false, error: "meeting_docs_payload_too_large" };
+  var row = ["default", payload];
+  if (sh.getLastRow() < 2) sh.appendRow(row);
+  else sh.getRange(2, 1, 1, 2).setValues([row]);
+  return { ok: true };
+}
+
+function sanitizeSocietyMemberList_(arr, fields) {
+  var out = [];
+  var list = Array.isArray(arr) ? arr : [];
+  for (var i = 0; i < list.length && i < 80; i++) {
+    var m = list[i];
+    if (!m) continue;
+    var id = String(m.id || "").trim();
+    var name = String(m.name || "").trim().slice(0, 200);
+    if (!id || !name) continue;
+    var row = { id: id, name: name };
+    if (fields.indexOf("plotNo") >= 0) row.plotNo = String(m.plotNo || "").trim().slice(0, 40);
+    if (fields.indexOf("plotHouseNo") >= 0) row.plotHouseNo = String(m.plotHouseNo || "").trim().slice(0, 40);
+    if (fields.indexOf("mobile") >= 0) row.mobile = String(m.mobile || "").trim().slice(0, 30);
+    if (fields.indexOf("role") >= 0) row.role = String(m.role || "").trim().slice(0, 120);
+    if (fields.indexOf("responsibility") >= 0) row.responsibility = String(m.responsibility || "").slice(0, 2000);
+    out.push(row);
+  }
+  return out;
+}
+
+function sanitizeSocietyDetails_(o) {
+  var x = o && typeof o === "object" ? o : {};
+  return {
+    projectStartedDate: String(x.projectStartedDate || "").trim().slice(0, 10),
+    adhocFormationDate: String(x.adhocFormationDate || "").trim().slice(0, 10),
+    endOfAdhocTenureDate: String(x.endOfAdhocTenureDate || "").trim().slice(0, 10),
+    adhocMembers: sanitizeSocietyMemberList_(x.adhocMembers, ["plotNo", "mobile"]),
+    societyFormationDate: String(x.societyFormationDate || "").trim().slice(0, 10),
+    societyRegistrationNumber: String(x.societyRegistrationNumber || "").trim().slice(0, 200),
+    gbFromDate: String(x.gbFromDate || "").trim().slice(0, 10),
+    gbToDate: String(x.gbToDate || "").trim().slice(0, 10),
+    gbMembers: sanitizeSocietyMemberList_(x.gbMembers, ["plotHouseNo", "role", "responsibility", "mobile"])
+  };
+}
+
+function readPortalSocietyDetails_(ss) {
+  var sh = ss.getSheetByName(PORTAL_SOCIETY_DETAILS_SHEET);
+  if (!sh || sh.getLastRow() < 2) return sanitizeSocietyDetails_({});
+  var cell = sh.getRange(2, 2).getValue();
+  var s = String(cell || "").trim();
+  if (!s) return sanitizeSocietyDetails_({});
+  try {
+    var o = JSON.parse(s);
+    return sanitizeSocietyDetails_(o && o.details ? o.details : o);
+  } catch (e) {
+    return sanitizeSocietyDetails_({});
+  }
+}
+
+function writePortalSocietyDetails_(ss, details) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_SOCIETY_DETAILS_SHEET, PORTAL_SOCIETY_DETAILS_HEADERS);
+  var clean = sanitizeSocietyDetails_(details);
+  var payload = JSON.stringify({ v: 1, details: clean });
+  if (payload.length > 48000) return { ok: false, error: "society_details_payload_too_large" };
   var row = ["default", payload];
   if (sh.getLastRow() < 2) sh.appendRow(row);
   else sh.getRange(2, 1, 1, 2).setValues([row]);
@@ -622,6 +726,8 @@ function getPortalState_(ss) {
         var cachedOut = JSON.parse(cached);
         cachedOut.banking = readPortalBankingObject_(ss);
         cachedOut.projectDocs = readPortalProjectDocs_(ss);
+        cachedOut.meetingDocs = readPortalMeetingDocs_(ss);
+        cachedOut.societyDetails = readPortalSocietyDetails_(ss);
         cachedOut.serviceContacts = readPortalServiceContacts_(ss);
         cachedOut.ownerAccess = readPortalOwnerAccess_(ss);
         cachedOut.expenses = readPortalExpenses_(ss);
@@ -661,6 +767,8 @@ function getPortalState_(ss) {
   } catch (eM) {}
   out.banking = readPortalBankingObject_(ss);
   out.projectDocs = readPortalProjectDocs_(ss);
+  out.meetingDocs = readPortalMeetingDocs_(ss);
+  out.societyDetails = readPortalSocietyDetails_(ss);
   out.serviceContacts = readPortalServiceContacts_(ss);
   out.ownerAccess = readPortalOwnerAccess_(ss);
   out.expenses = readPortalExpenses_(ss);
@@ -1281,6 +1389,25 @@ function doPost(e) {
       invalidatePortalStateCache_();
       return json_({ ok: true, count: sanitizeProjectDocsList_(docsIn).length }, 200);
     }
+    if (action === "saveMeetingDocs") {
+      var actorMtg = String(data.actor || "portal").trim();
+      var mtgIn = Array.isArray(data.docs) ? data.docs : [];
+      var wrMtg = writePortalMeetingDocs_(ss, mtgIn);
+      if (!wrMtg.ok) return json_(wrMtg, 400);
+      audit_(ss, actorMtg, "saveMeetingDocs", { count: sanitizeProjectDocsList_(mtgIn).length });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, count: sanitizeProjectDocsList_(mtgIn).length }, 200);
+    }
+    if (action === "saveSocietyDetails") {
+      var actorSoc = String(data.actor || "admin").trim();
+      var detailsIn = data.details;
+      if (!detailsIn || typeof detailsIn !== "object") return json_({ ok: false, error: "details object required" }, 400);
+      var wrSoc = writePortalSocietyDetails_(ss, detailsIn);
+      if (!wrSoc.ok) return json_(wrSoc, 400);
+      audit_(ss, actorSoc, "saveSocietyDetails", { ok: true });
+      invalidatePortalStateCache_();
+      return json_({ ok: true }, 200);
+    }
     if (action === "saveServiceContacts") {
       var actorSc = String(data.actor || "portal").trim();
       var contactsIn = Array.isArray(data.contacts) ? data.contacts : [];
@@ -1329,11 +1456,47 @@ function doPost(e) {
         (vMob ? "\nVisitor mobile: " + vMob : "") +
         (veh ? "\nVehicle: " + veh : "") +
         (purp ? "\nPurpose / visiting: " + purp : "") +
-        "\n\nWatchman will share the visitor photo with you on WhatsApp using the society format.";
+        "\n\nSecurity may WhatsApp you with visitor details.";
       appendUserInbox_(ss, ownerDig, "gate_visitor", titleIn, bodyIn);
       audit_(ss, "watchman", "addGateVisit", { id: idG, plotNo: plotG, ownerMobile: ownerDig });
       invalidatePortalStateCache_();
       return json_({ ok: true, id: idG, ownerMobile: ownerDig, atIso: atG }, 200);
+    }
+    if (action === "updateGateVisit") {
+      var actorUg = String(data.actor || "").trim();
+      if (actorUg !== "watchman") return json_({ ok: false, error: "watchman actor required" }, 403);
+      var idUg = String(data.id || "").trim();
+      var plotUg = String(data.plotNo || "").trim();
+      var vNameUg = String(data.visitorName || "").trim();
+      var vMobUg = String(data.visitorMobile || "").trim().slice(0, 40);
+      var vehUg = String(data.vehicle || "").trim().slice(0, 80);
+      var purpUg = String(data.purpose || "").trim().slice(0, 500);
+      if (!idUg || !plotUg || !vNameUg) return json_({ ok: false, error: "id, plotNo and visitorName required" }, 400);
+      var ownerDigUg = lookupPrimaryMobileDigitsForPlot_(ss, plotUg);
+      if (!ownerDigUg) return json_({ ok: false, error: "plot_not_found_or_no_primary_mobile" }, 400);
+      var shUg = ensureSheetWithHeaders_(ss, PORTAL_GATE_VISITS_SHEET, PORTAL_GATE_VISITS_HEADERS);
+      var rowUg = findPortalGateVisitRowNum_(ss, idUg);
+      if (rowUg < 2) return json_({ ok: false, error: "not_found" }, 404);
+      var atKeep = String(shUg.getRange(rowUg, 2).getDisplayValue() || "").trim();
+      var photoKeep = String(shUg.getRange(rowUg, 9).getDisplayValue() || "").trim();
+      shUg.getRange(rowUg, 1, 1, 9).setValues([[idUg, atKeep, plotUg, ownerDigUg, vNameUg, vMobUg, vehUg, purpUg, photoKeep]]);
+      audit_(ss, "watchman", "updateGateVisit", { id: idUg, plotNo: plotUg });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, id: idUg, ownerMobile: ownerDigUg, atIso: atKeep }, 200);
+    }
+    if (action === "deleteGateVisit") {
+      var actorDg = String(data.actor || "").trim();
+      if (actorDg !== "watchman") return json_({ ok: false, error: "watchman actor required" }, 403);
+      var idDg = String(data.id || "").trim();
+      if (!idDg) return json_({ ok: false, error: "id required" }, 400);
+      var shDg = ss.getSheetByName(PORTAL_GATE_VISITS_SHEET);
+      if (!shDg || shDg.getLastRow() < 2) return json_({ ok: false, error: "not_found" }, 404);
+      var rowDg = findPortalGateVisitRowNum_(ss, idDg);
+      if (rowDg < 2) return json_({ ok: false, error: "not_found" }, 404);
+      shDg.deleteRow(rowDg);
+      audit_(ss, "watchman", "deleteGateVisit", { id: idDg });
+      invalidatePortalStateCache_();
+      return json_({ ok: true }, 200);
     }
     if (action === "addExpense") {
       var actorE = String(data.actor || "admin").trim();

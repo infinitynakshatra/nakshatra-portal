@@ -1,0 +1,5 @@
+Git Repo: https://github.com/infinitynakshatra/nakshatra-portal
+
+Cloudflare: https://dash.cloudflare.com/9ffe5dc72bd095da82a8e957c1e3d624/pages/view/nakshatra-portal
+
+Website: https://nakshatra-portal.pages.dev/infinity_nakshatra_dashboard

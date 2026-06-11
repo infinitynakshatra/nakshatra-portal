@@ -1,0 +1,19 @@
+{
+  "name": "nakshatra-portal",
+  "private": true,
+  "description": "Infinity Nakshatra Society portal — GitHub + Apps Script sync from Cursor",
+  "scripts": {
+    "apps-script:login": "clasp login",
+    "apps-script:status": "node scripts/prepare-clasp-push.js && clasp status",
+    "apps-script:pull": "clasp pull && node scripts/apply-clasp-pull.js",
+    "apps-script:push": "node scripts/prepare-clasp-push.js && clasp push --force",
+    "apps-script:open": "clasp open-script",
+    "apps-script:deploy": "node scripts/prepare-clasp-push.js && clasp push --force && clasp deploy --deploymentId AKfycbzb0rCrAZsblO78Py05zq5gRuEUmX6pU1G6D_5kDQE37KkZ3b2q_BF1ccG1FoUtyytu --description \"Portal API (Cursor)\"",
+    "git:status": "git status -sb",
+    "git:pull": "git pull --rebase origin main",
+    "git:push": "git push origin main"
+  },
+  "devDependencies": {
+    "@google/clasp": "^2.4.2"
+  }
+}

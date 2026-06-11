@@ -45,3 +45,12 @@ Use the small local relay (Python forwards the POST; often works on the same PC)
    If the page is https, the browser blocks http://127.0.0.1 (mixed content).
 
 4. Test backup or sheet update again.
+
+----------------------------------------------------------------------
+My Gate (Security visitor log)
+----------------------------------------------------------------------
+- New tab: portal_my_gate_visitors (created on first Web app GET or first POST).
+- Security login on the portal: ID `security` (legacy `watchman` still accepted once to migrate), default password `Gate@123` (change via Change password).
+- Plot lookup scans directory tabs in order: gid 0 then 1304899070 (same as portal SHEET_EXPORT_GIDS). Primary Contact Number, then Alternate/Secondary columns if primary is empty.
+- After submit, Security uses “Share to owner WhatsApp”: prefilled text to the plot owner’s WhatsApp number.
+- Owners also get a portal_user_inbox notification (same mechanism as other alerts), not carrier SMS.
