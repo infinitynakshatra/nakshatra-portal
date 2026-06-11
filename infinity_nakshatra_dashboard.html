@@ -333,12 +333,35 @@
     .payPendingActions{display:flex; flex-direction:row; flex-wrap:nowrap; gap:6px; align-items:center; white-space:nowrap;}
     .docDetailsCell{max-width:min(320px, 38vw); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
     .docNameCell{font-weight:800;}
-    /* Docs tables: compact No/Name, allow full Details text */
-    .docNoCell, .docNoTh{width:3.2rem; max-width:3.2rem; min-width:3.2rem; text-align:center; white-space:nowrap;}
-    .docDownCell, .docDownTh{width:3.4rem; max-width:3.4rem; min-width:3.4rem; text-align:center; white-space:nowrap; padding-left:4px; padding-right:4px;}
+    /* Docs tables: compact No/Download/Name, allow full Details text */
+    .adminDirTable .docNoCell,
+    .adminDirTable .docNoTh{
+      width:2.25rem;
+      max-width:2.25rem;
+      min-width:2.25rem !important;
+      text-align:center;
+      white-space:nowrap;
+      padding-left:4px;
+      padding-right:4px;
+    }
+    .adminDirTable .docDownCell,
+    .adminDirTable .docDownTh{
+      width:5.5rem;
+      max-width:5.5rem;
+      min-width:5.5rem !important;
+      text-align:center;
+      white-space:nowrap;
+      padding-left:4px;
+      padding-right:4px;
+    }
+    .adminDirTable .docNameCell,
+    .adminDirTable .docNameTh{
+      min-width:9rem !important;
+      width:auto;
+      max-width:none;
+    }
     .docDownBtn{padding:3px 7px !important; font-size:11px !important; line-height:1 !important; min-width:0;}
     .docDownEmpty{color:var(--muted); font-size:11px;}
-    .docNameTh{width:14rem; max-width:18rem;}
     .docDetailsFullCell{white-space:normal; word-break:break-word; overflow-wrap:anywhere; line-height:1.4;}
     .docActionsSmall .btn,
     .docActionsSmall a.btn{
@@ -2077,8 +2100,8 @@
             <thead>
               <tr>
                 <th class="docNoTh">No.</th>
-                <th class="docDownTh" aria-label="Download"></th>
-                <th class="docNameTh">Document Name</th>
+                <th class="docDownTh">Download</th>
+                <th class="docNameTh">Name</th>
                 <th>Details</th>
                 <th>Like</th>
                 <th class="adminOnly">Actions</th>
@@ -2103,8 +2126,8 @@
             <thead>
               <tr>
                 <th class="docNoTh">No.</th>
-                <th class="docDownTh" aria-label="Download"></th>
-                <th class="docNameTh">Document Name</th>
+                <th class="docDownTh">Download</th>
+                <th class="docNameTh">Name</th>
                 <th>Details</th>
                 <th>Like</th>
                 <th class="adminOnly">Actions</th>
@@ -2409,8 +2432,8 @@
             <thead>
               <tr>
                 <th class="docNoTh">No.</th>
-                <th class="docDownTh" aria-label="Download"></th>
-                <th class="docNameTh">Document Name</th>
+                <th class="docDownTh">Download</th>
+                <th class="docNameTh">Name</th>
                 <th>Details</th>
                 <th>Like</th>
               </tr>
@@ -2433,8 +2456,8 @@
             <thead>
               <tr>
                 <th class="docNoTh">No.</th>
-                <th class="docDownTh" aria-label="Download"></th>
-                <th class="docNameTh">Document Name</th>
+                <th class="docDownTh">Download</th>
+                <th class="docNameTh">Name</th>
                 <th>Details</th>
                 <th>Like</th>
               </tr>
