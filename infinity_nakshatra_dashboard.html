@@ -25,6 +25,8 @@
       --surface:rgba(255,255,255,0.07);
       --surface2:rgba(255,255,255,0.05);
       --page-hero-image: url("assets/portal-hero-background.png");
+      --pay-paid:#55a8ff;
+      --pay-pending:#ffd166;
     }
     *{box-sizing:border-box}
     html{-webkit-text-size-adjust:100%;}
@@ -150,6 +152,9 @@
     }
     .backdrop.show{display:flex;}
     #appRoot, #adminRoot, #userRoot{min-width:0; max-width:100%;}
+    .payBarPanel .payChartScroll{
+      margin-top:0;
+    }
     .payChartScroll{
       margin-top:12px;
       max-width:100%;
@@ -168,6 +173,112 @@
       width:100% !important;
       height:100% !important;
       max-height:320px;
+    }
+    .payChartsRow{
+      display:flex;
+      flex-wrap:wrap;
+      gap:14px;
+      margin-top:12px;
+      align-items:stretch;
+    }
+    .payDonutPanel{
+      flex:0 1 320px;
+      min-width:260px;
+      border:1px solid var(--borderStrong);
+      border-radius:12px;
+      padding:14px 16px;
+      background:rgba(10,31,45,0.72);
+      backdrop-filter:blur(10px);
+      box-shadow:var(--shadow);
+    }
+    .payDonutTitle{
+      margin:0 0 10px;
+      font-size:0.88rem;
+      font-weight:800;
+      color:var(--text);
+      line-height:1.25;
+    }
+    .payDonutBody{
+      display:flex;
+      align-items:center;
+      gap:14px;
+      flex-wrap:wrap;
+    }
+    .payDonutWrap{
+      position:relative;
+      width:132px;
+      height:132px;
+      flex-shrink:0;
+    }
+    .payDonutSvg{
+      width:100%;
+      height:100%;
+      display:block;
+      transform:rotate(-90deg);
+    }
+    .payDonutTrack{
+      fill:none;
+      stroke:var(--pay-pending);
+      stroke-width:14;
+    }
+    .payDonutPaid{
+      fill:none;
+      stroke:var(--pay-paid);
+      stroke-width:14;
+      stroke-linecap:butt;
+    }
+    .payDonutCenter{
+      position:absolute;
+      inset:0;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight:900;
+      font-size:1.15rem;
+      letter-spacing:0.02em;
+      color:var(--text);
+      pointer-events:none;
+      line-height:1;
+      z-index:1;
+      text-shadow:0 1px 8px rgba(0,0,0,0.45);
+    }
+    .payDonutLegend{
+      display:flex;
+      flex-direction:column;
+      gap:8px;
+      font-size:12px;
+      font-weight:700;
+      color:var(--muted);
+    }
+    .payDonutLegend span{
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .payDonutLegend span::before{
+      content:"";
+      width:12px;
+      height:12px;
+      border-radius:2px;
+      flex-shrink:0;
+    }
+    .payDonutLegend .payLegPaid::before{background:var(--pay-paid);}
+    .payDonutLegend .payLegPending::before{background:var(--pay-pending);}
+    .payDonutSub{
+      margin:10px 0 0;
+      padding-top:8px;
+      border-top:1px solid var(--border);
+      font-size:12px;
+      color:var(--muted);
+      line-height:1.35;
+    }
+    .payBarPanel{
+      flex:1 1 340px;
+      min-width:0;
+    }
+    @media (max-width:720px){
+      .payDonutPanel{flex:1 1 100%;}
+      .payBarPanel{flex:1 1 100%;}
     }
     .modal{
       width:min(920px, 100%);
@@ -2380,9 +2491,30 @@
             <label for="userPlotFocus">View payments for plot</label>
             <select id="userPlotFocus"></select>
           </div>
-          <div class="payChartScroll scroll-x" id="payChartScroll">
-            <div class="payChartInner" id="payChartInner">
-              <canvas id="payChart"></canvas>
+          <div class="payChartsRow">
+            <div class="payDonutPanel" aria-label="Maintenance paid vs pending summary">
+              <h3 class="payDonutTitle" id="payDonutTitle">Maintenance summary</h3>
+              <div class="payDonutBody">
+                <div class="payDonutWrap">
+                  <svg class="payDonutSvg" id="payDonutSvg" viewBox="0 0 120 120" aria-hidden="true">
+                    <circle class="payDonutTrack" cx="60" cy="60" r="46"></circle>
+                    <circle class="payDonutPaid" id="payDonutPaidArc" cx="60" cy="60" r="46"></circle>
+                  </svg>
+                  <div class="payDonutCenter" id="payDonutCenter">—</div>
+                </div>
+                <div class="payDonutLegend">
+                  <span class="payLegPaid">Paid</span>
+                  <span class="payLegPending">Pending</span>
+                </div>
+              </div>
+              <p class="payDonutSub" id="payDonutSub">—</p>
+            </div>
+            <div class="payBarPanel">
+              <div class="payChartScroll scroll-x" id="payChartScroll">
+                <div class="payChartInner" id="payChartInner">
+                  <canvas id="payChart"></canvas>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -3969,8 +4101,7 @@
         const sessKick = readSession();
         if (sessKick && sessKick.role === "user" && Array.isArray(allRows) && allRows.length > 0 && isOwnerLoginBlocked(sessKick.userId)){
           if (payChart){
-            try { payChart.destroy(); } catch {}
-            payChart = null;
+            destroyPayCharts_();
           }
           showLogin();
           setErr(document.getElementById("loginErr"), "Your access is blocked by an administrator. Contact the society office.");
@@ -6446,10 +6577,7 @@
     }
 
     function logout(){
-      if (payChart){
-        try { payChart.destroy(); } catch {}
-        payChart = null;
-      }
+      destroyPayCharts_();
       showLogin();
     }
 
@@ -9549,7 +9677,7 @@
       else {
         const tbody = document.getElementById("userPayRows");
         if (tbody) tbody.innerHTML = `<tr><td colspan="2">—</td></tr>`;
-        if (payChart){ payChart.destroy(); payChart = null; }
+        destroyPayCharts_();
       }
     }
 
@@ -9713,6 +9841,54 @@
       }
     }
 
+    function destroyPayCharts_(){
+      if (payChart){
+        try { payChart.destroy(); } catch {}
+        payChart = null;
+      }
+      const centerEl = document.getElementById("payDonutCenter");
+      const subEl = document.getElementById("payDonutSub");
+      const arc = document.getElementById("payDonutPaidArc");
+      if (centerEl) centerEl.textContent = "—";
+      if (subEl) subEl.textContent = "—";
+      if (arc){
+        const circ = 2 * Math.PI * 46;
+        arc.setAttribute("stroke-dasharray", "0 " + circ);
+      }
+    }
+
+    function renderUserPayDonutChart_(plotNo, pairs, paidFlags){
+      const centerEl = document.getElementById("payDonutCenter");
+      const subEl = document.getElementById("payDonutSub");
+      const titleEl = document.getElementById("payDonutTitle");
+      const arc = document.getElementById("payDonutPaidArc");
+      if (!centerEl || !arc) return;
+
+      const total = pairs.length;
+      const paidCount = paidFlags.filter(Boolean).length;
+      const pendingCount = Math.max(0, total - paidCount);
+      const pct = total ? (paidCount / total) * 100 : 0;
+      const pctText = total ? pct.toFixed(2) + "%" : "—";
+
+      centerEl.textContent = pctText;
+      if (titleEl){
+        titleEl.textContent = plotNo
+          ? `Maintenance summary · Plot ${plotNo}`
+          : "Maintenance summary";
+      }
+      if (subEl){
+        subEl.textContent = total
+          ? `${paidCount} paid · ${pendingCount} pending of ${total} months`
+          : "No maintenance months in view";
+      }
+
+      const r = 46;
+      const circ = 2 * Math.PI * r;
+      const frac = total ? Math.max(0, Math.min(1, paidCount / total)) : 0;
+      arc.setAttribute("stroke-dasharray", (circ * frac) + " " + (circ * (1 - frac)));
+      arc.setAttribute("stroke-dashoffset", "0");
+    }
+
     function renderUserPaymentsChartAndTable(plotNo){
       const slots = getOwnerHistorySlots();
       const entries = paymentsLoadEntries(plotNo);
@@ -9721,7 +9897,7 @@
         return { label: s.label, amount: Number(sums.amount) || 0 };
       });
       if (!pairs.length){
-        if (payChart){ payChart.destroy(); payChart = null; }
+        destroyPayCharts_();
         return;
       }
 
@@ -9731,15 +9907,20 @@
       if (payChart) payChart.destroy();
       payChart = null;
       if (!window.Chart){
-        // Chart.js failed to load (offline/CSP) — table still works
+        const expectedPerMonth = Number(MC_PER_MONTH) || 350;
+        const paidFlags = pairs.map(p => (Number(p.amount) || 0) >= (expectedPerMonth - 0.01));
+        renderUserPayDonutChart_(plotNo, pairs, paidFlags);
         return;
       }
       const expectedPerMonth = Number(MC_PER_MONTH) || 350;
       const paidFlags = pairs.map(p => (Number(p.amount) || 0) >= (expectedPerMonth - 0.01));
-      const statusLabels = paidFlags.map(x => (x ? "PAID" : "UNPAID"));
-      // Modern palette: emerald (paid) + slate/rose (unpaid)
-      const barColors = paidFlags.map(x => x ? "rgba(16,185,129,0.62)" : "rgba(244,63,94,0.58)");
-      const barBorders = paidFlags.map(x => x ? "rgba(16,185,129,0.95)" : "rgba(244,63,94,0.92)");
+      renderUserPayDonutChart_(plotNo, pairs, paidFlags);
+      const statusLabels = paidFlags.map(x => (x ? "Paid" : "Pending"));
+      const paidBlue = "rgba(85, 168, 255, 0.88)";
+      const pendingYellow = "rgba(255, 209, 102, 0.92)";
+      const barColors = paidFlags.map(x => x ? paidBlue : pendingYellow);
+      const barBorders = paidFlags.map(x => x ? "#55a8ff" : "#ffd166");
+      const barLabelColors = paidFlags.map(x => x ? "rgba(255,255,255,0.92)" : "rgba(26,26,26,0.85)");
 
       const paidUnpaidLabelPlugin = {
         id: "insPaidUnpaidLabels",
@@ -9749,14 +9930,15 @@
             const meta = chart.getDatasetMeta(0);
             const ds = chart.data.datasets && chart.data.datasets[0];
             const labels = (ds && ds.statusLabels) || [];
+            const labelColors = (ds && ds.barLabelColors) || [];
             ctx.save();
-            ctx.fillStyle = "rgba(255,255,255,0.92)";
             ctx.font = "800 11px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             meta.data.forEach((bar, i) => {
               const txt = String(labels[i] || "");
               if (!txt) return;
+              ctx.fillStyle = labelColors[i] || "rgba(255,255,255,0.92)";
               const x = bar.x;
               const y = (bar.y + bar.base) / 2;
               ctx.save();
@@ -9778,6 +9960,7 @@
             label: plotNo ? `Plot ${plotNo}` : "Maintenance",
             data: pairs.map(() => expectedPerMonth),
             statusLabels,
+            barLabelColors,
             backgroundColor: barColors,
             borderColor: barBorders,
             borderWidth: 0,
@@ -9832,9 +10015,7 @@
       updateUserPaymentSummaryFromRows(rows);
       const plotNo = getUserFocusedPlotNo(rows, userDigits);
       if (plotNo) renderUserPaymentsChartAndTable(plotNo);
-      else {
-        if (payChart){ payChart.destroy(); payChart = null; }
-      }
+      else destroyPayCharts_();
       renderPortalNotificationsPanels();
       renderUserGateVisitsPanel();
     }
