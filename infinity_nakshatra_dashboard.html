@@ -8731,8 +8731,8 @@
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       const sumDesc = isShort
-        ? "This report shows maintenance paid and unpaid status for the last 6 months."
-        : "This report shows the maintenance received for the last 6 months along with the monthly expense summary.";
+        ? "This report shows maintenance paid and unpaid status for 6 months."
+        : "This report shows the maintenance received for 6 months along with the monthly expense summary.";
       const sumDescLines = doc.splitTextToSize(sumDesc, sumW - sm * 2);
       doc.text(sumDescLines, cx, ySum, { align: "center" });
       ySum += sumDescLines.length * 3.6 + 5;
