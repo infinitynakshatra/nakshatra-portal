@@ -335,6 +335,9 @@
     .docNameCell{font-weight:800;}
     /* Docs tables: compact No/Name, allow full Details text */
     .docNoCell, .docNoTh{width:3.2rem; max-width:3.2rem; min-width:3.2rem; text-align:center; white-space:nowrap;}
+    .docDownCell, .docDownTh{width:3.4rem; max-width:3.4rem; min-width:3.4rem; text-align:center; white-space:nowrap; padding-left:4px; padding-right:4px;}
+    .docDownBtn{padding:3px 7px !important; font-size:11px !important; line-height:1 !important; min-width:0;}
+    .docDownEmpty{color:var(--muted); font-size:11px;}
     .docNameTh{width:14rem; max-width:18rem;}
     .docDetailsFullCell{white-space:normal; word-break:break-word; overflow-wrap:anywhere; line-height:1.4;}
     .docActionsSmall .btn,
@@ -2074,9 +2077,9 @@
             <thead>
               <tr>
                 <th class="docNoTh">No.</th>
+                <th class="docDownTh" aria-label="Download"></th>
                 <th class="docNameTh">Document Name</th>
                 <th>Details</th>
-                <th>Download</th>
                 <th>Like</th>
                 <th class="adminOnly">Actions</th>
               </tr>
@@ -2100,9 +2103,9 @@
             <thead>
               <tr>
                 <th class="docNoTh">No.</th>
+                <th class="docDownTh" aria-label="Download"></th>
                 <th class="docNameTh">Document Name</th>
                 <th>Details</th>
-                <th>Download</th>
                 <th>Like</th>
                 <th class="adminOnly">Actions</th>
               </tr>
@@ -2406,9 +2409,9 @@
             <thead>
               <tr>
                 <th class="docNoTh">No.</th>
+                <th class="docDownTh" aria-label="Download"></th>
                 <th class="docNameTh">Document Name</th>
                 <th>Details</th>
-                <th>Download</th>
                 <th>Like</th>
               </tr>
             </thead>
@@ -2430,9 +2433,9 @@
             <thead>
               <tr>
                 <th class="docNoTh">No.</th>
+                <th class="docDownTh" aria-label="Download"></th>
                 <th class="docNameTh">Document Name</th>
                 <th>Details</th>
-                <th>Download</th>
                 <th>Like</th>
               </tr>
             </thead>
@@ -5713,8 +5716,8 @@
           const url = norm(d.url);
           const canDown = isHttpUrl(url);
           const downHtml = canDown
-            ? `<a class="btn secondary tiny" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Download</a>`
-            : `<span class="smallNote">No link</span>`;
+            ? `<a class="btn secondary tiny docDownBtn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Download ${escapeHtml(d.name)}" aria-label="Download ${escapeHtml(d.name)}">↓</a>`
+            : `<span class="docDownEmpty" aria-hidden="true">—</span>`;
           const liked = hasUserLikedDoc(d.id);
           const lc = Math.max(0, Number(d.likeCount) || 0);
           const likeLabel = liked ? "Liked" : "Like";
@@ -5729,9 +5732,9 @@
             : "";
           return `<tr>
             <td class="docNoCell">${no}</td>
+            <td class="docDownCell docActionsSmall">${downHtml}</td>
             ${nameCell}
             ${detCell}
-            <td class="docActionsSmall">${downHtml}</td>
             <td>${likeBtn}</td>
             ${actions}
           </tr>`;
@@ -5924,8 +5927,8 @@
           const url = norm(d.url);
           const canDown = isHttpUrl(url);
           const downHtml = canDown
-            ? `<a class="btn secondary tiny" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">Download</a>`
-            : `<span class="smallNote">No link</span>`;
+            ? `<a class="btn secondary tiny docDownBtn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Download ${escapeHtml(d.name)}" aria-label="Download ${escapeHtml(d.name)}">↓</a>`
+            : `<span class="docDownEmpty" aria-hidden="true">—</span>`;
           const liked = hasUserLikedDoc(d.id);
           const lc = Math.max(0, Number(d.likeCount) || 0);
           const likeLabel = liked ? "Liked" : "Like";
@@ -5940,9 +5943,9 @@
             : "";
           return `<tr>
             <td class="docNoCell">${no}</td>
+            <td class="docDownCell docActionsSmall">${downHtml}</td>
             ${nameCell}
             ${detCell}
-            <td class="docActionsSmall">${downHtml}</td>
             <td>${likeBtn}</td>
             ${actions}
           </tr>`;
