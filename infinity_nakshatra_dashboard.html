@@ -1783,7 +1783,8 @@
         <a class="btn adminOnly" href="https://docs.google.com/spreadsheets/d/1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA/edit?pli=1&amp;gid=1304899070#gid=1304899070" target="_blank" rel="noreferrer">Google Sheet</a>
         <button class="btn secondary adminOnly" id="adminAddPayBtn" type="button">Add Payment</button>
         <button class="btn secondary adminOnly" id="adminAddMultiPayBtn" type="button">Add Multiple User Payment</button>
-        <button class="btn secondary adminOnly" id="adminSixMonthReportBtn" type="button" title="PDF: six months of received amounts per plot">Download Report</button>
+        <button class="btn secondary adminOnly" id="adminSixMonthFullReportBtn" type="button" title="PDF: full six-month collection, expense, and summary report">Download Full Report</button>
+        <button class="btn secondary adminOnly" id="adminSixMonthShortReportBtn" type="button" title="PDF: short six-month collection report (paid/unpaid only)">Download Short Report</button>
         <div class="profileWrap accountDetailsWrap adminOnly">
           <button class="btn secondary" id="adminAccountDetailsBtn" type="button" aria-expanded="false" aria-haspopup="true">Account Details</button>
           <div class="profilePanel" id="adminAccountDetailsPanel" role="menu" aria-label="Account and UPI">
@@ -8232,7 +8233,9 @@
       return btoa(binary);
     }
 
-    async function downloadSixMonthTransactionReportPdf(){
+    async function downloadSixMonthTransactionReportPdf(mode){
+      const reportMode = mode === "short" ? "short" : "full";
+      const isShort = reportMode === "short";
       const jsp = globalThis.jspdf || window.jspdf;
       if (!jsp || !jsp.jsPDF){
         alert("PDF library not loaded. Refresh the page and try again.");
@@ -8307,29 +8310,50 @@
         return "";
       }
 
-      const head = [["Plot No.", "Name", "Primary Contact", ...slots.map(sixMonthReportColumnLabel), "Total"]];
+      const head = isShort
+        ? [["Plot No.", "Name", ...slots.map(sixMonthReportColumnLabel), "Total"]]
+        : [["Plot No.", "Name", "Primary Contact", ...slots.map(sixMonthReportColumnLabel), "Total"]];
       const body = [];
       const colSums = slots.map(() => 0);
+      const colPaidCounts = slots.map(() => 0);
       let grandTotal = 0;
+      let grandPaidMonths = 0;
       for (let p = 1; p <= 109; p++){
         const plotNo = String(p);
         const r = sheetRowForPlotNo(plotNo);
         const name = sheetOwnerNameForSixMonthPdf(r);
         const pc = r ? (digitsOnly(r["Primary Contact Number"]) || norm(r["Primary Contact Number"]) || "") : "";
         const entries = paymentsLoadEntries(plotNo);
-        const row = [plotNo, name, pc];
+        const row = isShort ? [plotNo, name] : [plotNo, name, pc];
         let rowSum = 0;
+        let rowPaidMonths = 0;
         slots.forEach((slot, i) => {
           const v = Math.round(sumEntriesForYm(entries, slot.ym).amount);
           colSums[i] += v;
           rowSum += v;
-          row.push(String(v));
+          if (isShort){
+            const paid = v >= (Number(MC_PER_MONTH) || 350) - 0.01;
+            if (paid){
+              colPaidCounts[i]++;
+              rowPaidMonths++;
+            }
+            row.push(paid ? "Paid" : "Unpaid");
+          } else {
+            row.push(String(v));
+          }
         });
         grandTotal += rowSum;
-        row.push(String(Math.round(rowSum)));
+        if (isShort){
+          grandPaidMonths += rowPaidMonths;
+          row.push(String(rowPaidMonths));
+        } else {
+          row.push(String(Math.round(rowSum)));
+        }
         body.push(row);
       }
-      const foot = [["Total", "", "", ...colSums.map(String), String(Math.round(grandTotal))]];
+      const foot = isShort
+        ? [["Total", "", ...colPaidCounts.map(String), String(grandPaidMonths)]]
+        : [["Total", "", "", ...colSums.map(String), String(Math.round(grandTotal))]];
       const dirStats = sixMonthPdfDirectorySummaryStats_();
       const expensePerSlot = slots.map(s => {
         let t = 0;
@@ -8366,9 +8390,11 @@
       const cx = pageW / 2;
       const tableW = pageW - margin * 2;
       const nameColMm = 52;
-      const fixed = 7 + nameColMm + 22 + 14;
-      const mo = Math.max(11, (tableW - fixed) / 6);
-      const colWidths = [7, nameColMm, 22, mo, mo, mo, mo, mo, mo, 14];
+      const fixed = isShort ? (7 + nameColMm + 14) : (7 + nameColMm + 22 + 14);
+      const mo = Math.max(11, (tableW - fixed) / slots.length);
+      const colWidths = isShort
+        ? [7, nameColMm, ...slots.map(() => mo), 14]
+        : [7, nameColMm, 22, ...slots.map(() => mo), 14];
 
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       if (typeof doc.autoTable !== "function"){
@@ -8431,7 +8457,9 @@
       const fs = 7;
       const pad = 0.55;
       const societyPdfLine = "INFINITY NAKSHATRA SOCIETY, SHIRASWADI (49/A)";
-      const sixMonthReportSubtitle = "Six-Month Maintenance Collection & Expense Transaction Summary Report";
+      const sixMonthReportSubtitle = isShort
+        ? "Six-Month Maintenance Collection Report"
+        : "Six-Month Maintenance Collection & Expense Transaction Summary Report";
 
       function paintSocietyLineEveryPage(d){
         const total = d.internal.getNumberOfPages();
@@ -8452,8 +8480,8 @@
         d.text(`(${rangeA} To ${rangeB})`, cx, 14.6, { align: "center" });
       }
 
-      const firstMonthCol = 3;
-      const afterMonthCol = 3 + slots.length;
+      const firstMonthCol = isShort ? 2 : 3;
+      const afterMonthCol = firstMonthCol + slots.length;
 
       const namePdfCanvas = document.createElement("canvas");
       const namePdfCtx = namePdfCanvas.getContext("2d");
@@ -8563,6 +8591,12 @@
           if (col < firstMonthCol || col >= afterMonthCol) return;
           const t = data.cell.text;
           const raw = Array.isArray(t) ? t.join("") : String(t ?? "");
+          if (isShort){
+            const label = raw.trim();
+            if (label === "Paid") data.cell.styles.fillColor = [214, 255, 214];
+            else if (label === "Unpaid") data.cell.styles.fillColor = [255, 222, 222];
+            return;
+          }
           const n = parseInt(String(raw).replace(/[^\d-]/g, ""), 10);
           if (!Number.isFinite(n)) return;
           if (n === 350) data.cell.styles.fillColor = [214, 255, 214];
@@ -8589,8 +8623,9 @@
 
       doc.addPage();
       drawSixMonthMaintenancePageTitles(doc);
-      doc.autoTable(tableOpts(body.slice(rpp * 2, body.length), true, 18));
+      doc.autoTable(tableOpts(body.slice(rpp * 2, body.length), true, isShort ? 8 : 18));
 
+      if (!isShort){
       const rangeTitle = `${slots[0].shortMonth}-${slots[0].calendarYear} To ${slots[slots.length - 1].shortMonth}-${slots[slots.length - 1].calendarYear}`;
       const slotYmSetForExpensePdf = new Set(slots.map(s => normalizePortalYm(s.ym)));
       const expenseReportRowsAll = (portalServerState.expenses || []).filter(ex => {
@@ -8682,7 +8717,9 @@
           };
         })()
       });
+      }
 
+      const rangeTitle = `${slots[0].shortMonth}-${slots[0].calendarYear} To ${slots[slots.length - 1].shortMonth}-${slots[slots.length - 1].calendarYear}`;
       doc.addPage();
       const sm = margin;
       const sumW = tableW;
@@ -8693,7 +8730,9 @@
       ySum += 6.5;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
-      const sumDesc = "This report shows the maintenance received for the last 6 months along with the monthly expense summary.";
+      const sumDesc = isShort
+        ? "This report shows maintenance paid and unpaid status for the last 6 months."
+        : "This report shows the maintenance received for the last 6 months along with the monthly expense summary.";
       const sumDescLines = doc.splitTextToSize(sumDesc, sumW - sm * 2);
       doc.text(sumDescLines, cx, ySum, { align: "center" });
       ySum += sumDescLines.length * 3.6 + 5;
@@ -8727,6 +8766,7 @@
       doc.setFontSize(8);
 
       const finW = sumW * 0.72;
+      if (!isShort){
       doc.autoTable({
         ...sumTableBase,
         startY: ySum,
@@ -8736,23 +8776,30 @@
         body: [[`Rs. ${Math.round(grandTotal)}`, `Rs. ${expenseGrand}`, `Rs. ${balanceGrand}`]]
       });
       ySum = doc.lastAutoTable.finalY + 8;
+      }
 
       const moHead = slots.map(sixMonthReportColumnLabel);
+      const summaryCategoryBody = isShort
+        ? [
+            ["Total Paid Owners", ...paidOwnersPerSlot.map(String), String(paidOwnersTotalSum)],
+            ["Total Unpaid Owners", ...unpaidOwnersPerSlot.map(String), String(unpaidOwnersTotalSum)]
+          ]
+        : [
+            ["Total Paid Owners", ...paidOwnersPerSlot.map(String), String(paidOwnersTotalSum)],
+            ["Total Unpaid Owners", ...unpaidOwnersPerSlot.map(String), String(unpaidOwnersTotalSum)],
+            ["Expected Amount", ...expectedAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${expectedAmtGrand}`],
+            ["Received Amount", ...colSums.map(v => `Rs. ${Math.round(v)}`), `Rs. ${Math.round(grandTotal)}`],
+            ["Pending Amount", ...pendingAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${pendingAmtGrand}`],
+            ["Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${expenseGrand}`],
+            ["Balance", ...balancePerSlot.map(v => `Rs. ${v}`), `Rs. ${balanceGrand}`]
+          ];
       doc.autoTable({
         startY: ySum,
         margin: { left: sm, right: sm },
         tableWidth: sumW,
         theme: "grid",
         head: [["Category", ...moHead, "Total"]],
-        body: [
-          ["Total Paid Owners", ...paidOwnersPerSlot.map(String), String(paidOwnersTotalSum)],
-          ["Total Unpaid Owners", ...unpaidOwnersPerSlot.map(String), String(unpaidOwnersTotalSum)],
-          ["Expected Amount", ...expectedAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${expectedAmtGrand}`],
-          ["Received Amount", ...colSums.map(v => `Rs. ${Math.round(v)}`), `Rs. ${Math.round(grandTotal)}`],
-          ["Pending Amount", ...pendingAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${pendingAmtGrand}`],
-          ["Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${expenseGrand}`],
-          ["Balance", ...balancePerSlot.map(v => `Rs. ${v}`), `Rs. ${balanceGrand}`]
-        ],
+        body: summaryCategoryBody,
         styles: { font: "helvetica", fontSize: 7.4, cellPadding: 1, halign: "center", valign: "middle", textColor: 20 },
         headStyles: {
           font: "helvetica",
@@ -8763,6 +8810,7 @@
         },
         columnStyles: { 0: { halign: "left", cellWidth: 34, fontStyle: "bold" } },
         didParseCell(data){
+          if (isShort) return;
           if (data.section === "body" && data.row.index === 6){
             data.cell.styles.fillColor = [255, 247, 200];
             data.cell.styles.fontStyle = "bold";
@@ -8778,7 +8826,9 @@
       doc.text("Thank You!!", cx, Math.min(yThank, pageH - 5), { align: "center" });
 
       paintSocietyLineEveryPage(doc);
-      doc.save(`Six-Month-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
+      doc.save(isShort
+        ? `Six-Month-Short-Report-${new Date().toISOString().slice(0, 10)}.pdf`
+        : `Six-Month-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
       if (canvasFontBlobUrl) try { URL.revokeObjectURL(canvasFontBlobUrl); } catch {}
     }
 
@@ -10691,15 +10741,18 @@
         });
       })();
 
-      const adminSixMonthReportBtn = document.getElementById("adminSixMonthReportBtn");
-      if (adminSixMonthReportBtn){
-        adminSixMonthReportBtn.addEventListener("click", () => {
-          void downloadSixMonthTransactionReportPdf().catch(e => {
+      function wireSixMonthReportBtn(btnId, mode){
+        const btn = document.getElementById(btnId);
+        if (!btn) return;
+        btn.addEventListener("click", () => {
+          void downloadSixMonthTransactionReportPdf(mode).catch(e => {
             console.error(e);
             alert("Could not generate PDF (fonts or network). Try again or check the browser console.");
           });
         });
       }
+      wireSixMonthReportBtn("adminSixMonthFullReportBtn", "full");
+      wireSixMonthReportBtn("adminSixMonthShortReportBtn", "short");
 
       const adminBankViewBtn = document.getElementById("adminBankViewBtn");
       if (adminBankViewBtn) adminBankViewBtn.addEventListener("click", () => {
