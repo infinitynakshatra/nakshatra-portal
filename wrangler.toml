@@ -1,6 +1,6 @@
-# Cloudflare Pages — static site at repo root (no build step).
-# If the dashboard "Git URL" import asks for Wrangler, this file satisfies it.
-# Prefer: Workers & Pages → Create → Pages → Connect to Git → GitHub → pick repo (no URL paste).
+# Cloudflare Pages — static site + /api/collection relay (functions/api/collection.js).
+# Production: https://nakshatra-portal.pages.dev/infinity_nakshatra_dashboard
+# Optional env var in Cloudflare dashboard: APPS_SCRIPT_EXEC_URL = your /exec URL
 
 name = "nakshatra-portal"
 compatibility_date = "2024-11-01"

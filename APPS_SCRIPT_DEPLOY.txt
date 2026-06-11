@@ -47,6 +47,26 @@ Use the small local relay (Python forwards the POST; often works on the same PC)
 4. Test backup or sheet update again.
 
 ----------------------------------------------------------------------
+Cloudflare Pages (https://nakshatra-portal.pages.dev)
+----------------------------------------------------------------------
+Production cannot POST directly to script.google.com from the browser.
+The repo includes a same-origin relay:
+
+  Portal  →  POST /api/collection  →  Google Apps Script /exec
+
+Files: functions/api/collection.js + nakshatra_collection_exec_url.js
+(auto-uses /api/collection on *.pages.dev hosts).
+
+Push to GitHub → Cloudflare Pages redeploys → then:
+  1. Open https://nakshatra-portal.pages.dev/api/collection
+     (should say "Nakshatra collection proxy OK").
+  2. Hard-refresh the dashboard (Ctrl+F5).
+  3. Admin FY filter should show "N payment row(s) from Sheet".
+
+Optional: Cloudflare Pages → Settings → Environment variables:
+  APPS_SCRIPT_EXEC_URL = your full /exec URL
+
+----------------------------------------------------------------------
 My Gate (Security visitor log)
 ----------------------------------------------------------------------
 - New tab: portal_my_gate_visitors (created on first Web app GET or first POST).

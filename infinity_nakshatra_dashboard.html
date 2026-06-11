@@ -3536,7 +3536,19 @@
     function updateAdminMcFyRangeNote(){
       const el = document.getElementById("adminMcFyMetaNote");
       if (!el) return;
-      el.textContent = `Admin FY filter ${adminFySelectionLabel()}`;
+      let payNote = "";
+      if (isServerEnabled()){
+        if (portalServerState.loaded){
+          const n = Number(portalServerState.paymentsCount) || 0;
+          const plots = portalServerState.paymentsByPlot ? portalServerState.paymentsByPlot.size : 0;
+          payNote = n > 0 ? ` • ${n} payment row(s) from Sheet (${plots} plot(s))` : " • No payment rows returned from Sheet (check collection_data / portal_payments tabs)";
+        } else if (portalServerState.lastFetchError){
+          payNote = ` • Sheet sync error: ${portalServerState.lastFetchError}`;
+        } else {
+          payNote = " • Loading payments from Sheet…";
+        }
+      }
+      el.textContent = `Admin FY filter ${adminFySelectionLabel()}${payNote}`;
     }
 
     function refreshUserViewIfUser(){
@@ -3558,21 +3570,49 @@
         .replace(/[\u201C\u201D]/g, "")
         .trim();
     }
-    const COLLECTION_API_URL = sanitizeAppsScriptUrl(
+
+    /** Resolve /api/collection relative URLs against the current portal origin. */
+    function resolveCollectionApiUrl(raw){
+      const s = sanitizeAppsScriptUrl(raw);
+      if (!s) return "";
+      if (s.charAt(0) === "/"){
+        try { return sanitizeAppsScriptUrl(new URL(s, location.href).href); } catch { return ""; }
+      }
+      return s;
+    }
+
+    const COLLECTION_API_URL = resolveCollectionApiUrl(
       typeof globalThis !== "undefined" && globalThis.__NAKSHATRA_COLLECTION_EXEC_URL__
         ? String(globalThis.__NAKSHATRA_COLLECTION_EXEC_URL__)
         : COLLECTION_API_URL_FALLBACK
     );
 
-    /** Direct Apps Script, or local relay (http://127.0.0.1:port — see scripts/collection_proxy.py). */
+    /** Direct Apps Script, local relay, or Cloudflare Pages same-origin /api/collection. */
     function isCollectionPostEndpoint(url){
       if (!url) return false;
       if (/^https:\/\/script\.google\.com\//i.test(url)) return true;
       if (/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?(\/|$)/i.test(url)) return true;
+      try {
+        const u = new URL(url, location.href);
+        if (u.origin === location.origin && /\/api\/collection\/?$/i.test(u.pathname)) return true;
+      } catch {}
       return false;
     }
 
     function collectionRelayHint(){
+      const onPages = (function(){
+        try {
+          const h = String(location.hostname || "").toLowerCase();
+          return h.endsWith(".pages.dev");
+        } catch { return false; }
+      })();
+      if (onPages){
+        return (
+          " On Cloudflare Pages, the portal should POST to /api/collection on the same domain. " +
+          "Redeploy from GitHub with functions/api/collection.js and hard-refresh. " +
+          "Open /api/collection in a tab — it should say 'Nakshatra collection proxy OK'."
+        );
+      }
       return (
         " If the browser cannot reach Google, use the local relay: set APPS_SCRIPT_POST_URL to your /exec URL, " +
         "run python scripts/collection_proxy.py from the Nakshatra folder, then set COLLECTION_API_URL = " +
@@ -3635,7 +3675,7 @@
         return { ok:false, error: "Portal is https but COLLECTION_API_URL is http (browser blocks mixed content). Serve the HTML over http for local use, or use direct https://script.google.com/.../exec." };
       }
       if (!isCollectionPostEndpoint(url)){
-        return { ok:false, error: "COLLECTION_API_URL must be https://script.google.com/.../exec or http://127.0.0.1:PORT (local relay)." };
+        return { ok:false, error: "COLLECTION_API_URL must be https://script.google.com/.../exec, http://127.0.0.1:PORT (local relay), or same-origin /api/collection (Cloudflare Pages)." };
       }
       const bodyStr = JSON.stringify(body);
       __insPushBackendLoading();
@@ -3682,7 +3722,7 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], banking: null, inbox: [], projectDocs: [], meetingDocs: [], societyDetails: null, serviceContacts: [], ownerAccess: {}, ownerPortalMayYear: null, gateVisits: [] };
+    let portalServerState = { loaded: false, paymentsCount: 0, lastFetchError: "", paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], banking: null, inbox: [], projectDocs: [], meetingDocs: [], societyDetails: null, serviceContacts: [], ownerAccess: {}, ownerPortalMayYear: null, gateVisits: [] };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
@@ -3742,7 +3782,7 @@
       const want = normalizePortalYm(ym || portalYmForPreviousCalendarMonth_(new Date()));
       for (const plotNo of plots){
         const entries = paymentsLoadEntries(plotNo);
-        if (toMoneyNumber(sumEntriesForYm(entries, want).amount) <= 0) return false;
+        if (maintenanceReceivedForYm_(entries, want) <= 0) return false;
       }
       return true;
     }
@@ -3820,9 +3860,18 @@
       applyFilters();
     }
 
-    function serverPaymentsKey(plotNo){ return norm(plotNo); }
+    function serverPaymentsKey(plotNo){ return canonicalPlotNoKey_(plotNo); }
     function serverPaymentsLoad(plotNo){
-      return portalServerState.paymentsByPlot.get(serverPaymentsKey(plotNo)) || [];
+      const map = portalServerState.paymentsByPlot;
+      if (!map) return [];
+      const k = canonicalPlotNoKey_(plotNo);
+      if (k && map.has(k)) return map.get(k) || [];
+      const raw = norm(String(plotNo || ""));
+      if (raw && map.has(raw)) return map.get(raw) || [];
+      for (const [key, val] of map.entries()){
+        if (plotNoKeysMatch_(key, plotNo)) return val || [];
+      }
+      return [];
     }
     function serverPaymentsSet(plotNo, entries){
       portalServerState.paymentsByPlot.set(serverPaymentsKey(plotNo), entries || []);
@@ -3839,30 +3888,49 @@
       }
       const r = await appsScriptPostJson(stateBody);
       if (r.skipped) return { ok:false, skipped:true };
-      if (!r.ok) return { ok:false, error: r.error };
+      if (!r.ok){
+        portalServerState.lastFetchError = String(r.error || "fetch_failed");
+        try { updateAdminMcFyRangeNote(); } catch {}
+        return { ok:false, error: r.error };
+      }
       let j;
-      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
-      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "state_failed", detail: j };
+      try { j = JSON.parse(r.txt || "{}"); } catch {
+        portalServerState.lastFetchError = "bad_json";
+        try { updateAdminMcFyRangeNote(); } catch {}
+        return { ok:false, error: "bad_json" };
+      }
+      if (!j || !j.ok){
+        portalServerState.lastFetchError = String((j && j.error) || "state_failed");
+        try { updateAdminMcFyRangeNote(); } catch {}
+        return { ok:false, error: (j && j.error) || "state_failed", detail: j };
+      }
+      portalServerState.lastFetchError = "";
 
       const byPlot = new Map();
       for (const p of (j.payments || [])){
-        const plotNo = norm(p.plotNo);
+        const plotNo = canonicalPlotNoKey_(norm(p.plotNo));
         if (!plotNo) continue;
         if (!byPlot.has(plotNo)) byPlot.set(plotNo, new Map());
         const ym = normalizePortalYm(String(p.ym || ""));
-        if (!ym) continue;
+        if (!ym || !/^\d{4}-\d{2}$/.test(ym)) continue;
         const at = p.atIso ? Date.parse(String(p.atIso)) : 0;
+        const next = {
+          ym,
+          amount: toMoneyNumber(p.amount),
+          lateFee: toMoneyNumber(p.lateFee),
+          by: norm(p.by || p.role || ""),
+          source: norm(p.source || ""),
+          at: Number(at) || 0
+        };
         const cur = byPlot.get(plotNo).get(ym);
-        // Deduplicate: keep the latest record for the same plot+month.
-        if (!cur || (Number(at) || 0) >= (Number(cur.at) || 0)){
-          byPlot.get(plotNo).set(ym, {
-            ym,
-            amount: toMoneyNumber(p.amount),
-            lateFee: toMoneyNumber(p.lateFee),
-            by: norm(p.by || ""),
-            source: norm(p.source || ""),
-            at
-          });
+        if (!cur){
+          byPlot.get(plotNo).set(ym, next);
+          continue;
+        }
+        const curMoney = directoryPaymentLineTotal_(cur);
+        const nextMoney = directoryPaymentLineTotal_(next);
+        if (nextMoney > curMoney || (Math.abs(nextMoney - curMoney) < 0.005 && next.at >= cur.at)){
+          byPlot.get(plotNo).set(ym, next);
         }
       }
       for (const [k, m] of byPlot.entries()){
@@ -3875,8 +3943,10 @@
         const nn = Number(rawOpY);
         if (Number.isFinite(nn)) ownerPortalMayYearSynced = clampMayYear(nn);
       }
+      const paymentsCount = Array.isArray(j.payments) ? j.payments.length : 0;
       portalServerState = {
         loaded: true,
+        paymentsCount,
         paymentsByPlot: byPlot,
         pending: Array.isArray(j.pending) ? j.pending : [],
         tickets: Array.isArray(j.tickets) ? j.tickets : [],
@@ -3924,6 +3994,14 @@
         if (sess && sess.role === "admin"){
           populateOwnerPortalMayYearSelect();
           updateAdminMcFyRangeNote();
+          const la = document.getElementById("loadedAt");
+          if (la && portalServerState.loaded){
+            const n = Number(portalServerState.paymentsCount) || 0;
+            const base = la.textContent || "";
+            if (!/payment row/i.test(base)){
+              la.textContent = base + (n > 0 ? ` • ${n} payment row(s) synced` : " • 0 payment rows from Sheet");
+            }
+          }
         }
         // Plot directory "Total Amount Paid" matches See Payment total received; refresh when /state arrives after CSV.
         if (sess && sess.role === "admin") applyFilters();
@@ -4698,6 +4776,24 @@
     function norm(v){
       if (v === null || v === undefined) return "";
       return String(v).replace(/\s+/g, " ").trim();
+    }
+
+    /** Match sheet vs server plot keys (e.g. "1" vs "1.0"). */
+    function canonicalPlotNoKey_(plotNo){
+      const s = norm(String(plotNo ?? ""));
+      if (!s) return "";
+      if (/^-?\d+(\.\d+)?$/.test(s.replace(/\s/g, ""))){
+        const n = Number(s);
+        if (Number.isFinite(n)) return String(Math.round(n));
+      }
+      return s;
+    }
+
+    function plotNoKeysMatch_(a, b){
+      const ca = canonicalPlotNoKey_(a);
+      const cb = canonicalPlotNoKey_(b);
+      if (ca && cb && ca === cb) return true;
+      return norm(String(a || "")) === norm(String(b || "")) && norm(String(a || "")) !== "";
     }
     function escapeHtml(s){
       return String(s).replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -6216,6 +6312,7 @@
         void portalServerFetchState().then(() => {
           renderAdminPendingApprovalPanel();
           updateMaintenanceCollectionCards();
+          applyFilters();
         }).catch(() => {});
         renderProjectDocsTables();
         renderMeetingDocsTables();
@@ -6498,10 +6595,18 @@
     }
 
     function paymentsStorageKey(plotNo){
-      return LS_PAY_PREFIX + String(plotNo);
+      return LS_PAY_PREFIX + canonicalPlotNoKey_(plotNo);
     }
     function paymentsLoadRaw(plotNo){
-      return localStorage.getItem(paymentsStorageKey(plotNo)) || "";
+      const keys = new Set([
+        canonicalPlotNoKey_(plotNo),
+        norm(String(plotNo || ""))
+      ].filter(Boolean));
+      for (const k of keys){
+        const v = localStorage.getItem(LS_PAY_PREFIX + k);
+        if (v) return v;
+      }
+      return "";
     }
     function paymentsSaveRaw(plotNo, raw){
       localStorage.setItem(paymentsStorageKey(plotNo), String(raw || ""));
@@ -6586,7 +6691,7 @@
               ym: normalizePortalYm(String(e.ym)),
               amount: toMoneyNumber(e.amount),
               lateFee: toMoneyNumber(e.lateFee),
-              by: norm(e.by || ""),
+              by: norm(e.by || e.role || ""),
               source: norm(e.source || ""),
               at: Number(e.at) || 0
             }));
@@ -6695,22 +6800,71 @@
       return out;
     }
 
-    function paymentsLoadEntries(plotNo){
-      const p = norm(plotNo);
-      if (!p) return [];
-      const localEntries = paymentsParseLocalStoredEntries(plotNo);
-      if (portalServerState.loaded && isServerEnabled()){
-        const sEnt = (serverPaymentsLoad(p) || []).map(e => ({
-          ym: String(e.ym),
-          amount: toMoneyNumber(e.amount),
-          lateFee: toMoneyNumber(e.lateFee),
-          by: norm(e.by || ""),
-          source: norm(e.source || ""),
-          at: Number(e.at) || 0
-        }));
-        return mergeServerLocalPaymentEntryLists_(sEnt, localEntries);
+    function mapServerPaymentEntry_(e){
+      const ym = normalizePortalYm(String(e.ym || ""));
+      if (!ym || !/^\d{4}-\d{2}$/.test(ym)) return null;
+      return {
+        ym,
+        amount: toMoneyNumber(e.amount),
+        lateFee: toMoneyNumber(e.lateFee),
+        by: norm(e.by || e.role || ""),
+        source: norm(e.source || ""),
+        at: Number(e.at) || 0
+      };
+    }
+
+    function plotNoLookupKeys_(plotNo){
+      return [...new Set([
+        canonicalPlotNoKey_(plotNo),
+        norm(String(plotNo || ""))
+      ].filter(Boolean))];
+    }
+
+    function serverPaymentEntriesForPlot_(plotNo){
+      const keys = plotNoLookupKeys_(plotNo);
+      for (const k of keys){
+        const list = (serverPaymentsLoad(k) || []).map(mapServerPaymentEntry_).filter(Boolean);
+        if (list.length) return list;
       }
-      return localEntries;
+      return [];
+    }
+
+    function localPaymentEntriesForPlot_(plotNo){
+      for (const k of plotNoLookupKeys_(plotNo)){
+        const loc = paymentsParseLocalStoredEntries(k);
+        if (loc.length) return loc;
+      }
+      return [];
+    }
+
+    function uniquePaymentYmsFromEntries_(entries){
+      const seen = new Set();
+      const out = [];
+      for (const e of entries || []){
+        const ym = normalizePortalYm(e.ym);
+        if (!ym || !/^\d{4}-\d{2}$/.test(ym) || seen.has(ym)) continue;
+        seen.add(ym);
+        out.push(ym);
+      }
+      return out.sort((a, b) => String(a).localeCompare(String(b)));
+    }
+
+    /** Maintenance amount received for one month (matches See Payment row amount). */
+    function maintenanceReceivedForYm_(entries, ym){
+      const sums = sumEntriesForYm(entries, ym);
+      let amt = toMoneyNumber(sums.amount);
+      if (amt > 0) return amt;
+      const best = bestMoneyEntryForYm_(entries, ym);
+      return best ? directoryPaymentLineTotal_(best) : 0;
+    }
+
+    function paymentsLoadEntries(plotNo){
+      const p = canonicalPlotNoKey_(plotNo);
+      if (!p) return [];
+      const localEntries = localPaymentEntriesForPlot_(p);
+      if (!isServerEnabled()) return localEntries;
+      const sEnt = serverPaymentEntriesForPlot_(p);
+      return mergeServerLocalPaymentEntryLists_(sEnt, localEntries);
     }
 
     /** All plot numbers on the loaded sheet whose primary or alternate contact matches `mobDigits`. */
@@ -6729,19 +6883,16 @@
     }
 
     /**
-     * Admin plot directory & access: same number as See Payment → "Total received" (sum of maintenance amount over
-     * allAdminSlotsUnion() months where amount > 0; uses paymentsLoadEntries like the modal).
+     * Admin plot directory: total maintenance received for this plot (all recorded months).
      */
     function totalAmountPaidForPlotOnly_(plotNo){
-      const p = norm(String(plotNo || ""));
+      const p = canonicalPlotNoKey_(plotNo);
       if (!p) return 0;
-      const slots = allAdminSlotsUnion();
       const entries = paymentsLoadEntries(p);
+      if (!entries.length) return 0;
       let total = 0;
-      for (const slot of slots){
-        const sums = sumEntriesForYm(entries, slot.ym);
-        const amt = toMoneyNumber(sums.amount);
-        if (amt > 0) total += amt;
+      for (const ym of uniquePaymentYmsFromEntries_(entries)){
+        total += maintenanceReceivedForYm_(entries, ym);
       }
       return total;
     }
@@ -6762,17 +6913,17 @@
       }
       const t = totalAmountPaidForOwnerMobileDigits_(mob);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="Same as See Payment → Total received (admin FY scope), summed across this contact’s plots">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="Total maintenance received for this plot (all months on file)">${escapeHtml(disp)}</td>`;
     }
 
     function totalAmountPaidCellHtmlForPlot_(plotNo){
-      const p = norm(String(plotNo || ""));
+      const p = canonicalPlotNoKey_(plotNo);
       if (!p){
         return `<td class="totalPaidCell"><span class="smallNote">—</span></td>`;
       }
       const t = totalAmountPaidForPlotOnly_(p);
       const disp = String(Math.round(t));
-      return `<td class="totalPaidCell" title="Same as See Payment → Total received for this plot (admin FY scope)">${escapeHtml(disp)}</td>`;
+      return `<td class="totalPaidCell" title="Total maintenance received for this plot (all months on file)">${escapeHtml(disp)}</td>`;
     }
 
     function paymentsSaveEntries(plotNo, entries){
@@ -6780,7 +6931,7 @@
         ym: normalizePortalYm(String(e.ym)),
         amount: toMoneyNumber(e.amount),
         lateFee: toMoneyNumber(e.lateFee),
-        by: norm(e.by || ""),
+        by: norm(e.by || e.role || ""),
         source: norm(e.source || ""),
         at: Number(e.at) || 0
       })).filter(e => e.ym && (e.amount > 0 || e.lateFee > 0));
@@ -7206,6 +7357,8 @@
     function normalizePortalYm(ym){
       const s = norm(ym);
       if (!s) return "";
+      const isoDay = s.match(/^(\d{4})-(\d{2})-\d{2}/);
+      if (isoDay) return `${isoDay[1]}-${isoDay[2]}`;
       const mIso = s.match(/^(\d{4})-(\d{1,2})$/);
       if (mIso) return `${mIso[1]}-${String(mIso[2]).padStart(2, "0")}`;
       const m6 = s.match(/^(\d{4})(\d{2})$/);
@@ -7733,7 +7886,7 @@
     }
 
     function plotNoOfRow(r){
-      return norm(r["Plot No."]);
+      return canonicalPlotNoKey_(r["Plot No."]);
     }
 
     function renderAdminTable(rows){
@@ -8486,7 +8639,7 @@
         const entries = paymentsLoadEntries(plotNo);
         let missedInFilter = false;
         for (const ym of selectedYms){
-          if (sumEntriesForYm(entries, ym).amount <= 0){
+          if (maintenanceReceivedForYm_(entries, ym) <= 0){
             missedInFilter = true;
             break;
           }
@@ -8517,18 +8670,18 @@
         // rows with this browser's localStorage (avoids dropping to 0 when /state is empty/stale).
         const plotSet = new Set();
         for (const r of allRows || []){
-          const p = plotNoOfRow(r);
-          if (norm(p)) plotSet.add(norm(p));
+          const p = canonicalPlotNoKey_(plotNoOfRow(r));
+          if (p) plotSet.add(p);
         }
         for (const k of (portalServerState.paymentsByPlot || new Map()).keys()){
-          if (norm(k)) plotSet.add(norm(k));
+          const p = canonicalPlotNoKey_(k);
+          if (p) plotSet.add(p);
         }
         for (const plotNo of plotSet){
           const entries = paymentsLoadEntries(plotNo);
           for (const ym of selectedYms){
-            const sums = sumEntriesForYm(entries, ym);
-            received += sums.amount;
-            lateFee += sums.lateFee;
+            received += maintenanceReceivedForYm_(entries, ym);
+            lateFee += toMoneyNumber(sumEntriesForYm(entries, ym).lateFee);
           }
         }
       } else {
@@ -10221,6 +10374,7 @@
           fySettingsSave({ adminMayYears: checked });
           rebuildMcMonthFilterFromFySelection();
           updateMaintenanceCollectionCards();
+          applyFilters();
         });
       }
     }

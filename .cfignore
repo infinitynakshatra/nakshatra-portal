@@ -1,0 +1,11 @@
+node_modules/
+apps-script/
+.git/
+.cursor/
+.vscode/
+_repo_check/
+*.pptx
+package-lock.json
+package.json
+scripts/prepare-clasp-push.js
+scripts/apply-clasp-pull.js

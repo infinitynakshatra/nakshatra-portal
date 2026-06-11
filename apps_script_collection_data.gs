@@ -101,10 +101,191 @@ function newId_() { return Utilities.getUuid(); }
 
 function normalizeYm_(ym) {
   var s = String(ym || "").trim();
+  if (!s) return "";
+  var isoDay = s.match(/^(\d{4})-(\d{2})-\d{2}/);
+  if (isoDay) return isoDay[1] + "-" + isoDay[2];
   var m = s.match(/^(\d{4})-(\d{1,2})$/);
-  if (!m) return s;
-  var mm = String(m[2]).padStart(2, "0");
-  return m[1] + "-" + mm;
+  if (m) return m[1] + "-" + String(m[2]).padStart(2, "0");
+  var m6 = s.match(/^(\d{4})(\d{2})$/);
+  if (m6) return m6[1] + "-" + m6[2];
+  var mon3 = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var cleaned = s.replace(/['\u2019]/g, "-").replace(/\s+/g, "");
+  var head = cleaned.slice(0, 3);
+  var mi = -1;
+  for (var i = 0; i < mon3.length; i++) {
+    if (mon3[i].toLowerCase() === head.toLowerCase()) { mi = i; break; }
+  }
+  if (mi >= 0) {
+    var tail = cleaned.slice(3).replace(/^-+/, "");
+    var yy = tail.match(/^(\d{2}|\d{4})$/);
+    if (yy) {
+      var yNum = Number(yy[1]);
+      if (!Number.isFinite(yNum)) return s;
+      if (yNum < 100) yNum += 2000;
+      return yNum + "-" + String(mi + 1).padStart(2, "0");
+    }
+  }
+  return s;
+}
+
+/** Find 0-based column index from row-1 header labels (case/spacing insensitive). */
+function headerColIndex_(headerRow, aliases) {
+  for (var c = 0; c < headerRow.length; c++) {
+    var h = String(headerRow[c] || "").trim().toLowerCase().replace(/\s+/g, " ");
+    for (var a = 0; a < aliases.length; a++) {
+      if (h === String(aliases[a]).toLowerCase()) return c;
+    }
+  }
+  return -1;
+}
+
+function collectionSheetPaymentCols_(headerRow) {
+  return {
+    atIdx: (function () {
+      var i = headerColIndex_(headerRow, ["atiso", "at iso", "timestamp", "date"]);
+      return i >= 0 ? i : 0;
+    })(),
+    plotIdx: (function () {
+      var i = headerColIndex_(headerRow, ["plotno", "plot no", "plot no.", "plot number"]);
+      return i >= 0 ? i : 1;
+    })(),
+    ymIdx: (function () {
+      var i = headerColIndex_(headerRow, ["ym", "year-month", "year month", "month"]);
+      return i >= 0 ? i : 2;
+    })(),
+    amtIdx: (function () {
+      var i = headerColIndex_(headerRow, ["amount", "maintenance", "maintenance amount", "mc amount"]);
+      return i >= 0 ? i : 4;
+    })(),
+    lateIdx: (function () {
+      var i = headerColIndex_(headerRow, ["latefee", "late fee", "late fee amount"]);
+      return i >= 0 ? i : 5;
+    })(),
+    roleIdx: (function () {
+      var i = headerColIndex_(headerRow, ["role", "by"]);
+      return i >= 0 ? i : 6;
+    })(),
+    noteIdx: (function () {
+      var i = headerColIndex_(headerRow, ["note"]);
+      return i >= 0 ? i : 11;
+    })()
+  };
+}
+
+function rowToCollectionPayment_(ss, r, cols) {
+  var plotNo = String(r[cols.plotIdx] != null ? r[cols.plotIdx] : "").trim();
+  var ym = portalYmCanon_(ss, r[cols.ymIdx]);
+  if (!plotNo || !ym || !/^\d{4}-\d{2}$/.test(ym)) return null;
+  var amount = Number(r[cols.amtIdx] || 0);
+  var lateFee = Number(r[cols.lateIdx] || 0);
+  if (!(amount > 0) && !(lateFee > 0)) return null;
+  return {
+    id: "",
+    atIso: String(r[cols.atIdx] != null ? r[cols.atIdx] : ""),
+    plotNo: plotNo,
+    ym: ym,
+    amount: amount,
+    lateFee: lateFee,
+    by: String(r[cols.roleIdx] != null ? r[cols.roleIdx] : ""),
+    source: "collection_data",
+    note: String(r[cols.noteIdx] != null ? r[cols.noteIdx] : ""),
+    requesterMobile: ""
+  };
+}
+
+function paymentsFromCollectionSheet_(sh, ss) {
+  if (!sh) return [];
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+  var lastCol = Math.max(sh.getLastColumn(), COLLECTION_HEADERS.length);
+  var headerRow = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var cols = collectionSheetPaymentCols_(headerRow);
+  var start = Math.max(2, lastRow - 4999);
+  var vals = sh.getRange(start, 1, lastRow, lastCol).getValues();
+  var map = {};
+  var i;
+  for (i = 0; i < vals.length; i++) {
+    var row = rowToCollectionPayment_(ss, vals[i], cols);
+    if (!row) continue;
+    var key = portalPaymentKey_(row.plotNo, row.ym);
+    map[key] = pickBetterPortalPayment_(map[key], row);
+  }
+  var out = [];
+  for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) out.push(map[k]);
+  return out;
+}
+
+function paymentsFromMonthBackupTabs_(ss) {
+  var sheets = ss.getSheets();
+  var map = {};
+  var si;
+  for (si = 0; si < sheets.length; si++) {
+    var sh = sheets[si];
+    var name = String(sh.getName() || "");
+    if (name.indexOf(MONTH_TAB_PREFIX) !== 0) continue;
+    var rows = paymentsFromCollectionSheet_(sh, ss);
+    var i;
+    for (i = 0; i < rows.length; i++) {
+      var row = rows[i];
+      var k = portalPaymentKey_(row.plotNo, row.ym);
+      map[k] = pickBetterPortalPayment_(map[k], row);
+    }
+  }
+  var out = [];
+  for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) out.push(map[k]);
+  return out;
+}
+
+function readPortalPayments_(ss) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_PAYMENTS_SHEET, PORTAL_PAYMENTS_HEADERS);
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return [];
+  var lastCol = Math.max(sh.getLastColumn(), PORTAL_PAYMENTS_HEADERS.length);
+  var headerRow = sh.getRange(1, 1, 1, lastCol).getValues()[0];
+  var col = {};
+  var fieldAliases = {
+    id: ["id"],
+    atIso: ["atiso", "at iso"],
+    plotNo: ["plotno", "plot no", "plot no."],
+    ym: ["ym", "year-month", "year month"],
+    amount: ["amount", "maintenance", "maintenance amount"],
+    lateFee: ["latefee", "late fee"],
+    by: ["by", "role"],
+    source: ["source"],
+    note: ["note"],
+    requesterMobile: ["requestermobile", "requester mobile", "mobile"]
+  };
+  var fi;
+  for (fi = 0; fi < PORTAL_PAYMENTS_HEADERS.length; fi++) {
+    var field = PORTAL_PAYMENTS_HEADERS[fi];
+    var idx = headerColIndex_(headerRow, fieldAliases[field] || [field.toLowerCase()]);
+    col[field] = idx >= 0 ? idx : fi;
+  }
+  var vals = sh.getRange(2, 1, lastRow, lastCol).getValues();
+  var out = [];
+  var r;
+  for (r = 0; r < vals.length; r++) {
+    var row = vals[r];
+    var plotNo = String(row[col.plotNo] != null ? row[col.plotNo] : "").trim();
+    var ym = portalYmCanon_(ss, row[col.ym]);
+    if (!plotNo || !ym || !/^\d{4}-\d{2}$/.test(ym)) continue;
+    var amount = Number(row[col.amount] || 0);
+    var lateFee = Number(row[col.lateFee] || 0);
+    if (!(amount > 0) && !(lateFee > 0)) continue;
+    out.push({
+      id: String(row[col.id] != null ? row[col.id] : ""),
+      atIso: String(row[col.atIso] != null ? row[col.atIso] : ""),
+      plotNo: plotNo,
+      ym: ym,
+      amount: amount,
+      lateFee: lateFee,
+      by: String(row[col.by] != null ? row[col.by] : ""),
+      source: String(row[col.source] != null ? row[col.source] : ""),
+      note: String(row[col.note] != null ? row[col.note] : ""),
+      requesterMobile: String(row[col.requesterMobile] != null ? row[col.requesterMobile] : "")
+    });
+  }
+  return out;
 }
 
 /** When Sheets formats `ym` as a date, getValues() returns Date — use for reads, merges, and delete matching. */
@@ -678,41 +859,15 @@ function paymentExists_(paymentsSh, plotNo, ym) {
 }
 
 function paymentsFromCollectionData_(ss) {
-  // Build payments list from collection_data log so portal reflects entries even if portal_payments is missing.
-  var sh = ss.getSheetByName(TARGET_SHEET_NAME);
-  if (!sh) return [];
-  ensureHeaders_(sh);
-  var lastRow = sh.getLastRow();
-  if (lastRow < 2) return [];
-  var start = Math.max(2, lastRow - 4999); // limit scan for performance
-  var lastCol = Math.max(sh.getLastColumn(), COLLECTION_HEADERS.length);
-  // IMPORTANT: getRange(startRow, startCol, endRow, endCol) — endRow must be lastRow, not row count.
-  var vals = sh.getRange(start, 1, lastRow, lastCol).getValues();
-  var map = {};
-  for (var i = 0; i < vals.length; i++) {
-    var r = vals[i];
-    var plotNo = String(r[1] || "").trim();
-    var ym = ymCellToCanon_(ss, r[2]);
-    if (!plotNo || !ym) continue;
-    var key = plotNo + "|" + ym;
-    var atIso = String(r[0] || "");
-    var row = {
-      id: "",
-      atIso: atIso,
-      plotNo: plotNo,
-      ym: ym,
-      amount: Number(r[4] || 0),
-      lateFee: Number(r[5] || 0),
-      by: String(r[6] || ""),
-      source: "collection_data",
-      note: String(r[11] || ""),
-      requesterMobile: String(r[8] || "")
-    };
-    map[key] = pickBetterPortalPayment_(map[key], row);
-  }
+  // Header-based read: works when collection_data / collection_m_* columns were reordered in the Sheet UI.
+  var master = ss.getSheetByName(TARGET_SHEET_NAME);
   var out = [];
-  for (var k in map) if (Object.prototype.hasOwnProperty.call(map, k)) out.push(map[k]);
-  return out;
+  if (master) {
+    ensureHeaders_(master);
+    out = paymentsFromCollectionSheet_(master, ss);
+  }
+  var monthRows = paymentsFromMonthBackupTabs_(ss);
+  return mergePortalPaymentsDedupe_(out, monthRows);
 }
 
 function getPortalState_(ss) {
@@ -746,7 +901,7 @@ function getPortalState_(ss) {
   var pen = ensureSheetWithHeaders_(ss, PORTAL_PENDING_SHEET, PORTAL_PENDING_HEADERS);
   var tix = ensureSheetWithHeaders_(ss, PORTAL_TICKETS_SHEET, PORTAL_TICKETS_HEADERS);
   var noti = ensureSheetWithHeaders_(ss, PORTAL_NOTICES_SHEET, PORTAL_NOTICES_HEADERS);
-  var payments = rowsToObjects_(pay, PORTAL_PAYMENTS_HEADERS);
+  var payments = readPortalPayments_(ss);
   var out = {
     ok: true,
     payments: payments,
@@ -754,10 +909,13 @@ function getPortalState_(ss) {
     tickets: rowsToObjects_(tix, PORTAL_TICKETS_HEADERS),
     notices: rowsToObjects_(noti, PORTAL_NOTICES_HEADERS)
   };
-  // Normalize ym fields so clients are consistent.
+  // Normalize ym/plot fields so clients are consistent.
   try {
-    for (var i = 0; i < out.payments.length; i++) out.payments[i].ym = normalizeYm_(out.payments[i].ym);
-    for (var j = 0; j < out.pending.length; j++) out.pending[j].ym = normalizeYm_(out.pending[j].ym);
+    for (var i = 0; i < out.payments.length; i++) {
+      out.payments[i].ym = portalYmCanon_(ss, out.payments[i].ym);
+      out.payments[i].plotNo = String(out.payments[i].plotNo || "").trim();
+    }
+    for (var j = 0; j < out.pending.length; j++) out.pending[j].ym = portalYmCanon_(ss, out.pending[j].ym);
   } catch (eN) {}
 
   // Merge collection_data-derived payments with portal_payments (same plot+month: pick best row).
