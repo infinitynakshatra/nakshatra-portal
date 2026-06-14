@@ -1922,6 +1922,7 @@
             <div class="profileActions">
               <button class="btn secondary tiny" id="adminNotesBtn" type="button">Admin notes</button>
               <button class="btn secondary tiny" id="resetUserPwBtn" type="button">Reset User PW</button>
+              <button class="btn secondary tiny" id="adminTestMailBtn" type="button">Test OTP email</button>
               <button class="btn secondary tiny" id="changePwBtn" type="button">Change password</button>
               <button class="btn danger tiny" id="logoutBtn" type="button">Logout</button>
             </div>
@@ -5377,7 +5378,12 @@
         const sec = Math.max(1, Math.ceil((Number(j?.retryAfterMs) || 60000) / 1000));
         return `Please wait ${sec} second(s) before requesting another OTP.`;
       }
-      if (c === "email_send_failed") return "Could not send OTP email. Ask admin to open Apps Script, run any function once, and approve Gmail/Mail permissions. Also check spam folder.";
+      if (c === "email_send_failed") {
+        const detail = String(j?.detail || "").trim();
+        const base = "Could not send OTP email.";
+        if (detail) return base + " Server: " + detail.slice(0, 180);
+        return base + " Admin must open Apps Script → Run authorizeInfinityNakshatraMail → Authorize. Use society Gmail (not corporate email). Check spam.";
+      }
       if (c === "otp_request_failed") return "Could not send OTP (server error). Ask admin to redeploy Apps Script and authorize email in the script project.";
       if (c === "invalid_otp") return "Invalid or expired OTP. Request a new code and try again.";
       if (c === "invalid_mobile") return "Enter a valid 10-digit mobile number.";
@@ -7361,6 +7367,38 @@
       const el = document.getElementById("resetUserPwMobile");
       if (el) el.value = "";
       showBackdrop("resetUserPwBackdrop", true);
+    }
+
+    async function adminTestOwnerOtpMail(){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin"){
+        alert("Only admins can test OTP email.");
+        return;
+      }
+      closeAdminProfileMenu();
+      const testEmail = prompt("Send test OTP email to this address:", "")?.trim();
+      if (!testEmail) return;
+      if (!isServerEnabled()){
+        alert("Server not configured.");
+        return;
+      }
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "diagnosePortalMail",
+        testEmail
+      });
+      let j = {};
+      try { j = JSON.parse(r.txt || "{}"); } catch {}
+      if (j.mailOk){
+        alert(`Test OTP email sent to ${testEmail} via ${j.via || "mail"}. Quota left today: ${j.quota}. Check inbox/spam.`);
+        return;
+      }
+      alert(
+        "OTP email is NOT working yet.\n\n" +
+        (j.error || r.error || "Unknown error") +
+        "\n\nFix: Open Google Sheet → Extensions → Apps Script → select authorizeInfinityNakshatraMail → Run → Authorize all permissions.\n" +
+        "Use the society Gmail account that owns this sheet (not a blocked corporate email)."
+      );
     }
 
     function sheetListsOwnerMobile(mobileDigits){
@@ -11381,6 +11419,8 @@
       if (adminNotesBtn) adminNotesBtn.addEventListener("click", () => openAdminNotesModal());
       const resetUserPwBtn = document.getElementById("resetUserPwBtn");
       if (resetUserPwBtn) resetUserPwBtn.addEventListener("click", () => openResetUserPwModal());
+      const adminTestMailBtn = document.getElementById("adminTestMailBtn");
+      if (adminTestMailBtn) adminTestMailBtn.addEventListener("click", () => { void adminTestOwnerOtpMail(); });
       const adminNotesCloseBtn = document.getElementById("adminNotesCloseBtn");
       if (adminNotesCloseBtn) adminNotesCloseBtn.addEventListener("click", () => showBackdrop("adminNotesBackdrop", false));
       const resetUserPwCloseBtn = document.getElementById("resetUserPwCloseBtn");

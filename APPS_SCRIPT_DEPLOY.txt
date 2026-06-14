@@ -73,10 +73,15 @@ IMPORTANT — Web app access for Cloudflare relay:
   - Who has access: Anyone   (NOT "Anyone with Google account")
   In appsscript.json use "access": "ANYONE_ANONYMOUS".
 
-IMPORTANT — Owner login OTP email (first time after deploy):
-  Apps Script → open project → select function sendOwnerLoginOtpEmail_ or requestOwnerLoginOtp
-  → Run → Authorize → allow Gmail / Mail access for the society admin Google account.
-  Without this step, Send OTP shows "Could not send OTP email".
+IMPORTANT — Owner login OTP email (required once):
+  1. Open the Google Sheet → Extensions → Apps Script.
+  2. In the function dropdown choose: authorizeInfinityNakshatraMail
+  3. Click Run ▶ → Review permissions → Allow (Gmail + Mail + Sheets).
+  4. Check the society Gmail inbox for a test message "login OTP" with code 123456.
+  Use the SAME Google account that owns the sheet and deployed the Web app.
+  Corporate/work emails (e.g. company Google Workspace) often BLOCK script email — use society Gmail.
+
+  After authorization, Admin → Profile → Test OTP email to verify from the portal.
 
 ----------------------------------------------------------------------
 My Gate (Security visitor log)
