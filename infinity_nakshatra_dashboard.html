@@ -473,12 +473,17 @@
       .serviceContactsTable thead th:nth-child(1){ font-size:10px; padding:6px 2px; }
     }
     @media (max-width: 768px){
+      .serviceContactsTable thead th:nth-child(2),
+      .serviceContactsTable tbody td.svcNameCell,
       .serviceContactsTable thead th:nth-child(4),
       .serviceContactsTable tbody td.svcDetailsCell{
         white-space:nowrap;
         word-break:normal;
         overflow-wrap:normal;
         line-height:1.15;
+      }
+      .serviceContactsTable tbody td.svcNameCell{
+        min-width:7.5rem;
       }
     }
     /* Owner plot details — Field/Value table, no horizontal scroll on mobile */
