@@ -9803,6 +9803,25 @@
       }
     }
 
+    function userPlotDetailsColumns_(headers){
+      const cols = (headers && headers.length) ? headers.slice() : [];
+      const constructionCol = "House Construction Status";
+      const registrationCols = ["House Registration Status", "Gram-Panchayat Registration Status"];
+      const fromIdx = cols.indexOf(constructionCol);
+      if (fromIdx < 0) return cols;
+      cols.splice(fromIdx, 1);
+      let insertAt = cols.length;
+      for (const regCol of registrationCols){
+        const regIdx = cols.indexOf(regCol);
+        if (regIdx >= 0){
+          insertAt = regIdx;
+          break;
+        }
+      }
+      cols.splice(insertAt, 0, constructionCol);
+      return cols;
+    }
+
     function renderUserDetails(rows){
       const el = document.getElementById("userDetails");
       if (!rows || !rows.length){
@@ -9810,7 +9829,7 @@
         return;
       }
 
-      const cols = sheetHeaders.length ? sheetHeaders : Object.keys(rows[0]);
+      const cols = userPlotDetailsColumns_(sheetHeaders.length ? sheetHeaders : Object.keys(rows[0]));
       const blocks = rows.map((row, idx) => {
         const pno = plotNoOfRow(row);
         const title = pno ? `Plot ${escapeHtml(pno)}` : `Linked row ${idx + 1} (no Plot No.)`;
