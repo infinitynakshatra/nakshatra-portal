@@ -2662,6 +2662,34 @@
           </div>
         </div>
       </div>
+
+      <div class="grid" style="margin-top:12px;">
+        <div class="cardWide" id="userOwnDocsSection">
+          <div class="row" style="align-items:flex-start;">
+            <div style="flex:1; min-width:min(240px, 100%);">
+              <strong>Own Documents</strong>
+              <div class="smallNote">Your private document list — visible only to you on this browser. First create a folder on your own Google Drive (using your personal email), upload your confidential documents there, then add each document here one by one with its link for easy access.<br><br>Admin cannot view or track this section. Links are stored only on your device in this browser.</div>
+            </div>
+            <button class="btn secondary" type="button" id="ownDocAddBtn" style="flex-shrink:0; margin-left:auto;">Add document</button>
+          </div>
+          <div class="scroll-x" style="overflow:auto; margin-top:12px; max-height:min(380px, 52vh);">
+            <table class="adminDirTable">
+              <thead>
+                <tr>
+                  <th class="docNoTh">No.</th>
+                  <th class="docDownTh">Open</th>
+                  <th class="docNameTh">Name</th>
+                  <th>Details</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="userOwnDocsTbody">
+                <tr><td colspan="5">—</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="wrap" id="watchmanRoot" style="display:none;">
@@ -3549,6 +3577,35 @@
     </div>
   </div>
 
+  <div class="backdrop" id="ownDocBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ownDocModalTitle" style="width:min(560px, 96vw);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="ownDocModalTitle">Add document</div>
+          <div class="modalSub">Private — saved only in this browser for your login.</div>
+        </div>
+        <button class="btn secondary" id="ownDocModalCloseBtn" type="button">Close</button>
+      </div>
+      <input type="hidden" id="ownDocEditId" value="" />
+      <div class="field">
+        <label for="ownDocName">Document name</label>
+        <input id="ownDocName" type="text" autocomplete="off" placeholder="e.g. Sale deed, Aadhar, NOC" />
+      </div>
+      <div class="field">
+        <label for="ownDocDetails">Details</label>
+        <textarea id="ownDocDetails" rows="3" autocomplete="off" placeholder="Optional note (expiry, purpose, etc.)"></textarea>
+      </div>
+      <div class="field">
+        <label for="ownDocUrl">Drive / document link</label>
+        <input id="ownDocUrl" type="url" inputmode="url" autocomplete="off" placeholder="https://drive.google.com/…" />
+      </div>
+      <div class="err" id="ownDocErr"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn" id="ownDocSaveBtn" type="button">Save</button>
+      </div>
+    </div>
+  </div>
+
   <div class="backdrop" id="projectDocBackdrop" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="projectDocModalTitle" style="width:min(560px, 96vw);">
       <div class="modalHead">
@@ -3614,6 +3671,7 @@
     const LS_SERVICE_CONTACTS = "ins_service_contacts_v1";
     /** Per-login keys: which doc ids this user has "liked" (toggle). */
     const LS_DOC_USER_LIKES = "ins_doc_user_likes_v1";
+    const LS_OWN_DOCS_PREFIX = "ins_own_docs_v1:";
     /** Admin "Months in scope" selection (multi-select). */
     const LS_MC_SELECTED_YMS = "ins_mc_selected_yms_v1";
     const MC_PER_MONTH = 350;
@@ -6152,6 +6210,154 @@
       renderMeetingDocsTables();
     }
 
+    function ownDocsStorageKey_(userId){
+      const d = digitsOnly(norm(userId));
+      return LS_OWN_DOCS_PREFIX + (d || "unknown");
+    }
+
+    function makeOwnDocId(){
+      return `owndoc_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 9)}`;
+    }
+
+    function ownDocsLoad(){
+      const sess = readSession();
+      if (!sess || sess.role !== "user") return { docs: [] };
+      try {
+        const raw = localStorage.getItem(ownDocsStorageKey_(sess.userId));
+        if (!raw) return { docs: [] };
+        const o = JSON.parse(raw);
+        const arr = Array.isArray(o.docs) ? o.docs : [];
+        return {
+          docs: arr.map(x => ({
+            id: String(x?.id || ""),
+            name: norm(x?.name),
+            details: norm(x?.details),
+            url: norm(x?.url),
+            createdAt: Number(x?.createdAt) || 0
+          })).filter(x => x.id && x.name)
+        };
+      } catch {
+        return { docs: [] };
+      }
+    }
+
+    function ownDocsSave(docs){
+      const sess = readSession();
+      if (!sess || sess.role !== "user") return;
+      try {
+        localStorage.setItem(ownDocsStorageKey_(sess.userId), JSON.stringify({ v: 1, docs: docs || [] }));
+      } catch {
+        alert("Could not save your documents (storage may be full).");
+      }
+    }
+
+    function renderOwnDocsTable(){
+      const tbody = document.getElementById("userOwnDocsTbody");
+      if (!tbody) return;
+      const sess = readSession();
+      if (!sess || sess.role !== "user"){
+        tbody.innerHTML = `<tr><td colspan="5">Sign in as an owner to manage your documents.</td></tr>`;
+        return;
+      }
+      const docs = [...ownDocsLoad().docs].sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+      if (!docs.length){
+        tbody.innerHTML = `<tr><td colspan="5">No documents yet. Use <b>Add document</b> after uploading files to your personal Google Drive folder.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = docs.map((d, idx) => {
+        const no = idx + 1;
+        const url = norm(d.url);
+        const canOpen = isHttpUrl(url);
+        const openHtml = canOpen
+          ? `<a class="btn secondary tiny docDownBtn" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="Open ${escapeHtml(d.name)}" aria-label="Open ${escapeHtml(d.name)}">↗</a>`
+          : `<span class="docDownEmpty" aria-hidden="true">—</span>`;
+        return `<tr>
+          <td class="docNoCell">${no}</td>
+          <td class="docDownCell docActionsSmall">${openHtml}</td>
+          <td class="docNameCell">${escapeHtml(d.name)}</td>
+          <td class="docDetailsFullCell">${d.details ? escapeHtml(d.details) : "—"}</td>
+          <td class="docActionsCell docActionsSmall">
+            <button type="button" class="btn secondary tiny" data-own-doc-edit="${escapeHtml(String(d.id))}">Edit</button>
+            <button type="button" class="btn danger tiny" data-own-doc-delete="${escapeHtml(String(d.id))}">Delete</button>
+          </td>
+        </tr>`;
+      }).join("");
+    }
+
+    function openOwnDocModal(editId){
+      const sess = readSession();
+      if (!sess || sess.role !== "user"){
+        alert("Owner login required.");
+        return;
+      }
+      setErr(document.getElementById("ownDocErr"), "");
+      document.getElementById("ownDocEditId").value = editId ? String(editId) : "";
+      document.getElementById("ownDocModalTitle").textContent = editId ? "Edit document" : "Add document";
+      if (editId){
+        const d = ownDocsLoad().docs.find(x => String(x.id) === String(editId));
+        document.getElementById("ownDocName").value = d ? d.name : "";
+        document.getElementById("ownDocDetails").value = d ? d.details : "";
+        document.getElementById("ownDocUrl").value = d ? d.url : "";
+      } else {
+        document.getElementById("ownDocName").value = "";
+        document.getElementById("ownDocDetails").value = "";
+        document.getElementById("ownDocUrl").value = "";
+      }
+      showBackdrop("ownDocBackdrop", true);
+    }
+
+    function saveOwnDocFromModal(){
+      const errEl = document.getElementById("ownDocErr");
+      setErr(errEl, "");
+      const sess = readSession();
+      if (!sess || sess.role !== "user"){
+        setErr(errEl, "Owner login required.");
+        return;
+      }
+      const name = norm(document.getElementById("ownDocName").value);
+      const details = norm(document.getElementById("ownDocDetails").value);
+      const url = norm(document.getElementById("ownDocUrl").value);
+      const editId = norm(document.getElementById("ownDocEditId").value);
+      if (!name){
+        setErr(errEl, "Enter a document name.");
+        return;
+      }
+      if (!isHttpUrl(url)){
+        setErr(errEl, "Enter a valid link starting with http:// or https://");
+        return;
+      }
+      const store = ownDocsLoad();
+      if (editId){
+        const d = store.docs.find(x => String(x.id) === String(editId));
+        if (d){
+          d.name = name;
+          d.details = details;
+          d.url = url;
+        }
+      } else {
+        store.docs.push({
+          id: makeOwnDocId(),
+          name,
+          details,
+          url,
+          createdAt: Date.now()
+        });
+      }
+      ownDocsSave(store.docs);
+      showBackdrop("ownDocBackdrop", false);
+      renderOwnDocsTable();
+    }
+
+    function deleteOwnDocById(id){
+      const sess = readSession();
+      if (!sess || sess.role !== "user") return;
+      if (!confirm("Delete this document from your private list?")) return;
+      const store = ownDocsLoad();
+      store.docs = store.docs.filter(d => String(d.id) !== String(id));
+      ownDocsSave(store.docs);
+      renderOwnDocsTable();
+    }
+
     const GB_ROLE_RESPONSIBILITY_TEXT = {
       "President / Chairman": "Provides overall guidance, leads meetings, and ensures compliance with society rules.",
       "Vice President / Vice Chairman": "Assists the President and steps into the leadership role in their absence.",
@@ -6603,6 +6809,7 @@
         renderProjectDocsTables();
         renderMeetingDocsTables();
         renderServiceContactsTables();
+        renderOwnDocsTable();
         renderPortalNotificationsPanels();
         renderSocietyDetailsPanels();
         return;
@@ -10224,6 +10431,7 @@
       else destroyPayCharts_();
       renderPortalNotificationsPanels();
       renderUserGateVisitsPanel();
+      renderOwnDocsTable();
     }
 
     function compressImageFileToJpegDataUrl_(file, maxW){
@@ -11188,6 +11396,23 @@
         userMeetingDocsTbody.addEventListener("click", (ev) => {
           const t = ev.target.closest("[data-mtg-doc-like]");
           if (t) toggleMeetingDocLikeById(t.getAttribute("data-mtg-doc-like"));
+        });
+      }
+
+      const ownDocAddBtn = document.getElementById("ownDocAddBtn");
+      if (ownDocAddBtn) ownDocAddBtn.addEventListener("click", () => openOwnDocModal(null));
+      const ownDocModalCloseBtn = document.getElementById("ownDocModalCloseBtn");
+      if (ownDocModalCloseBtn) ownDocModalCloseBtn.addEventListener("click", () => showBackdrop("ownDocBackdrop", false));
+      const ownDocSaveBtn = document.getElementById("ownDocSaveBtn");
+      if (ownDocSaveBtn) ownDocSaveBtn.addEventListener("click", saveOwnDocFromModal);
+      const userOwnDocsTbody = document.getElementById("userOwnDocsTbody");
+      if (userOwnDocsTbody && !globalThis.__insUserOwnDocsWired){
+        globalThis.__insUserOwnDocsWired = true;
+        userOwnDocsTbody.addEventListener("click", (ev) => {
+          const ed = ev.target.closest("[data-own-doc-edit]");
+          if (ed){ openOwnDocModal(ed.getAttribute("data-own-doc-edit")); return; }
+          const del = ev.target.closest("[data-own-doc-delete]");
+          if (del) deleteOwnDocById(del.getAttribute("data-own-doc-delete"));
         });
       }
 
