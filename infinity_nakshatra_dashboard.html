@@ -5378,11 +5378,15 @@
         const sec = Math.max(1, Math.ceil((Number(j?.retryAfterMs) || 60000) / 1000));
         return `Please wait ${sec} second(s) before requesting another OTP.`;
       }
+      if (c === "mail_not_authorized") return "OTP email is not authorized yet. Admin: open Google Sheet → Extensions → Apps Script → run authorizeInfinityNakshatraMail → Allow all permissions. Use society Gmail (not corporate email).";
       if (c === "email_send_failed") {
         const detail = String(j?.detail || "").trim();
+        if (detail.toLowerCase().includes("permission") || detail.toLowerCase().includes("script.send_mail")) {
+          return "OTP email is not authorized yet. Admin: Google Sheet → Extensions → Apps Script → run authorizeInfinityNakshatraMail → Allow permissions.";
+        }
         const base = "Could not send OTP email.";
-        if (detail) return base + " Server: " + detail.slice(0, 180);
-        return base + " Admin must open Apps Script → Run authorizeInfinityNakshatraMail → Authorize. Use society Gmail (not corporate email). Check spam.";
+        if (detail) return base + " " + detail.slice(0, 120);
+        return base + " Ask admin to authorize mail in Apps Script.";
       }
       if (c === "otp_request_failed") return "Could not send OTP (server error). Ask admin to redeploy Apps Script and authorize email in the script project.";
       if (c === "invalid_otp") return "Invalid or expired OTP. Request a new code and try again.";
@@ -7394,10 +7398,11 @@
         return;
       }
       alert(
-        "OTP email is NOT working yet.\n\n" +
+        (j.errorCode === "mail_not_authorized"
+          ? "OTP email is NOT authorized yet.\n\n"
+          : "OTP email is NOT working yet.\n\n") +
         (j.error || r.error || "Unknown error") +
-        "\n\nFix: Open Google Sheet → Extensions → Apps Script → select authorizeInfinityNakshatraMail → Run → Authorize all permissions.\n" +
-        "Use the society Gmail account that owns this sheet (not a blocked corporate email)."
+        "\n\nFix:\n1. Open Google Sheet → Extensions → Apps Script\n2. Select authorizeInfinityNakshatraMail\n3. Click Run → Review permissions → Allow\n4. Check society Gmail inbox for test OTP 123456\n\nUse society Gmail that owns the sheet (corporate email often blocks script mail)."
       );
     }
 

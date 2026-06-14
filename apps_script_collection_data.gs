@@ -592,9 +592,17 @@ function lookupOwnerForMobile_(ss, mobile) {
   return { found: false, email: "" };
 }
 
+function ownerMailErrorCode_(detail) {
+  var d = String(detail || "").toLowerCase();
+  if (d.indexOf("permission") >= 0 || d.indexOf("script.send_mail") >= 0 || d.indexOf("authorization") >= 0) {
+    return "mail_not_authorized";
+  }
+  return "email_send_failed";
+}
+
 function sendOwnerLoginOtpEmail_(toEmail, otpCode) {
   var to = String(toEmail || "").trim().toLowerCase();
-  if (!to) return { ok: false, detail: "empty_recipient" };
+  if (!to) return { ok: false, error: "email_send_failed", detail: "empty_recipient" };
   var subject = "Infinity Nakshatra Society — login OTP";
   var body =
     "Your one-time login code is: " + otpCode +
@@ -607,24 +615,19 @@ function sendOwnerLoginOtpEmail_(toEmail, otpCode) {
   var mailOpts = { htmlBody: htmlBody, name: "Infinity Nakshatra Society" };
   var errors = [];
   try {
-    var quota = MailApp.getRemainingDailyQuota();
-    if (quota <= 0) return { ok: false, detail: "Daily MailApp quota is 0. Try again tomorrow." };
-  } catch (eQ) {
-    errors.push("quota:" + String(eQ && eQ.message ? eQ.message : eQ));
-  }
-  try {
     MailApp.sendEmail(to, subject, body, mailOpts);
     return { ok: true, via: "MailApp" };
   } catch (eM) {
-    errors.push("MailApp:" + String(eM && eM.message ? eM.message : eM));
+    errors.push(String(eM && eM.message ? eM.message : eM));
   }
   try {
     GmailApp.sendEmail(to, subject, body, mailOpts);
     return { ok: true, via: "GmailApp" };
   } catch (eG) {
-    errors.push("GmailApp:" + String(eG && eG.message ? eG.message : eG));
+    errors.push(String(eG && eG.message ? eG.message : eG));
   }
-  return { ok: false, detail: errors.join(" | ") || "send_failed" };
+  var detail = errors.join(" | ") || "send_failed";
+  return { ok: false, error: ownerMailErrorCode_(detail), detail: detail };
 }
 
 function ownerEmailFromRow_(sh, row) {
@@ -1663,7 +1666,7 @@ function doPost(e) {
       var sent = sendOwnerLoginOtpEmail_(ownerEmail, otpCode);
       if (!sent.ok) {
         audit_(ss, mobOtp, "requestOwnerLoginOtp_failed", { emailHint: maskOwnerEmail_(ownerEmail), detail: String(sent.detail || "").slice(0, 500) });
-        return json_({ ok: false, error: "email_send_failed", detail: sent.detail || "" }, 500);
+        return json_({ ok: false, error: sent.error || "email_send_failed", detail: sent.detail || "" }, 500);
       }
       var otpHash = hashOwnerLoginOtp_(mobOtp, otpCode);
       var otpExp = Date.now() + 10 * 60 * 1000;
@@ -1740,13 +1743,13 @@ function doPost(e) {
         quota: -1,
         mailOk: false,
         via: "",
-        error: ""
+        error: "",
+        errorCode: ""
       };
       try {
         diag.quota = MailApp.getRemainingDailyQuota();
       } catch (eQ) {
-        diag.error = "MailApp not authorized: " + String(eQ && eQ.message ? eQ.message : eQ);
-        return json_(diag, 200);
+        diag.quota = -1;
       }
       try {
         diag.effectiveUser = Session.getEffectiveUser().getEmail() || Session.getActiveUser().getEmail() || "";
@@ -1756,12 +1759,16 @@ function doPost(e) {
       var testTo = normalizeOwnerEmail_(data.testEmail || diag.effectiveUser);
       if (!testTo) {
         diag.error = "Provide testEmail in request body.";
+        diag.errorCode = "invalid_test_email";
         return json_(diag, 200);
       }
       var testSent = sendOwnerLoginOtpEmail_(testTo, "000000");
       diag.mailOk = !!testSent.ok;
       diag.via = testSent.via || "";
-      if (!testSent.ok) diag.error = testSent.detail || "send_failed";
+      if (!testSent.ok) {
+        diag.error = testSent.detail || "send_failed";
+        diag.errorCode = testSent.error || "email_send_failed";
+      }
       return json_(diag, 200);
     }
     if (action === "submitPaymentRequest") {
