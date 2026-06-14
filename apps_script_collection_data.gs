@@ -74,6 +74,16 @@ var OWNER_PHONE_ALT_HEADERS = [
 /** Single cell: May-start calendar year for the FY shown on the owner portal (shared across devices). */
 const PORTAL_FY_SETTINGS_SHEET = "portal_fy_settings";
 const PORTAL_FY_SETTINGS_HEADERS = ["ownerPortalMayYear"];
+/** Short-lived owner login OTP (email delivery via MailApp — free with Google account). */
+const PORTAL_OWNER_LOGIN_OTP_SHEET = "portal_owner_login_otp";
+const PORTAL_OWNER_LOGIN_OTP_HEADERS = ["mobile", "otpHash", "expiresAt", "createdAt"];
+var OWNER_EMAIL_HEADERS = [
+  "Owner Email",
+  "Email",
+  "Primary Email",
+  "E-mail",
+  "Email Address"
+];
 
 function ensureSheetWithHeaders_(ss, name, headers) {
   var sh = ss.getSheetByName(name);
@@ -482,6 +492,121 @@ function lookupPrimaryMobileDigitsForPlot_(ss, plotNo) {
     }
   }
   return null;
+}
+
+function ownerMobileDigitsFromRow_(sh, row) {
+  var primaryCol = findColByHeaderKey_(sh, "Primary Contact Number");
+  var dig = rowTenDigitPhoneFromCol_(sh, row, primaryCol);
+  if (dig) return dig;
+  var ai;
+  for (ai = 0; ai < OWNER_PHONE_ALT_HEADERS.length; ai++) {
+    var ac = findColByHeaderKey_(sh, OWNER_PHONE_ALT_HEADERS[ai]);
+    dig = rowTenDigitPhoneFromCol_(sh, row, ac);
+    if (dig) return dig;
+  }
+  return null;
+}
+
+function ownerEmailFromRow_(sh, row) {
+  var ei;
+  for (ei = 0; ei < OWNER_EMAIL_HEADERS.length; ei++) {
+    var ec = findColByHeaderKey_(sh, OWNER_EMAIL_HEADERS[ei]);
+    if (ec < 1) continue;
+    var em = String(sh.getRange(row, ec).getDisplayValue() || "").trim();
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return em;
+  }
+  return "";
+}
+
+function mobileRegisteredAsOwner_(ss, mobile) {
+  return !!lookupOwnerEmailRowForMobile_(ss, mobile, false);
+}
+
+function lookupOwnerEmailForMobile_(ss, mobile) {
+  return lookupOwnerEmailRowForMobile_(ss, mobile, true);
+}
+
+function lookupOwnerEmailRowForMobile_(ss, mobile, needEmail) {
+  var want = String(mobile || "").replace(/\D/g, "").slice(-10);
+  if (want.length !== 10) return needEmail ? "" : false;
+  var gi;
+  for (gi = 0; gi < PORTAL_OWNER_PLOT_SHEET_GIDS.length; gi++) {
+    var sh;
+    try {
+      sh = ss.getSheetById(PORTAL_OWNER_PLOT_SHEET_GIDS[gi]);
+    } catch (e1) {
+      continue;
+    }
+    if (!sh) continue;
+    var lastRow = sh.getLastRow();
+    var r;
+    for (r = 2; r <= lastRow; r++) {
+      var dig = ownerMobileDigitsFromRow_(sh, r);
+      if (dig !== want) continue;
+      if (!needEmail) return true;
+      var em = ownerEmailFromRow_(sh, r);
+      if (em) return em;
+    }
+  }
+  return needEmail ? "" : false;
+}
+
+function maskOwnerEmail_(email) {
+  var s = String(email || "").trim();
+  var at = s.indexOf("@");
+  if (at < 2) return "***";
+  return s.charAt(0) + "***" + s.slice(at);
+}
+
+function hashOwnerLoginOtp_(mobile, otp) {
+  var raw = String(mobile) + "|" + String(otp) + "|owner_otp_v1";
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, raw);
+  return Utilities.base64Encode(digest);
+}
+
+function writeOwnerLoginOtp_(ss, mobile, otpHash, expiresAt) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_OWNER_LOGIN_OTP_SHEET, PORTAL_OWNER_LOGIN_OTP_HEADERS);
+  deleteWhere_(sh, function (row) {
+    return String(row[0] || "").replace(/\D/g, "").slice(-10) === mobile;
+  });
+  sh.appendRow([mobile, otpHash, expiresAt, Date.now()]);
+}
+
+function ownerLoginOtpCooldownMs_(ss, mobile) {
+  var sh = ss.getSheetByName(PORTAL_OWNER_LOGIN_OTP_SHEET);
+  if (!sh || sh.getLastRow() < 2) return 0;
+  var rows = sh.getDataRange().getValues();
+  var now = Date.now();
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (String(rows[i][0] || "").replace(/\D/g, "").slice(-10) !== mobile) continue;
+    var created = Number(rows[i][3]) || 0;
+    if (created && now - created < 60000) return 60000 - (now - created);
+  }
+  return 0;
+}
+
+function verifyOwnerLoginOtp_(ss, mobile, otp) {
+  var want = String(mobile || "").replace(/\D/g, "").slice(-10);
+  var code = String(otp || "").trim();
+  if (want.length !== 10 || !/^\d{6}$/.test(code)) return false;
+  var sh = ss.getSheetByName(PORTAL_OWNER_LOGIN_OTP_SHEET);
+  if (!sh || sh.getLastRow() < 2) return false;
+  var rows = sh.getDataRange().getValues();
+  var hashWanted = hashOwnerLoginOtp_(want, code);
+  var now = Date.now();
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (String(rows[i][0] || "").replace(/\D/g, "").slice(-10) !== want) continue;
+    var exp = Number(rows[i][2]) || 0;
+    if (exp <= now) continue;
+    if (String(rows[i][1] || "") === hashWanted) {
+      deleteWhere_(sh, function (row) {
+        return String(row[0] || "").replace(/\D/g, "").slice(-10) === want;
+      });
+      return true;
+    }
+    return false;
+  }
+  return false;
 }
 
 function readPortalBankingObject_(ss) {
@@ -1327,6 +1452,38 @@ function doPost(e) {
       if (!mobM || !idsM.length) return json_({ ok: false, error: "forUserMobile and ids[] required" }, 400);
       var nM = markUserInboxRead_(ss, mobM, idsM);
       return json_({ ok: true, updated: nM }, 200);
+    }
+    if (action === "requestOwnerLoginOtp") {
+      var mobOtp = String(data.mobile || "").replace(/\D/g, "").slice(-10);
+      if (mobOtp.length !== 10) return json_({ ok: false, error: "invalid_mobile" }, 400);
+      if (!mobileRegisteredAsOwner_(ss, mobOtp)) return json_({ ok: false, error: "mobile_not_registered" }, 404);
+      var ownerEmail = lookupOwnerEmailForMobile_(ss, mobOtp);
+      if (!ownerEmail) return json_({ ok: false, error: "no_email_on_file" }, 400);
+      var waitMs = ownerLoginOtpCooldownMs_(ss, mobOtp);
+      if (waitMs > 0) return json_({ ok: false, error: "otp_cooldown", retryAfterMs: waitMs }, 429);
+      var otpCode = String(Math.floor(100000 + Math.random() * 900000));
+      var otpHash = hashOwnerLoginOtp_(mobOtp, otpCode);
+      var otpExp = Date.now() + 10 * 60 * 1000;
+      writeOwnerLoginOtp_(ss, mobOtp, otpHash, otpExp);
+      try {
+        MailApp.sendEmail(
+          ownerEmail,
+          "Infinity Nakshatra Society — login OTP",
+          "Your one-time login code is: " + otpCode + "\n\nValid for 10 minutes. Do not share this code.\n\nIf you did not request this, ignore this email."
+        );
+      } catch (eMail) {
+        return json_({ ok: false, error: "email_send_failed" }, 500);
+      }
+      audit_(ss, mobOtp, "requestOwnerLoginOtp", { emailHint: maskOwnerEmail_(ownerEmail) });
+      return json_({ ok: true, emailHint: maskOwnerEmail_(ownerEmail) }, 200);
+    }
+    if (action === "verifyOwnerLoginOtp") {
+      var mobV = String(data.mobile || "").replace(/\D/g, "").slice(-10);
+      var otpIn = String(data.otp || "").trim();
+      if (mobV.length !== 10) return json_({ ok: false, error: "invalid_mobile" }, 400);
+      if (!verifyOwnerLoginOtp_(ss, mobV, otpIn)) return json_({ ok: false, error: "invalid_otp" }, 401);
+      audit_(ss, mobV, "verifyOwnerLoginOtp", { ok: true });
+      return json_({ ok: true, verified: true }, 200);
     }
     if (action === "submitPaymentRequest") {
       var sh = ensureSheetWithHeaders_(ss, PORTAL_PENDING_SHEET, PORTAL_PENDING_HEADERS);

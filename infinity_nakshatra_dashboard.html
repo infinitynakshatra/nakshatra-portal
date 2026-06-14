@@ -1844,13 +1844,20 @@
         <label for="loginId">Enter ID</label>
         <input id="loginId" name="ins_login_id" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="admin, owner mobile, or security" />
       </div>
-      <div class="field">
+      <div class="field" id="loginPwWrap">
         <label for="loginPw">Enter Password</label>
         <input id="loginPw" name="ins_login_pw" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="Enter Password" />
+      </div>
+      <div class="field" id="loginOtpWrap" style="display:none;">
+        <label for="loginOtp">Enter OTP</label>
+        <input id="loginOtp" name="ins_login_otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="6-digit code from email" />
+        <div class="smallNote" id="ownerOtpHint" style="margin-top:6px;">Owner login uses a free email OTP (not SMS). Tap <b>Send OTP</b> — the code is sent to the email linked to your mobile in society records.</div>
+        <div class="smallNote" id="ownerOtpSentHint" style="margin-top:6px; display:none;"></div>
       </div>
 
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
         <button class="btn" id="loginBtn" type="button">Login</button>
+        <button class="btn secondary" id="sendOwnerOtpBtn" type="button" style="display:none;">Send OTP</button>
         <button class="btn secondary" id="openPwFromLoginBtn" type="button">Change password</button>
       </div>
 
@@ -3678,6 +3685,7 @@
     let bankQrEditState = { cleared: false, newDataUrl: null };
 
     const SESSION_KEY = "ins_session_v1";
+    const USER_SESSION_KEY = "ins_user_session_v1";
     /** sessionStorage JSON map: userDigits -> last selected plot for chart / Add payment */
     const SESSION_USER_PLOT_PICK = "ins_user_plot_pick_v1";
 
@@ -5212,7 +5220,10 @@
 
     function readSession(){
       try {
-        const o = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
+        let o = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
+        if (!o || !o.role){
+          o = JSON.parse(localStorage.getItem(USER_SESSION_KEY) || "null");
+        }
         if (o && o.role === "watchman" && String(o.userId || "") === "watchman"){
           o.userId = WATCHMAN_USER;
           writeSession(o);
@@ -5221,10 +5232,92 @@
       } catch { return null; }
     }
     function writeSession(obj){
+      if (obj && obj.role === "user"){
+        localStorage.setItem(USER_SESSION_KEY, JSON.stringify({ ...obj, loggedInAt: Date.now() }));
+        try { sessionStorage.removeItem(SESSION_KEY); } catch {}
+        return;
+      }
+      try { localStorage.removeItem(USER_SESSION_KEY); } catch {}
       sessionStorage.setItem(SESSION_KEY, JSON.stringify(obj));
     }
     function clearSession(){
       sessionStorage.removeItem(SESSION_KEY);
+      try { localStorage.removeItem(USER_SESSION_KEY); } catch {}
+    }
+
+    function syncLoginFormForRole(){
+      const role = document.querySelector('input[name="role"]:checked')?.value || "admin";
+      const isUser = role === "user";
+      const pwWrap = document.getElementById("loginPwWrap");
+      const otpWrap = document.getElementById("loginOtpWrap");
+      const sendOtpBtn = document.getElementById("sendOwnerOtpBtn");
+      const openPwBtn = document.getElementById("openPwFromLoginBtn");
+      const loginBtn = document.getElementById("loginBtn");
+      const loginId = document.getElementById("loginId");
+      if (pwWrap) pwWrap.style.display = isUser ? "none" : "";
+      if (otpWrap) otpWrap.style.display = isUser ? "" : "none";
+      if (sendOtpBtn) sendOtpBtn.style.display = isUser ? "" : "none";
+      if (openPwBtn) openPwBtn.style.display = isUser ? "none" : "";
+      if (loginBtn) loginBtn.textContent = isUser ? "Verify & Login" : "Login";
+      if (loginId) loginId.placeholder = isUser ? "10-digit owner mobile" : "admin, owner mobile, or security";
+    }
+
+    function ownerOtpErrorMessage_(code, j){
+      const c = String(code || "");
+      if (c === "mobile_not_registered") return "This mobile is not registered as an owner. Check the number or contact the society office.";
+      if (c === "no_email_on_file") return "No email is linked to this mobile in society records. Ask admin to add an Owner Email column for your plot.";
+      if (c === "otp_cooldown"){
+        const sec = Math.max(1, Math.ceil((Number(j?.retryAfterMs) || 60000) / 1000));
+        return `Please wait ${sec} second(s) before requesting another OTP.`;
+      }
+      if (c === "email_send_failed") return "Could not send OTP email. Try again later or contact the society office.";
+      if (c === "invalid_otp") return "Invalid or expired OTP. Request a new code and try again.";
+      if (c === "invalid_mobile") return "Enter a valid 10-digit mobile number.";
+      return "Could not complete OTP request. Try again.";
+    }
+
+    async function requestOwnerLoginOtp(){
+      const errEl = document.getElementById("loginErr");
+      setErr(errEl, "");
+      const userId = normalizeLoginId("user", document.getElementById("loginId").value);
+      if (!userId || userId.length !== 10){
+        setErr(errEl, "Enter your 10-digit owner mobile number.");
+        return;
+      }
+      if (!isServerEnabled()){
+        setErr(errEl, "OTP login needs the portal server connection. Try again later.");
+        return;
+      }
+      const sentHint = document.getElementById("ownerOtpSentHint");
+      if (sentHint){
+        sentHint.style.display = "none";
+        sentHint.textContent = "";
+      }
+      const btn = document.getElementById("sendOwnerOtpBtn");
+      if (btn) btn.disabled = true;
+      try {
+        const r = await appsScriptPostJson({
+          apiKey: COLLECTION_API_KEY,
+          action: "requestOwnerLoginOtp",
+          mobile: userId
+        });
+        let j = {};
+        try { j = JSON.parse(r.txt || "{}"); } catch {}
+        if (!r.ok || !j.ok){
+          setErr(errEl, ownerOtpErrorMessage_(j.error || r.error, j));
+          return;
+        }
+        if (sentHint){
+          sentHint.style.display = "block";
+          sentHint.textContent = j.emailHint
+            ? `OTP sent to ${j.emailHint}. Check your inbox (and spam folder).`
+            : "OTP sent to your registered email. Check your inbox (and spam folder).";
+        }
+        const otpEl = document.getElementById("loginOtp");
+        if (otpEl) otpEl.focus();
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     }
 
     function defaultBankingGuide(){
@@ -6752,6 +6845,14 @@
       const wmRoot = document.getElementById("watchmanRoot");
       if (wmRoot) wmRoot.style.display = "none";
       if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+      const otpEl = document.getElementById("loginOtp");
+      if (otpEl) otpEl.value = "";
+      const sentHint = document.getElementById("ownerOtpSentHint");
+      if (sentHint){
+        sentHint.style.display = "none";
+        sentHint.textContent = "";
+      }
+      syncLoginFormForRole();
     }
 
     function showAppForSession(sess){
@@ -6888,9 +6989,10 @@
         return;
       }
 
-      // user login: mobile digits == password
-      if (password !== userId){
-        setErr(document.getElementById("loginErr"), "Owner password must match the mobile number (until you change it).");
+      // user login: email OTP (free via Google MailApp on server)
+      const otp = norm(document.getElementById("loginOtp")?.value);
+      if (!/^\d{6}$/.test(otp)){
+        setErr(document.getElementById("loginErr"), "Enter the 6-digit OTP sent to your registered email.");
         return;
       }
 
@@ -6899,10 +7001,21 @@
         return;
       }
 
-      if (!await pwGetHash(userId)) await pwSet(userId, password);
+      if (!isServerEnabled()){
+        setErr(document.getElementById("loginErr"), "OTP login needs the portal server connection. Try again later.");
+        return;
+      }
 
-      if (!(await pwVerify(userId, password))){
-        setErr(document.getElementById("loginErr"), "Invalid owner credentials.");
+      const vrf = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "verifyOwnerLoginOtp",
+        mobile: userId,
+        otp
+      });
+      let vj = {};
+      try { vj = JSON.parse(vrf.txt || "{}"); } catch {}
+      if (!vrf.ok || !vj.ok || !vj.verified){
+        setErr(document.getElementById("loginErr"), ownerOtpErrorMessage_(vj.error || vrf.error, vj));
         return;
       }
 
@@ -10988,6 +11101,12 @@
       const ownerPlotsFilterEl = document.getElementById("ownerPlotsFilter");
       if (ownerPlotsFilterEl) ownerPlotsFilterEl.addEventListener("change", applyFilters);
       document.getElementById("loginBtn").addEventListener("click", handleLogin);
+      const sendOwnerOtpBtn = document.getElementById("sendOwnerOtpBtn");
+      if (sendOwnerOtpBtn) sendOwnerOtpBtn.addEventListener("click", () => { void requestOwnerLoginOtp(); });
+      document.querySelectorAll('input[name="role"]').forEach(el => {
+        el.addEventListener("change", syncLoginFormForRole);
+      });
+      syncLoginFormForRole();
       document.getElementById("openPwFromLoginBtn").addEventListener("click", () => {
         const role = document.querySelector('input[name="role"]:checked')?.value || "admin";
         const u = role === "admin" ? ADMIN_USER : role === "watchman" ? WATCHMAN_USER : normalizeLoginId("user", document.getElementById("loginId").value);
