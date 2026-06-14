@@ -5378,7 +5378,7 @@
         const sec = Math.max(1, Math.ceil((Number(j?.retryAfterMs) || 60000) / 1000));
         return `Please wait ${sec} second(s) before requesting another OTP.`;
       }
-      if (c === "mail_not_authorized") return "OTP email is not authorized yet. Admin: open Google Sheet → Extensions → Apps Script → run authorizeInfinityNakshatraMail → Allow all permissions. Use society Gmail (not corporate email).";
+      if (c === "mail_not_authorized") return "OTP email not authorized in Apps Script. Easiest fix: in Google Sheet add tab portal_config with BREVO_API_KEY and BREVO_SENDER_EMAIL (free at brevo.com). Or script owner must run authorizeInfinityNakshatraMail.";
       if (c === "email_send_failed") {
         const detail = String(j?.detail || "").trim();
         if (detail.toLowerCase().includes("permission") || detail.toLowerCase().includes("script.send_mail")) {
@@ -7399,10 +7399,19 @@
       }
       alert(
         (j.errorCode === "mail_not_authorized"
-          ? "OTP email is NOT authorized yet.\n\n"
+          ? "OTP email is NOT authorized in Google Apps Script.\n\n"
           : "OTP email is NOT working yet.\n\n") +
         (j.error || r.error || "Unknown error") +
-        "\n\nFix:\n1. Open Google Sheet → Extensions → Apps Script\n2. Select authorizeInfinityNakshatraMail\n3. Click Run → Review permissions → Allow\n4. Check society Gmail inbox for test OTP 123456\n\nUse society Gmail that owns the sheet (corporate email often blocks script mail)."
+        (j.brevoConfigured ? "\n\n(Brevo is configured but send still failed — check API key and sender email in portal_config tab.)" : "") +
+        "\n\nEASIEST FIX (no Apps Script access needed):\n" +
+        "1. Sign up free at brevo.com → get API key\n" +
+        "2. Verify your society sender email in Brevo\n" +
+        "3. In Google Sheet, open/create tab: portal_config\n" +
+        "   Row: BREVO_API_KEY | your-api-key\n" +
+        "   Row: BREVO_SENDER_EMAIL | society@gmail.com\n" +
+        "4. Admin → Profile → Test OTP email again\n\n" +
+        "If 'Unable to open file' on Apps Script link: you are signed into the wrong Google account. " +
+        "Use the account that owns the sheet, or ask the developer to share the script project with you as Editor."
       );
     }
 

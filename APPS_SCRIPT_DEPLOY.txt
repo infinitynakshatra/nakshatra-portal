@@ -83,6 +83,20 @@ IMPORTANT — Owner login OTP email (required once):
 
   After authorization, Admin → Profile → Test OTP email to verify from the portal.
 
+If Apps Script shows "Unable to open the file":
+  The script project is owned by a different Google account (often the developer).
+  Either sign in as that account, OR ask them to Share the script as Editor,
+  OR use the Brevo option below (no Apps Script editor needed).
+
+OPTION B — Brevo email (recommended if Apps Script mail cannot be authorized):
+  1. Free account: https://www.brevo.com (300 emails/day free)
+  2. Create an API key (SMTP & API → API keys)
+  3. Verify sender email in Brevo (must match society email)
+  4. In the Google Sheet, tab portal_config (created on first portal load), add:
+       BREVO_API_KEY        | xkeysib-your-key-here
+       BREVO_SENDER_EMAIL   | your-verified-society@gmail.com
+  5. Admin → Profile → Test OTP email
+
 ----------------------------------------------------------------------
 My Gate (Security visitor log)
 ----------------------------------------------------------------------

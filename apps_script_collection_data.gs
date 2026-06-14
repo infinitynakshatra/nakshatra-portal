@@ -81,6 +81,9 @@ const PORTAL_OWNER_AUTH_SHEET = "portal_owner_auth";
 const PORTAL_OWNER_AUTH_HEADERS = ["mobile", "pwHash", "updatedAt"];
 const PORTAL_OWNER_SETUP_SHEET = "portal_owner_setup";
 const PORTAL_OWNER_SETUP_HEADERS = ["mobile", "setupToken", "expiresAt", "createdAt"];
+/** Optional email API keys (editable in Sheet — no Apps Script editor needed). */
+const PORTAL_CONFIG_SHEET = "portal_config";
+const PORTAL_CONFIG_HEADERS = ["key", "value"];
 var OWNER_EMAIL_HEADERS = [
   "Registered Email-ID",
   "Owner Email",
@@ -600,7 +603,47 @@ function ownerMailErrorCode_(detail) {
   return "email_send_failed";
 }
 
-function sendOwnerLoginOtpEmail_(toEmail, otpCode) {
+function readPortalConfig_(ss, key) {
+  var sh = ss.getSheetByName(PORTAL_CONFIG_SHEET);
+  if (!sh || sh.getLastRow() < 2) return "";
+  var rows = sh.getDataRange().getValues();
+  var want = String(key || "").trim();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] || "").trim() === want) return String(rows[i][1] || "").trim();
+  }
+  return "";
+}
+
+function portalBrevoConfigured_(ss) {
+  return !!(readPortalConfig_(ss, "BREVO_API_KEY") && normalizeOwnerEmail_(readPortalConfig_(ss, "BREVO_SENDER_EMAIL")));
+}
+
+function sendOwnerLoginOtpEmailViaBrevo_(toEmail, otpCode, apiKey, senderEmail) {
+  var payload = {
+    sender: { name: "Infinity Nakshatra Society", email: senderEmail },
+    to: [{ email: toEmail }],
+    subject: "Infinity Nakshatra Society — login OTP",
+    htmlContent:
+      "<p>Your one-time login code is: <strong>" + otpCode + "</strong></p>" +
+      "<p>Valid for 10 minutes. Do not share this code.</p>" +
+      "<p>If you did not request this, ignore this email.</p>"
+  };
+  var resp = UrlFetchApp.fetch("https://api.brevo.com/v3/smtp/email", {
+    method: "post",
+    headers: {
+      "api-key": String(apiKey),
+      "Content-Type": "application/json",
+      "accept": "application/json"
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+  var code = resp.getResponseCode();
+  if (code >= 200 && code < 300) return { ok: true, via: "Brevo" };
+  return { ok: false, detail: "Brevo HTTP " + code + ": " + String(resp.getContentText() || "").slice(0, 180) };
+}
+
+function sendOwnerLoginOtpEmail_(ss, toEmail, otpCode) {
   var to = String(toEmail || "").trim().toLowerCase();
   if (!to) return { ok: false, error: "email_send_failed", detail: "empty_recipient" };
   var subject = "Infinity Nakshatra Society — login OTP";
@@ -625,6 +668,15 @@ function sendOwnerLoginOtpEmail_(toEmail, otpCode) {
     return { ok: true, via: "GmailApp" };
   } catch (eG) {
     errors.push(String(eG && eG.message ? eG.message : eG));
+  }
+  if (ss) {
+    var brevoKey = readPortalConfig_(ss, "BREVO_API_KEY");
+    var brevoFrom = normalizeOwnerEmail_(readPortalConfig_(ss, "BREVO_SENDER_EMAIL"));
+    if (brevoKey && brevoFrom) {
+      var brevo = sendOwnerLoginOtpEmailViaBrevo_(to, otpCode, brevoKey, brevoFrom);
+      if (brevo.ok) return brevo;
+      errors.push(String(brevo.detail || "Brevo failed"));
+    }
   }
   var detail = errors.join(" | ") || "send_failed";
   return { ok: false, error: ownerMailErrorCode_(detail), detail: detail };
@@ -1316,6 +1368,7 @@ function doGet() {
     ensureSheetWithHeaders_(ss, PORTAL_OWNER_LOGIN_OTP_SHEET, PORTAL_OWNER_LOGIN_OTP_HEADERS);
     ensureSheetWithHeaders_(ss, PORTAL_OWNER_AUTH_SHEET, PORTAL_OWNER_AUTH_HEADERS);
     ensureSheetWithHeaders_(ss, PORTAL_OWNER_SETUP_SHEET, PORTAL_OWNER_SETUP_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_CONFIG_SHEET, PORTAL_CONFIG_HEADERS);
     return json_({ ok: true, service: "Infinity Nakshatra portal backend", now: nowIso_() }, 200);
   } catch (err) {
     return json_({ ok: false, error: String(err && err.message ? err.message : err) }, 500);
@@ -1663,7 +1716,7 @@ function doPost(e) {
       var waitMs = ownerLoginOtpCooldownMs_(ss, mobOtp);
       if (waitMs > 0) return json_({ ok: false, error: "otp_cooldown", retryAfterMs: waitMs }, 429);
       var otpCode = String(Math.floor(100000 + Math.random() * 900000));
-      var sent = sendOwnerLoginOtpEmail_(ownerEmail, otpCode);
+      var sent = sendOwnerLoginOtpEmail_(ss, ownerEmail, otpCode);
       if (!sent.ok) {
         audit_(ss, mobOtp, "requestOwnerLoginOtp_failed", { emailHint: maskOwnerEmail_(ownerEmail), detail: String(sent.detail || "").slice(0, 500) });
         return json_({ ok: false, error: sent.error || "email_send_failed", detail: sent.detail || "" }, 500);
@@ -1744,8 +1797,10 @@ function doPost(e) {
         mailOk: false,
         via: "",
         error: "",
-        errorCode: ""
+        errorCode: "",
+        brevoConfigured: false
       };
+      diag.brevoConfigured = portalBrevoConfigured_(ss);
       try {
         diag.quota = MailApp.getRemainingDailyQuota();
       } catch (eQ) {
@@ -1762,7 +1817,7 @@ function doPost(e) {
         diag.errorCode = "invalid_test_email";
         return json_(diag, 200);
       }
-      var testSent = sendOwnerLoginOtpEmail_(testTo, "000000");
+      var testSent = sendOwnerLoginOtpEmail_(ss, testTo, "000000");
       diag.mailOk = !!testSent.ok;
       diag.via = testSent.via || "";
       if (!testSent.ok) {
@@ -2200,10 +2255,10 @@ function doPost(e) {
  * Sends a test message to the signed-in Google account.
  */
 function authorizeInfinityNakshatraMail() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
   var user = Session.getEffectiveUser().getEmail() || Session.getActiveUser().getEmail() || "";
   if (!user) throw new Error("No Google account email on this session. Open Apps Script while signed in as the society admin Gmail.");
-  var quota = MailApp.getRemainingDailyQuota();
-  var sent = sendOwnerLoginOtpEmail_(user, "123456");
+  var sent = sendOwnerLoginOtpEmail_(ss, user, "123456");
   if (!sent.ok) throw new Error(String(sent.detail || "Mail send failed"));
-  Logger.log("Infinity Nakshatra mail OK → " + user + " via " + (sent.via || "?") + " quota=" + quota);
+  Logger.log("Infinity Nakshatra mail OK → " + user + " via " + (sent.via || "?"));
 }
