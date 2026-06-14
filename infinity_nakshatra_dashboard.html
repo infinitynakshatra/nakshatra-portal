@@ -5378,7 +5378,8 @@
         const sec = Math.max(1, Math.ceil((Number(j?.retryAfterMs) || 60000) / 1000));
         return `Please wait ${sec} second(s) before requesting another OTP.`;
       }
-      if (c === "mail_not_authorized") return "OTP email not authorized in Apps Script. Easiest fix: in Google Sheet add tab portal_config with BREVO_API_KEY and BREVO_SENDER_EMAIL (free at brevo.com). Or script owner must run authorizeInfinityNakshatraMail.";
+      if (c === "brevo_not_configured") return "Brevo is not set up in Google Sheet. Add tab portal_config with BREVO_API_KEY and BREVO_SENDER_EMAIL rows, then Save.";
+      if (c === "mail_not_authorized") return "Google Mail not authorized. Use Brevo: add portal_config tab in Google Sheet (see admin guide).";
       if (c === "email_send_failed") {
         const detail = String(j?.detail || "").trim();
         if (detail.toLowerCase().includes("permission") || detail.toLowerCase().includes("script.send_mail")) {
@@ -7394,7 +7395,19 @@
       let j = {};
       try { j = JSON.parse(r.txt || "{}"); } catch {}
       if (j.mailOk){
-        alert(`Test OTP email sent to ${testEmail} via ${j.via || "mail"}. Quota left today: ${j.quota}. Check inbox/spam.`);
+        alert(`Test OTP email sent to ${testEmail} via ${j.via || "mail"}. Check inbox/spam.`);
+        return;
+      }
+      if (!j.brevoConfigured){
+        alert(
+          "Brevo is NOT configured in the Google Sheet yet.\n\n" +
+          "1. Open Google Sheet (Admin → Google Sheet button)\n" +
+          "2. Add tab named exactly: portal_config\n" +
+          "3. Row 1: key | value\n" +
+          "4. Row 2: BREVO_API_KEY | your xkeysib-... key from Brevo\n" +
+          "5. Row 3: BREVO_SENDER_EMAIL | infinitynakshatra.na@gmail.com\n" +
+          "6. Save (Ctrl+S) → Test OTP email again"
+        );
         return;
       }
       alert(

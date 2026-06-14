@@ -607,9 +607,9 @@ function readPortalConfig_(ss, key) {
   var sh = ss.getSheetByName(PORTAL_CONFIG_SHEET);
   if (!sh || sh.getLastRow() < 2) return "";
   var rows = sh.getDataRange().getValues();
-  var want = String(key || "").trim();
+  var want = String(key || "").trim().toUpperCase();
   for (var i = 1; i < rows.length; i++) {
-    if (String(rows[i][0] || "").trim() === want) return String(rows[i][1] || "").trim();
+    if (String(rows[i][0] || "").trim().toUpperCase() === want) return String(rows[i][1] || "").trim();
   }
   return "";
 }
@@ -657,6 +657,13 @@ function sendOwnerLoginOtpEmail_(ss, toEmail, otpCode) {
     "<p>If you did not request this, ignore this email.</p>";
   var mailOpts = { htmlBody: htmlBody, name: "Infinity Nakshatra Society" };
   var errors = [];
+  if (ss && portalBrevoConfigured_(ss)) {
+    var brevoKey = readPortalConfig_(ss, "BREVO_API_KEY");
+    var brevoFrom = normalizeOwnerEmail_(readPortalConfig_(ss, "BREVO_SENDER_EMAIL"));
+    var brevo = sendOwnerLoginOtpEmailViaBrevo_(to, otpCode, brevoKey, brevoFrom);
+    if (brevo.ok) return brevo;
+    errors.push(String(brevo.detail || "Brevo failed"));
+  }
   try {
     MailApp.sendEmail(to, subject, body, mailOpts);
     return { ok: true, via: "MailApp" };
@@ -669,16 +676,10 @@ function sendOwnerLoginOtpEmail_(ss, toEmail, otpCode) {
   } catch (eG) {
     errors.push(String(eG && eG.message ? eG.message : eG));
   }
-  if (ss) {
-    var brevoKey = readPortalConfig_(ss, "BREVO_API_KEY");
-    var brevoFrom = normalizeOwnerEmail_(readPortalConfig_(ss, "BREVO_SENDER_EMAIL"));
-    if (brevoKey && brevoFrom) {
-      var brevo = sendOwnerLoginOtpEmailViaBrevo_(to, otpCode, brevoKey, brevoFrom);
-      if (brevo.ok) return brevo;
-      errors.push(String(brevo.detail || "Brevo failed"));
-    }
-  }
   var detail = errors.join(" | ") || "send_failed";
+  if (ss && !portalBrevoConfigured_(ss)) {
+    return { ok: false, error: "brevo_not_configured", detail: detail };
+  }
   return { ok: false, error: ownerMailErrorCode_(detail), detail: detail };
 }
 
