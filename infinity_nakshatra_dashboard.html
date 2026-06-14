@@ -379,8 +379,9 @@
     }
     /* Service contacts — compact Sr./Contact; full wrapped Service details (user + admin tables) */
     .serviceContactsTable{
-      table-layout:fixed;
+      table-layout:auto;
       width:100%;
+      min-width:480px;
     }
     .serviceContactsTable thead th,
     .serviceContactsTable tbody td{
@@ -407,10 +408,12 @@
     }
     .serviceContactsTable thead th:nth-child(3),
     .serviceContactsTable tbody td.svcContactCell{
-      width:24%;
-      min-width:0 !important;
-      word-break:break-word;
-      overflow-wrap:anywhere;
+      min-width:10.75rem !important;
+      width:auto;
+      max-width:none;
+      white-space:nowrap;
+      overflow:visible;
+      vertical-align:middle;
     }
     .serviceContactsTable tbody td.svcDetailsCell{
       min-width:0 !important;
@@ -445,18 +448,26 @@
       flex-wrap:nowrap;
       gap:4px;
       white-space:nowrap;
+      vertical-align:middle;
     }
     .mobileCallNum{
       text-decoration:none;
       color:inherit;
+      font-variant-numeric:tabular-nums;
     }
     .mobileCallBtn{
       flex-shrink:0;
       text-decoration:none;
+      padding:2px 6px;
+      font-size:9px;
+      line-height:1.05;
+      min-height:0;
+      border-radius:5px;
     }
-    .serviceContactsTable tbody td.svcContactCell,
-    .societyMembersTable tbody td.mobileCallCell{
+    .societyMembersTable tbody td.mobileCallCell,
+    .serviceContactsTable tbody td.svcContactCell{
       white-space:nowrap;
+      vertical-align:middle;
     }
     @media (max-width: 520px){
       .serviceContactsTable thead th:nth-child(1){ font-size:10px; padding:6px 2px; }
@@ -1698,7 +1709,8 @@
         max-width:100%;
       }
       #adminRoot .scroll-x > table.adminDirTable{ min-width:560px; }
-      #adminRoot .scroll-x > table.serviceContactsTable{ min-width:440px; }
+      #adminRoot .scroll-x > table.serviceContactsTable{ min-width:520px; }
+      .scroll-x > table.serviceContactsTable{ min-width:520px; }
       .scroll-x thead th,
       .scroll-x .adminDirTable thead th{ white-space:nowrap; }
       .cardWide > .row{
@@ -5601,7 +5613,7 @@
           return `<tr>
             <td class="svcSrCell">${no}</td>
             <td class="docNameCell svcNameCell">${escapeHtml(row.contactName)}</td>
-            <td class="svcContactCell">${contactCellHtml(row.contact)}</td>
+            <td class="svcContactCell mono mobileCallCell">${contactCellHtml(row.contact)}</td>
             <td class="svcDetailsCell" title="${escapeHtml(row.serviceDetails)}">${det}</td>
             ${actions}
           </tr>`;
