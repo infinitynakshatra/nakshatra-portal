@@ -472,6 +472,34 @@
     @media (max-width: 520px){
       .serviceContactsTable thead th:nth-child(1){ font-size:10px; padding:6px 2px; }
     }
+    /* Owner plot details — Field/Value table, no horizontal scroll on mobile */
+    .userPlotDetailsWrap{
+      overflow:visible;
+      max-width:100%;
+    }
+    .userPlotDetailsTable{
+      table-layout:fixed;
+      width:100%;
+      margin-top:0;
+    }
+    .userPlotDetailsTable .userPlotFieldCell,
+    .userPlotDetailsTable .userPlotFieldTh{
+      color:var(--muted);
+      width:52%;
+      vertical-align:top;
+      font-weight:600;
+      line-height:1.25;
+    }
+    .userPlotDetailsTable .userPlotValueCell{
+      width:48%;
+      word-break:break-word;
+      overflow-wrap:anywhere;
+      vertical-align:top;
+    }
+    #userDetails .userPlotDetailsTable tbody td,
+    #userDetails .userPlotDetailsTable thead th{
+      min-width:0 !important;
+    }
     /* Add Payment — same shell as See Payment, compact body */
     .modalPayAdd{
       width:min(920px, 96vw) !important;
@@ -1648,12 +1676,20 @@
         gap:8px;
       }
       .mcRightNote{text-align:left; margin-left:0;}
-      #userDetails .adminDirTable td:first-child,
-      #userDetails .adminDirTable th:first-child{
-        width:38%;
-        max-width:160px;
-        word-break:break-word;
-        white-space:normal;
+      #userDetails .userPlotDetailsTable .userPlotFieldCell,
+      #userDetails .userPlotDetailsTable .userPlotFieldTh{
+        width:64%;
+        max-width:none;
+        white-space:nowrap;
+        font-size:10px;
+        line-height:1.2;
+        padding-right:4px;
+        word-break:normal;
+      }
+      #userDetails .userPlotDetailsTable .userPlotValueCell{
+        width:36%;
+        font-size:11px;
+        line-height:1.25;
       }
       .adminDirTable tbody td{min-width:72px;}
       thead th{white-space:normal;}
@@ -9848,14 +9884,14 @@
         const rowsHtml = cols.map(h => {
           const v = norm(row[h]);
           const valueHtml = v ? escapeHtml(v) : "";
-          return `<tr><td style="color:var(--muted); width: 240px;">${escapeHtml(h)}</td><td>${valueHtml}</td></tr>`;
+          return `<tr><td class="userPlotFieldCell">${escapeHtml(h)}</td><td class="userPlotValueCell">${valueHtml}</td></tr>`;
         }).join("");
         return `
           <div style="margin-top:${idx ? "20px" : "0"};">
             <div style="font-weight:900; font-size:13px; margin-bottom:8px;">${title}</div>
-            <div class="scroll-x" style="overflow:auto;">
-              <table class="adminDirTable">
-                <thead><tr><th>Field</th><th>Value</th></tr></thead>
+            <div class="userPlotDetailsWrap">
+              <table class="adminDirTable userPlotDetailsTable">
+                <thead><tr><th class="userPlotFieldTh">Field</th><th>Value</th></tr></thead>
                 <tbody>${rowsHtml}</tbody>
               </table>
             </div>
