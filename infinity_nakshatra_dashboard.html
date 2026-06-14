@@ -2852,44 +2852,117 @@
   </div>
 
   <div class="backdrop" id="adminNotesBackdrop" aria-hidden="true">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminNotesTitle" style="width:min(560px,100%); max-height:min(92vh,680px); display:flex; flex-direction:column;">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="adminNotesTitle" style="width:min(720px,100%); max-height:min(92vh,780px); display:flex; flex-direction:column;">
       <div class="modalHead">
         <div>
           <div class="modalTitle" id="adminNotesTitle">Admin notes</div>
-          <div class="modalSub">Reference logins — treat as confidential</div>
+          <div class="modalSub">Logins &amp; project links — treat as confidential</div>
         </div>
         <button class="btn secondary" id="adminNotesCloseBtn" type="button">Close</button>
       </div>
       <div class="adminNotesScroll smallNote" style="line-height:1.55;">
         <div class="adminNotesBlock">
-          <h4>Admin login details</h4>
+          <h4>Portal admin login</h4>
           <dl>
             <dt>ID</dt>
-            <dd>Admin</dd>
+            <dd>admin</dd>
             <dt>Password</dt>
             <dd>Admin@123</dd>
           </dl>
         </div>
         <div class="adminNotesBlock">
-          <h4>Backup email details</h4>
+          <h4>Society Gmail (Google Sheet, Apps Script, Drive owner)</h4>
           <dl>
             <dt>ID</dt>
             <dd>infinitynakshatra.na@gmail.com</dd>
             <dt>Password</dt>
-            <dd>Nakshatra@123</dd>
+            <dd>Nakshatra123#</dd>
           </dl>
         </div>
         <div class="adminNotesBlock">
-          <h4>Users login details</h4>
+          <h4>Owner login</h4>
           <dl>
             <dt>ID</dt>
-            <dd>Mobile number</dd>
+            <dd>Mobile number (10 digits)</dd>
             <dt>Password</dt>
-            <dd>Mobile number</dd>
+            <dd>Same mobile number first time; change after login</dd>
+          </dl>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Security (My Gate) login</h4>
+          <dl>
+            <dt>ID</dt>
+            <dd>security</dd>
+            <dt>Password</dt>
+            <dd>Gate@123</dd>
+          </dl>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Live portal (Cloudflare Pages)</h4>
+          <dl>
+            <dt>Dashboard</dt>
+            <dd><a href="https://nakshatra-portal.pages.dev/infinity_nakshatra_dashboard" target="_blank" rel="noreferrer">nakshatra-portal.pages.dev/infinity_nakshatra_dashboard</a></dd>
+            <dt>Role</dt>
+            <dd>Hosts the HTML portal (Admin / Owner / Security UI). Auto-deploys when GitHub <span class="mono">main</span> is pushed. Relays API calls via <span class="mono">/api/collection</span> so the browser can reach Google Apps Script.</dd>
+            <dt>Cloudflare dashboard</dt>
+            <dd><a href="https://dash.cloudflare.com/9ffe5dc72bd095da82a8e957c1e3d624/pages/view/nakshatra-portal" target="_blank" rel="noreferrer">Pages → nakshatra-portal</a></dd>
+          </dl>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>GitHub (source code)</h4>
+          <dl>
+            <dt>Repository</dt>
+            <dd><a href="https://github.com/infinitynakshatra/nakshatra-portal" target="_blank" rel="noreferrer">github.com/infinitynakshatra/nakshatra-portal</a></dd>
+            <dt>What it holds</dt>
+            <dd><span class="mono">infinity_nakshatra_dashboard.html</span> (portal UI), <span class="mono">apps_script_collection_data.gs</span> (backend source), Cloudflare relay (<span class="mono">functions/api/collection.js</span>), assets, deploy docs. Edit here → push <span class="mono">main</span> → Cloudflare updates the live site.</dd>
+            <dt>Local folder</dt>
+            <dd><span class="mono">C:\HC\Reports\cursor\Nakshatra</span></dd>
+          </dl>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Google Apps Script (backend API)</h4>
+          <dl>
+            <dt>Script editor</dt>
+            <dd><a href="https://script.google.com/home/projects/1N9V_DwNhgW3yvOsrga0_tioOseAmokCFA5vjO7iaC6TK4pw5h0awAMuC/edit" target="_blank" rel="noreferrer">Open Apps Script project</a></dd>
+            <dt>Live Web app URL</dt>
+            <dd><a href="https://script.google.com/macros/s/AKfycbymDJTDSDm-p9jSL7Y1TMJs3tb5ZKXJAQTlqq6b49hcO4Zr4sGS4bOslKEOfgOtJQ8w/exec" target="_blank" rel="noreferrer">…/exec</a> (deployment @98+)</dd>
+            <dt>What it holds</dt>
+            <dd>Server logic: read/write Google Sheet tabs (<span class="mono">portal_payments</span>, <span class="mono">collection_data</span>, <span class="mono">collection_y_YYYY</span>, gate visits, expenses, docs, banking, etc.). Portal POSTs here for sync across devices.</dd>
+            <dt>Deploy from PC</dt>
+            <dd><span class="mono">npm run apps-script:deploy</span> (in Nakshatra folder, after <span class="mono">npm run apps-script:login</span>)</dd>
+          </dl>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Google Sheet (master data)</h4>
+          <dl>
+            <dt>Spreadsheet</dt>
+            <dd><a href="https://docs.google.com/spreadsheets/d/1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA/edit?gid=1304899070" target="_blank" rel="noreferrer">Infinity Nakshatra Sheet</a></dd>
+            <dt>Sheet ID</dt>
+            <dd><span class="mono">1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA</span></dd>
+            <dt>What it holds</dt>
+            <dd>Plot owner directory (<span class="mono">plot_owners_data</span>), payment logs (<span class="mono">collection_data</span>, <span class="mono">collection_y_*</span>), portal tabs (<span class="mono">portal_*</span>). Portal reads owner rows via CSV export; Apps Script writes payments &amp; updates.</dd>
+          </dl>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Google Drive</h4>
+          <dl>
+            <dt>Role</dt>
+            <dd>The spreadsheet and society documents live in Drive under <b>infinitynakshatra.na@gmail.com</b>. Project docs / meeting PDFs on the portal can link to Drive file URLs.</dd>
+            <dt>Example (PMRDA rules PDF)</dt>
+            <dd><a href="https://drive.google.com/file/d/1oHf5kC-y6-VdGTM_7eKeq5LaPZ7mofVG/view" target="_blank" rel="noreferrer">PMRDA Construction Rules</a></dd>
+          </dl>
+        </div>
+        <div class="adminNotesBlock">
+          <h4>Other links</h4>
+          <dl>
+            <dt>WhatsApp group</dt>
+            <dd><a href="https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD" target="_blank" rel="noreferrer">Infinity Nakshatra WhatsApp</a></dd>
+            <dt>Docs in repo</dt>
+            <dd><span class="mono">Imp_links.txt</span>, <span class="mono">DEPLOY_FROM_CURSOR.md</span>, <span class="mono">COLLECTION_SETUP.md</span>, <span class="mono">APPS_SCRIPT_DEPLOY.txt</span></dd>
           </dl>
         </div>
         <div class="adminNotesBlock" style="border-top:1px solid var(--border); padding-top:12px;">
-          <p style="margin:0; font-size:13px; color:var(--text);"><strong>Note:</strong> Admin and User can change their password after first login.</p>
+          <p style="margin:0; font-size:13px; color:var(--text);"><strong>Note:</strong> Admin, Owner, and Security can change portal passwords after first login. Society Gmail password is for Google services only — not the portal admin ID.</p>
         </div>
       </div>
     </div>

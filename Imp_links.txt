@@ -1,5 +1,95 @@
-Git Repo: https://github.com/infinitynakshatra/nakshatra-portal
+Infinity Nakshatra Society — project links & credentials
+========================================================
+Treat this file as confidential. Do not share publicly.
 
-Cloudflare: https://dash.cloudflare.com/9ffe5dc72bd095da82a8e957c1e3d624/pages/view/nakshatra-portal
+----------------------------------------------------------------------
+LOGINS
+----------------------------------------------------------------------
+Portal Admin          ID: admin          Password: Admin@123
+Society Gmail         ID: infinitynakshatra.na@gmail.com   Password: Nakshatra123#
+Owner (portal)        ID: mobile number   Password: same mobile (first login); change after login
+Security (My Gate)    ID: security        Password: Gate@123
 
-Website: https://nakshatra-portal.pages.dev/infinity_nakshatra_dashboard
+----------------------------------------------------------------------
+LIVE PORTAL (Cloudflare Pages)
+----------------------------------------------------------------------
+Dashboard:  https://nakshatra-portal.pages.dev/infinity_nakshatra_dashboard
+API relay:  https://nakshatra-portal.pages.dev/api/collection
+Role:       Hosts the HTML portal. Auto-deploys on git push to main.
+            /api/collection forwards browser POSTs to Google Apps Script
+            (browsers cannot POST directly to script.google.com from HTTPS).
+
+Cloudflare dashboard:
+  https://dash.cloudflare.com/9ffe5dc72bd095da82a8e957c1e3d624/pages/view/nakshatra-portal
+
+----------------------------------------------------------------------
+GITHUB (source code)
+----------------------------------------------------------------------
+Repo:       https://github.com/infinitynakshatra/nakshatra-portal
+Local path: C:\HC\Reports\cursor\Nakshatra
+
+What Git holds:
+  - infinity_nakshatra_dashboard.html  — Admin / Owner / Security portal UI
+  - apps_script_collection_data.gs       — Apps Script backend (source of truth)
+  - functions/api/collection.js        — Cloudflare relay to Apps Script
+  - nakshatra_collection_exec_url.js   — Exec URL helper for portal
+  - assets/                            — logos, icons
+  - Deploy docs: APPS_SCRIPT_DEPLOY.txt, COLLECTION_SETUP.md, DEPLOY_FROM_CURSOR.md
+
+Workflow: edit locally → git push origin main → Cloudflare redeploys portal
+
+----------------------------------------------------------------------
+GOOGLE APPS SCRIPT (backend)
+----------------------------------------------------------------------
+Script editor:
+  https://script.google.com/home/projects/1N9V_DwNhgW3yvOsrga0_tioOseAmokCFA5vjO7iaC6TK4pw5h0awAMuC/edit
+
+Live Web app (/exec):
+  https://script.google.com/macros/s/AKfycbymDJTDSDm-p9jSL7Y1TMJs3tb5ZKXJAQTlqq6b49hcO4Zr4sGS4bOslKEOfgOtJQ8w/exec
+
+Deployment ID: AKfycbymDJTDSDm-p9jSL7Y1TMJs3tb5ZKXJAQTlqq6b49hcO4Zr4sGS4bOslKEOfgOtJQ8w
+
+What Apps Script holds:
+  - Web app API (doPost): payments, pending approvals, gate visits, expenses,
+    banking config, project/meeting docs, owner access, sheet row updates
+  - Writes to Google Sheet tabs: portal_payments, collection_data, collection_y_YYYY,
+    portal_my_gate_visitors, portal_expenses, portal_* config tabs, etc.
+  - Does NOT host the HTML portal (that is on Cloudflare)
+
+Deploy from PC (Nakshatra folder):
+  npm run apps-script:login     (once)
+  npm run apps-script:deploy    (push + update live Web app)
+
+----------------------------------------------------------------------
+GOOGLE SHEET (master data)
+----------------------------------------------------------------------
+Spreadsheet:
+  https://docs.google.com/spreadsheets/d/1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA/edit?gid=1304899070
+
+Sheet ID: 1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA
+Owner tab gid: 1304899070 (plot_owners_data)
+
+What the Sheet holds:
+  - Plot directory (owners, contacts, sold/unsold)
+  - collection_data — master payment log (all months)
+  - collection_y_2025 etc. — one tab per calendar year (payment mirror)
+  - portal_payments, portal_pending_requests, portal_expenses, etc.
+  - Legacy collection_m_* month tabs (optional; still read if present)
+
+Owned by: infinitynakshatra.na@gmail.com
+
+----------------------------------------------------------------------
+GOOGLE DRIVE
+----------------------------------------------------------------------
+Role: Spreadsheet and society document files live in Drive under society Gmail.
+Portal document links (project docs, meeting docs) can point to Drive file URLs.
+
+Example: PMRDA Construction Rules PDF
+  https://drive.google.com/file/d/1oHf5kC-y6-VdGTM_7eKeq5LaPZ7mofVG/view
+
+----------------------------------------------------------------------
+OTHER
+----------------------------------------------------------------------
+WhatsApp group: https://chat.whatsapp.com/Bkv3JaleXw1GeacU8MzixD
+
+Admin notes in portal: Profile → Admin notes (same info, admin login required)
