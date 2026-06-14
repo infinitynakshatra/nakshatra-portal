@@ -77,6 +77,10 @@ const PORTAL_FY_SETTINGS_HEADERS = ["ownerPortalMayYear"];
 /** Short-lived owner login OTP (email delivery via MailApp — free with Google account). */
 const PORTAL_OWNER_LOGIN_OTP_SHEET = "portal_owner_login_otp";
 const PORTAL_OWNER_LOGIN_OTP_HEADERS = ["mobile", "otpHash", "expiresAt", "createdAt"];
+const PORTAL_OWNER_AUTH_SHEET = "portal_owner_auth";
+const PORTAL_OWNER_AUTH_HEADERS = ["mobile", "pwHash", "updatedAt"];
+const PORTAL_OWNER_SETUP_SHEET = "portal_owner_setup";
+const PORTAL_OWNER_SETUP_HEADERS = ["mobile", "setupToken", "expiresAt", "createdAt"];
 var OWNER_EMAIL_HEADERS = [
   "Registered Email-ID",
   "Owner Email",
@@ -606,6 +610,97 @@ function verifyOwnerLoginOtp_(ss, mobile, otp) {
       return true;
     }
     return false;
+  }
+  return false;
+}
+
+function sha256HexOwner_(text) {
+  var digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(text));
+  var out = [];
+  for (var i = 0; i < digest.length; i++) {
+    var b = digest[i];
+    if (b < 0) b += 256;
+    var hx = b.toString(16);
+    if (hx.length === 1) hx = "0" + hx;
+    out.push(hx);
+  }
+  return out.join("");
+}
+
+function hashOwnerPortalPassword_(mobile, password) {
+  return sha256HexOwner_(String(mobile) + "|" + String(password) + "|owner_pw_v1");
+}
+
+function validateOwnerPortalPasswordStrength_(mobile, password) {
+  var pw = String(password || "");
+  var mob = String(mobile || "").replace(/\D/g, "").slice(-10);
+  if (pw.length < 8) return { ok: false, error: "password_too_short" };
+  if (pw === mob) return { ok: false, error: "password_same_as_mobile" };
+  return { ok: true };
+}
+
+function ownerPortalPasswordIsSet_(ss, mobile) {
+  var want = String(mobile || "").replace(/\D/g, "").slice(-10);
+  var sh = ss.getSheetByName(PORTAL_OWNER_AUTH_SHEET);
+  if (!sh || sh.getLastRow() < 2) return false;
+  var rows = sh.getDataRange().getValues();
+  for (var i = 1; i < rows.length; i++) {
+    if (String(rows[i][0] || "").replace(/\D/g, "").slice(-10) === want && String(rows[i][1] || "").trim()) return true;
+  }
+  return false;
+}
+
+function writeOwnerPortalPassword_(ss, mobile, password) {
+  var want = String(mobile || "").replace(/\D/g, "").slice(-10);
+  var hash = hashOwnerPortalPassword_(want, password);
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_OWNER_AUTH_SHEET, PORTAL_OWNER_AUTH_HEADERS);
+  deleteWhere_(sh, function (row) {
+    return String(row[0] || "").replace(/\D/g, "").slice(-10) === want;
+  });
+  sh.appendRow([want, hash, Date.now()]);
+}
+
+function verifyOwnerPortalPassword_(ss, mobile, password) {
+  var want = String(mobile || "").replace(/\D/g, "").slice(-10);
+  var sh = ss.getSheetByName(PORTAL_OWNER_AUTH_SHEET);
+  if (!sh || sh.getLastRow() < 2) return false;
+  var hashWanted = hashOwnerPortalPassword_(want, password);
+  var rows = sh.getDataRange().getValues();
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (String(rows[i][0] || "").replace(/\D/g, "").slice(-10) !== want) continue;
+    return String(rows[i][1] || "") === hashWanted;
+  }
+  return false;
+}
+
+function issueOwnerSetupToken_(ss, mobile) {
+  var want = String(mobile || "").replace(/\D/g, "").slice(-10);
+  var token = Utilities.getUuid();
+  var exp = Date.now() + 15 * 60 * 1000;
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_OWNER_SETUP_SHEET, PORTAL_OWNER_SETUP_HEADERS);
+  deleteWhere_(sh, function (row) {
+    return String(row[0] || "").replace(/\D/g, "").slice(-10) === want;
+  });
+  sh.appendRow([want, token, exp, Date.now()]);
+  return token;
+}
+
+function consumeOwnerSetupToken_(ss, mobile, token) {
+  var want = String(mobile || "").replace(/\D/g, "").slice(-10);
+  var tok = String(token || "").trim();
+  if (!tok) return false;
+  var sh = ss.getSheetByName(PORTAL_OWNER_SETUP_SHEET);
+  if (!sh || sh.getLastRow() < 2) return false;
+  var rows = sh.getDataRange().getValues();
+  var now = Date.now();
+  for (var i = rows.length - 1; i >= 1; i--) {
+    if (String(rows[i][0] || "").replace(/\D/g, "").slice(-10) !== want) continue;
+    if (String(rows[i][1] || "") !== tok) return false;
+    if (Number(rows[i][2]) <= now) return false;
+    deleteWhere_(sh, function (row) {
+      return String(row[0] || "").replace(/\D/g, "").slice(-10) === want;
+    });
+    return true;
   }
   return false;
 }
@@ -1482,9 +1577,60 @@ function doPost(e) {
       var mobV = String(data.mobile || "").replace(/\D/g, "").slice(-10);
       var otpIn = String(data.otp || "").trim();
       if (mobV.length !== 10) return json_({ ok: false, error: "invalid_mobile" }, 400);
+      if (!mobileRegisteredAsOwner_(ss, mobV)) return json_({ ok: false, error: "mobile_not_registered" }, 404);
       if (!verifyOwnerLoginOtp_(ss, mobV, otpIn)) return json_({ ok: false, error: "invalid_otp" }, 401);
-      audit_(ss, mobV, "verifyOwnerLoginOtp", { ok: true });
-      return json_({ ok: true, verified: true }, 200);
+      var setupToken = issueOwnerSetupToken_(ss, mobV);
+      audit_(ss, mobV, "verifyOwnerLoginOtp", { ok: true, passwordSet: ownerPortalPasswordIsSet_(ss, mobV) });
+      return json_({
+        ok: true,
+        verified: true,
+        passwordSet: ownerPortalPasswordIsSet_(ss, mobV),
+        setupToken: setupToken
+      }, 200);
+    }
+    if (action === "checkOwnerAuthStatus") {
+      var mobSt = String(data.mobile || "").replace(/\D/g, "").slice(-10);
+      if (mobSt.length !== 10) return json_({ ok: false, error: "invalid_mobile" }, 400);
+      if (!mobileRegisteredAsOwner_(ss, mobSt)) return json_({ ok: false, error: "mobile_not_registered" }, 404);
+      return json_({ ok: true, passwordSet: ownerPortalPasswordIsSet_(ss, mobSt) }, 200);
+    }
+    if (action === "completeOwnerFirstLogin") {
+      var mobSet = String(data.mobile || "").replace(/\D/g, "").slice(-10);
+      var tokSet = String(data.setupToken || "").trim();
+      var newPw = String(data.newPassword || "");
+      if (mobSet.length !== 10) return json_({ ok: false, error: "invalid_mobile" }, 400);
+      if (!mobileRegisteredAsOwner_(ss, mobSet)) return json_({ ok: false, error: "mobile_not_registered" }, 404);
+      if (ownerPortalPasswordIsSet_(ss, mobSet)) return json_({ ok: false, error: "password_already_set" }, 409);
+      if (!consumeOwnerSetupToken_(ss, mobSet, tokSet)) return json_({ ok: false, error: "invalid_setup_token" }, 401);
+      var pwChk = validateOwnerPortalPasswordStrength_(mobSet, newPw);
+      if (!pwChk.ok) return json_({ ok: false, error: pwChk.error || "weak_password" }, 400);
+      writeOwnerPortalPassword_(ss, mobSet, newPw);
+      audit_(ss, mobSet, "completeOwnerFirstLogin", { ok: true });
+      return json_({ ok: true }, 200);
+    }
+    if (action === "ownerPasswordLogin") {
+      var mobLog = String(data.mobile || "").replace(/\D/g, "").slice(-10);
+      var pwLog = String(data.password || "");
+      if (mobLog.length !== 10) return json_({ ok: false, error: "invalid_mobile" }, 400);
+      if (!mobileRegisteredAsOwner_(ss, mobLog)) return json_({ ok: false, error: "mobile_not_registered" }, 404);
+      if (!ownerPortalPasswordIsSet_(ss, mobLog)) return json_({ ok: false, error: "password_not_set" }, 403);
+      if (!verifyOwnerPortalPassword_(ss, mobLog, pwLog)) return json_({ ok: false, error: "invalid_password" }, 401);
+      audit_(ss, mobLog, "ownerPasswordLogin", { ok: true });
+      return json_({ ok: true }, 200);
+    }
+    if (action === "ownerUpdatePassword") {
+      var mobUp = String(data.mobile || "").replace(/\D/g, "").slice(-10);
+      var tokUp = String(data.setupToken || "").trim();
+      var newPwUp = String(data.newPassword || "");
+      if (mobUp.length !== 10) return json_({ ok: false, error: "invalid_mobile" }, 400);
+      if (!mobileRegisteredAsOwner_(ss, mobUp)) return json_({ ok: false, error: "mobile_not_registered" }, 404);
+      if (!ownerPortalPasswordIsSet_(ss, mobUp)) return json_({ ok: false, error: "password_not_set" }, 403);
+      if (!consumeOwnerSetupToken_(ss, mobUp, tokUp)) return json_({ ok: false, error: "invalid_setup_token" }, 401);
+      var pwChkUp = validateOwnerPortalPasswordStrength_(mobUp, newPwUp);
+      if (!pwChkUp.ok) return json_({ ok: false, error: pwChkUp.error || "weak_password" }, 400);
+      writeOwnerPortalPassword_(ss, mobUp, newPwUp);
+      audit_(ss, mobUp, "ownerUpdatePassword", { ok: true });
+      return json_({ ok: true }, 200);
     }
     if (action === "submitPaymentRequest") {
       var sh = ensureSheetWithHeaders_(ss, PORTAL_PENDING_SHEET, PORTAL_PENDING_HEADERS);

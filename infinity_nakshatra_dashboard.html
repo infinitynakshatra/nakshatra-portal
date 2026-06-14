@@ -1841,24 +1841,47 @@
       </div>
 
       <div class="field">
-        <label for="loginId">Enter ID</label>
+        <label for="loginId" id="loginIdLabel">Enter ID</label>
         <input id="loginId" name="ins_login_id" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="admin, owner mobile, or security" />
       </div>
-      <div class="field" id="loginPwWrap">
-        <label for="loginPw">Enter Password</label>
-        <input id="loginPw" name="ins_login_pw" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="Enter Password" />
-      </div>
-      <div class="field" id="loginOtpWrap" style="display:none;">
-        <label for="loginOtp">Enter OTP</label>
-        <input id="loginOtp" name="ins_login_otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="6-digit code from email" />
-        <div class="smallNote" id="ownerOtpHint" style="margin-top:6px;">Owner login uses a free email OTP (not SMS). Tap <b>Send OTP</b> — the code is sent to your <b>Registered Email-ID</b> in society records.</div>
-        <div class="smallNote" id="ownerOtpSentHint" style="margin-top:6px; display:none;"></div>
+
+      <div id="adminWatchmanLoginPanel">
+        <div class="field" id="adminWatchmanPwWrap">
+          <label for="loginPw">Enter Password</label>
+          <input id="loginPw" name="ins_login_pw" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="Enter Password" />
+        </div>
+        <div id="adminWatchmanLoginActions" style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+          <button class="btn" id="adminWatchmanLoginBtn" type="button">Login</button>
+          <button class="btn secondary" id="openPwFromLoginBtn" type="button">Change password</button>
+        </div>
       </div>
 
-      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
-        <button class="btn" id="loginBtn" type="button">Login</button>
-        <button class="btn secondary" id="sendOwnerOtpBtn" type="button" style="display:none;">Send OTP</button>
-        <button class="btn secondary" id="openPwFromLoginBtn" type="button">Change password</button>
+      <div id="ownerFirstLoginPanel" style="display:none;">
+        <p class="smallNote" id="ownerFirstLoginGuide" style="margin:0 0 10px; line-height:1.45;">Use only your <b>registered mobile number</b> and <b>Registered Email-ID</b> for login. For first-time login, confirm your registered mobile number with Admin if needed.</p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin:10px 0;">
+          <button class="btn secondary" id="sendOwnerOtpBtn" type="button">Send OTP</button>
+        </div>
+        <div class="field" id="loginOtpWrap">
+          <label for="loginOtp">Enter OTP</label>
+          <input id="loginOtp" name="ins_login_otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="6-digit code from email" />
+          <div class="smallNote" id="ownerOtpHint" style="margin-top:6px;">OTP is sent to your <b>Registered Email-ID</b> linked to this mobile in society records.</div>
+          <div class="smallNote" id="ownerOtpSentHint" style="margin-top:6px; display:none;"></div>
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+          <button class="btn" id="ownerVerifyOtpBtn" type="button">Verify OTP &amp; Set Password</button>
+        </div>
+      </div>
+
+      <div id="ownerReturnLoginPanel" style="display:none;">
+        <p class="smallNote" style="margin:0 0 10px; line-height:1.45;">Enter your registered mobile number and the password you set during first-time login.</p>
+        <div class="field" id="ownerReturnPwWrap">
+          <label for="ownerReturnPw">Enter Password</label>
+          <input id="ownerReturnPw" name="ins_owner_return_pw" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="Enter Password" />
+        </div>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+          <button class="btn" id="ownerReturnLoginBtn" type="button">Login</button>
+          <button class="btn secondary" id="ownerChangePwFromLoginBtn" type="button">Change Password</button>
+        </div>
       </div>
 
       <div class="err" id="loginErr"></div>
@@ -2822,6 +2845,33 @@
     </div>
   </div>
 
+  <div class="backdrop" id="ownerSetupPwBackdrop" aria-hidden="true">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="ownerSetupPwTitle" style="width:min(520px, 96vw);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="ownerSetupPwTitle">Set your password</div>
+          <div class="modalSub" id="ownerSetupPwSub">First-time owner login — choose a strong password for future sign-in.</div>
+        </div>
+        <button class="btn secondary" id="ownerSetupPwCloseBtn" type="button">Close</button>
+      </div>
+      <p class="smallNote" style="margin:0 0 10px; line-height:1.45;">Use at least 8 characters. Do not use your mobile number as the password. Keep it private — only you should know it.</p>
+      <input type="hidden" id="ownerSetupMobile" value="" />
+      <input type="hidden" id="ownerSetupToken" value="" />
+      <div class="field">
+        <label for="ownerSetupPwNew">New Password</label>
+        <input id="ownerSetupPwNew" type="password" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true" placeholder="New password" />
+      </div>
+      <div class="field">
+        <label for="ownerSetupPwNew2">Confirm Password</label>
+        <input id="ownerSetupPwNew2" type="password" autocomplete="new-password" data-lpignore="true" data-1p-ignore="true" placeholder="Confirm new password" />
+      </div>
+      <div class="err" id="ownerSetupPwErr"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px;">
+        <button class="btn" id="ownerSetupPwSubmitBtn" type="button">Submit</button>
+      </div>
+    </div>
+  </div>
+
   <div class="backdrop" id="pwBackdrop" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="pwTitle">
       <div class="modalHead">
@@ -2833,10 +2883,10 @@
       </div>
 
       <div class="field">
-        <label for="pwUser">Enter ID</label>
+        <label for="pwUser" id="pwUserLabel">Enter ID</label>
         <input id="pwUser" name="ins_pw_user" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="Enter ID" />
       </div>
-      <div class="field">
+      <div class="field" id="pwOldWrap">
         <label for="pwOld">Enter Password (current)</label>
         <input id="pwOld" name="ins_pw_old" type="password" autocomplete="off" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="Enter Password" />
       </div>
@@ -5245,21 +5295,78 @@
       try { localStorage.removeItem(USER_SESSION_KEY); } catch {}
     }
 
+    let ownerPendingSetup = null;
+    let ownerLoginPanelMode = "first";
+
     function syncLoginFormForRole(){
       const role = document.querySelector('input[name="role"]:checked')?.value || "admin";
       const isUser = role === "user";
-      const pwWrap = document.getElementById("loginPwWrap");
-      const otpWrap = document.getElementById("loginOtpWrap");
-      const sendOtpBtn = document.getElementById("sendOwnerOtpBtn");
-      const openPwBtn = document.getElementById("openPwFromLoginBtn");
-      const loginBtn = document.getElementById("loginBtn");
+      const loginIdLabel = document.getElementById("loginIdLabel");
       const loginId = document.getElementById("loginId");
-      if (pwWrap) pwWrap.style.display = isUser ? "none" : "";
-      if (otpWrap) otpWrap.style.display = isUser ? "" : "none";
-      if (sendOtpBtn) sendOtpBtn.style.display = isUser ? "" : "none";
+      const adminPanel = document.getElementById("adminWatchmanLoginPanel");
+      const firstPanel = document.getElementById("ownerFirstLoginPanel");
+      const returnPanel = document.getElementById("ownerReturnLoginPanel");
+      const openPwBtn = document.getElementById("openPwFromLoginBtn");
+      if (loginIdLabel) loginIdLabel.textContent = isUser ? "Mobile Number" : "Enter ID";
+      if (loginId) loginId.placeholder = isUser ? "10-digit registered mobile" : "admin, owner mobile, or security";
+      if (adminPanel) adminPanel.style.display = isUser ? "none" : "";
+      if (firstPanel) firstPanel.style.display = isUser && ownerLoginPanelMode === "first" ? "" : "none";
+      if (returnPanel) returnPanel.style.display = isUser && ownerLoginPanelMode === "return" ? "" : "none";
       if (openPwBtn) openPwBtn.style.display = isUser ? "none" : "";
-      if (loginBtn) loginBtn.textContent = isUser ? "Verify & Login" : "Login";
-      if (loginId) loginId.placeholder = isUser ? "10-digit owner mobile" : "admin, owner mobile, or security";
+    }
+
+    async function refreshOwnerLoginPanelMode(){
+      const role = document.querySelector('input[name="role"]:checked')?.value || "admin";
+      if (role !== "user"){
+        ownerLoginPanelMode = "first";
+        syncLoginFormForRole();
+        return;
+      }
+      const mob = normalizeLoginId("user", document.getElementById("loginId")?.value);
+      if (mob.length !== 10){
+        ownerLoginPanelMode = "first";
+        syncLoginFormForRole();
+        return;
+      }
+      if (!isServerEnabled()){
+        ownerLoginPanelMode = "first";
+        syncLoginFormForRole();
+        return;
+      }
+      try {
+        const r = await appsScriptPostJson({
+          apiKey: COLLECTION_API_KEY,
+          action: "checkOwnerAuthStatus",
+          mobile: mob
+        });
+        let j = {};
+        try { j = JSON.parse(r.txt || "{}"); } catch {}
+        if (r.ok && j.ok && j.passwordSet){
+          ownerLoginPanelMode = "return";
+        } else {
+          ownerLoginPanelMode = "first";
+        }
+      } catch {
+        ownerLoginPanelMode = "first";
+      }
+      syncLoginFormForRole();
+    }
+
+    function showOwnerFirstLoginForPasswordReset(){
+      ownerLoginPanelMode = "first";
+      ownerPendingSetup = null;
+      const otpEl = document.getElementById("loginOtp");
+      if (otpEl) otpEl.value = "";
+      const sentHint = document.getElementById("ownerOtpSentHint");
+      if (sentHint){
+        sentHint.style.display = "none";
+        sentHint.textContent = "";
+      }
+      const guide = document.getElementById("ownerFirstLoginGuide");
+      if (guide){
+        guide.innerHTML = "To change your password, verify with OTP sent to your <b>Registered Email-ID</b>. Use only your registered mobile number.";
+      }
+      syncLoginFormForRole();
     }
 
     function ownerOtpErrorMessage_(code, j){
@@ -5273,7 +5380,13 @@
       if (c === "email_send_failed") return "Could not send OTP email. Try again later or contact the society office.";
       if (c === "invalid_otp") return "Invalid or expired OTP. Request a new code and try again.";
       if (c === "invalid_mobile") return "Enter a valid 10-digit mobile number.";
-      return "Could not complete OTP request. Try again.";
+      if (c === "invalid_password") return "Incorrect password. Try again or use Change Password with OTP.";
+      if (c === "password_not_set") return "Password not set yet. Complete first-time login with OTP.";
+      if (c === "password_already_set") return "Password is already set. Sign in with your password or use Change Password.";
+      if (c === "password_too_short") return "Password must be at least 8 characters.";
+      if (c === "password_same_as_mobile") return "Password cannot be the same as your mobile number.";
+      if (c === "invalid_setup_token") return "Verification expired. Request OTP again and retry.";
+      return "Could not complete the request. Try again.";
     }
 
     async function requestOwnerLoginOtp(){
@@ -5281,7 +5394,7 @@
       setErr(errEl, "");
       const userId = normalizeLoginId("user", document.getElementById("loginId").value);
       if (!userId || userId.length !== 10){
-        setErr(errEl, "Enter your 10-digit owner mobile number.");
+        setErr(errEl, "Enter your 10-digit registered mobile number.");
         return;
       }
       if (!isServerEnabled()){
@@ -5318,6 +5431,143 @@
       } finally {
         if (btn) btn.disabled = false;
       }
+    }
+
+    async function handleOwnerVerifyOtp(){
+      const errEl = document.getElementById("loginErr");
+      setErr(errEl, "");
+      const userId = normalizeLoginId("user", document.getElementById("loginId").value);
+      const otp = norm(document.getElementById("loginOtp")?.value);
+      if (!userId || userId.length !== 10){
+        setErr(errEl, "Enter your 10-digit registered mobile number.");
+        return;
+      }
+      if (!/^\d{6}$/.test(otp)){
+        setErr(errEl, "Enter the 6-digit OTP sent to your Registered Email-ID.");
+        return;
+      }
+      if (isOwnerLoginBlocked(userId)){
+        setErr(errEl, "Your access is blocked by an administrator. Contact the society office.");
+        return;
+      }
+      if (!isServerEnabled()){
+        setErr(errEl, "OTP login needs the portal server connection. Try again later.");
+        return;
+      }
+      const vrf = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "verifyOwnerLoginOtp",
+        mobile: userId,
+        otp
+      });
+      let vj = {};
+      try { vj = JSON.parse(vrf.txt || "{}"); } catch {}
+      if (!vrf.ok || !vj.ok || !vj.verified || !vj.setupToken){
+        setErr(errEl, ownerOtpErrorMessage_(vj.error || vrf.error, vj));
+        return;
+      }
+      ownerPendingSetup = { mobile: userId, setupToken: vj.setupToken, passwordSet: !!vj.passwordSet };
+      openOwnerSetupPasswordModal(userId, vj.setupToken, !!vj.passwordSet);
+    }
+
+    function openOwnerSetupPasswordModal(mobile, setupToken, isReset){
+      document.getElementById("ownerSetupMobile").value = mobile || "";
+      document.getElementById("ownerSetupToken").value = setupToken || "";
+      document.getElementById("ownerSetupPwNew").value = "";
+      document.getElementById("ownerSetupPwNew2").value = "";
+      setErr(document.getElementById("ownerSetupPwErr"), "");
+      const title = document.getElementById("ownerSetupPwTitle");
+      const sub = document.getElementById("ownerSetupPwSub");
+      if (title) title.textContent = isReset ? "Change your password" : "Set your password";
+      if (sub){
+        sub.textContent = isReset
+          ? "OTP verified — enter a new password for future login."
+          : "First-time owner login — choose a strong password for future sign-in.";
+      }
+      showBackdrop("ownerSetupPwBackdrop", true);
+    }
+
+    async function submitOwnerSetupPassword(){
+      const errEl = document.getElementById("ownerSetupPwErr");
+      setErr(errEl, "");
+      const mobile = normalizeLoginId("user", document.getElementById("ownerSetupMobile").value);
+      const setupToken = norm(document.getElementById("ownerSetupToken").value);
+      const newPw = document.getElementById("ownerSetupPwNew").value;
+      const newPw2 = document.getElementById("ownerSetupPwNew2").value;
+      if (!mobile || mobile.length !== 10 || !setupToken){
+        setErr(errEl, "Verification expired. Close and request OTP again.");
+        return;
+      }
+      if (!newPw || !newPw2){
+        setErr(errEl, "Enter and confirm your new password.");
+        return;
+      }
+      if (newPw !== newPw2){
+        setErr(errEl, "Passwords do not match.");
+        return;
+      }
+      const action = ownerPendingSetup?.passwordSet ? "ownerUpdatePassword" : "completeOwnerFirstLogin";
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action,
+        mobile,
+        setupToken,
+        newPassword: newPw
+      });
+      let j = {};
+      try { j = JSON.parse(r.txt || "{}"); } catch {}
+      if (!r.ok || !j.ok){
+        setErr(errEl, ownerOtpErrorMessage_(j.error || r.error, j));
+        return;
+      }
+      await pwSet(mobile, newPw);
+      showBackdrop("ownerSetupPwBackdrop", false);
+      ownerPendingSetup = null;
+      const otpEl = document.getElementById("loginOtp");
+      if (otpEl) otpEl.value = "";
+      const returnPw = document.getElementById("ownerReturnPw");
+      if (returnPw) returnPw.value = "";
+      ownerLoginPanelMode = "return";
+      const guide = document.getElementById("ownerFirstLoginGuide");
+      if (guide){
+        guide.innerHTML = "Use only your <b>registered mobile number</b> and <b>Registered Email-ID</b> for login. For first-time login, confirm your registered mobile number with Admin if needed.";
+      }
+      syncLoginFormForRole();
+      setErr(document.getElementById("loginErr"), "");
+      alert("Password saved. You can now sign in with your mobile number and password.");
+    }
+
+    async function handleOwnerReturnLogin(){
+      setErr(document.getElementById("loginErr"), "");
+      const userId = normalizeLoginId("user", document.getElementById("loginId").value);
+      const password = document.getElementById("ownerReturnPw")?.value || "";
+      if (!userId || !password){
+        setErr(document.getElementById("loginErr"), "Please enter Mobile Number and Password.");
+        return;
+      }
+      if (isOwnerLoginBlocked(userId)){
+        setErr(document.getElementById("loginErr"), "Your access is blocked by an administrator. Contact the society office.");
+        return;
+      }
+      if (!isServerEnabled()){
+        setErr(document.getElementById("loginErr"), "Login needs the portal server connection. Try again later.");
+        return;
+      }
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "ownerPasswordLogin",
+        mobile: userId,
+        password
+      });
+      let j = {};
+      try { j = JSON.parse(r.txt || "{}"); } catch {}
+      if (!r.ok || !j.ok){
+        setErr(document.getElementById("loginErr"), ownerOtpErrorMessage_(j.error || r.error, j));
+        return;
+      }
+      await pwSet(userId, password);
+      writeSession({ role:"user", userId });
+      showAppForSession(readSession());
     }
 
     function defaultBankingGuide(){
@@ -6853,6 +7103,7 @@
         sentHint.textContent = "";
       }
       syncLoginFormForRole();
+      void refreshOwnerLoginPanelMode();
     }
 
     function showAppForSession(sess){
@@ -6947,6 +7198,10 @@
     async function handleLogin(){
       setErr(document.getElementById("loginErr"), "");
       const role = document.querySelector('input[name="role"]:checked')?.value || "admin";
+      if (role === "user"){
+        setErr(document.getElementById("loginErr"), "Use Login on the owner panel, or complete first-time setup with OTP.");
+        return;
+      }
       const userId = normalizeLoginId(role, document.getElementById("loginId").value);
       const password = document.getElementById("loginPw").value;
 
@@ -6986,41 +7241,7 @@
         if (legacyWm || !(await pwGetHash(WATCHMAN_USER))) await pwSet(WATCHMAN_USER, password);
         writeSession({ role:"watchman", userId: WATCHMAN_USER });
         showAppForSession(readSession());
-        return;
       }
-
-      // user login: email OTP (free via Google MailApp on server)
-      const otp = norm(document.getElementById("loginOtp")?.value);
-      if (!/^\d{6}$/.test(otp)){
-        setErr(document.getElementById("loginErr"), "Enter the 6-digit OTP sent to your registered email.");
-        return;
-      }
-
-      if (isOwnerLoginBlocked(userId)){
-        setErr(document.getElementById("loginErr"), "Your access is blocked by an administrator. Contact the society office.");
-        return;
-      }
-
-      if (!isServerEnabled()){
-        setErr(document.getElementById("loginErr"), "OTP login needs the portal server connection. Try again later.");
-        return;
-      }
-
-      const vrf = await appsScriptPostJson({
-        apiKey: COLLECTION_API_KEY,
-        action: "verifyOwnerLoginOtp",
-        mobile: userId,
-        otp
-      });
-      let vj = {};
-      try { vj = JSON.parse(vrf.txt || "{}"); } catch {}
-      if (!vrf.ok || !vj.ok || !vj.verified){
-        setErr(document.getElementById("loginErr"), ownerOtpErrorMessage_(vj.error || vrf.error, vj));
-        return;
-      }
-
-      writeSession({ role:"user", userId });
-      showAppForSession(readSession());
     }
 
     function logout(){
@@ -7028,9 +7249,24 @@
       showLogin();
     }
 
+    function openOwnerChangePasswordFlow(prefillMobile){
+      showBackdrop("pwBackdrop", false);
+      showBackdrop("ownerSetupPwBackdrop", false);
+      showLogin();
+      const userRadio = document.querySelector('input[name="role"][value="user"]');
+      if (userRadio) userRadio.checked = true;
+      const loginId = document.getElementById("loginId");
+      if (loginId && prefillMobile) loginId.value = prefillMobile;
+      showOwnerFirstLoginForPasswordReset();
+    }
+
     function openPwModal(prefillRole, prefillUser){
       const role = prefillRole || document.querySelector('input[name="role"]:checked')?.value || "admin";
-      const u = prefillUser || (role === "admin" ? ADMIN_USER : role === "watchman" ? WATCHMAN_USER : normalizeLoginId("user", document.getElementById("loginId").value));
+      if (role === "user"){
+        openOwnerChangePasswordFlow(prefillUser || normalizeLoginId("user", document.getElementById("loginId").value));
+        return;
+      }
+      const u = prefillUser || (role === "admin" ? ADMIN_USER : WATCHMAN_USER);
 
       document.getElementById("pwUser").value = u || "";
       document.getElementById("pwOld").value = "";
@@ -7038,12 +7274,15 @@
       document.getElementById("pwNew2").value = "";
       setErr(document.getElementById("pwErr"), "");
 
+      const pwUserLabel = document.getElementById("pwUserLabel");
+      const pwOldWrap = document.getElementById("pwOldWrap");
+      if (pwUserLabel) pwUserLabel.textContent = "Enter ID";
+      if (pwOldWrap) pwOldWrap.style.display = "";
+
       document.getElementById("pwSub").textContent =
         role === "admin"
           ? "Admin account"
-          : role === "watchman"
-            ? "Security (My Gate)"
-            : "Owner account (mobile digits)";
+          : "Security (My Gate)";
 
       showBackdrop("pwBackdrop", true);
     }
@@ -7055,8 +7294,14 @@
       let userId;
       if (rawLower === ADMIN_USER) userId = ADMIN_USER;
       else if (rawLower === WATCHMAN_USER || rawLower === "watchman") userId = WATCHMAN_USER;
-      else if (userIdRaw.includes("@")) userId = userIdRaw.toLowerCase();
       else userId = digitsOnly(userIdRaw);
+
+      const isAdmin = userId === ADMIN_USER;
+      const isWatchman = userId === WATCHMAN_USER;
+      if (!isAdmin && !isWatchman){
+        setErr(document.getElementById("pwErr"), "Owner password changes require OTP verification on the login screen.");
+        return;
+      }
 
       const oldPw = document.getElementById("pwOld").value;
       const newPw = document.getElementById("pwNew").value;
@@ -7071,15 +7316,6 @@
         return;
       }
 
-      const isAdmin = userId === ADMIN_USER;
-      const isWatchman = userId === WATCHMAN_USER;
-      if (!isAdmin && !isWatchman){
-        if (digitsOnly(userId) !== userId || userId.length < 8){
-          setErr(document.getElementById("pwErr"), "Owner Login ID should be digits-only mobile number.");
-          return;
-        }
-      }
-
       let pwOk = await pwVerify(userId, oldPw);
       if (!pwOk && isWatchman) pwOk = await pwVerify("watchman", oldPw);
       if (!pwOk){
@@ -7089,11 +7325,6 @@
 
       await pwSet(userId, newPw);
       showBackdrop("pwBackdrop", false);
-
-      const sess = readSession();
-      if (sess && ((sess.role === "admin" && userId === ADMIN_USER) || (sess.role === "watchman" && userId === WATCHMAN_USER) || (sess.role === "user" && sess.userId === userId))){
-        // keep session; user must re-login if they changed another account
-      }
 
       alert("Password updated.");
     }
@@ -11090,6 +11321,8 @@
     function wireUI(){
       reduceBrowserFieldSuggestions(document.getElementById("loginId"));
       reduceBrowserFieldSuggestions(document.getElementById("loginPw"));
+      reduceBrowserFieldSuggestions(document.getElementById("ownerReturnPw"));
+      reduceBrowserFieldSuggestions(document.getElementById("loginOtp"));
       reduceBrowserFieldSuggestions(document.getElementById("pwUser"));
       reduceBrowserFieldSuggestions(document.getElementById("pwOld"));
       reduceBrowserFieldSuggestions(document.getElementById("pwNew"));
@@ -11100,13 +11333,33 @@
       document.getElementById("contactFilter").addEventListener("change", applyFilters);
       const ownerPlotsFilterEl = document.getElementById("ownerPlotsFilter");
       if (ownerPlotsFilterEl) ownerPlotsFilterEl.addEventListener("change", applyFilters);
-      document.getElementById("loginBtn").addEventListener("click", handleLogin);
+      document.getElementById("adminWatchmanLoginBtn").addEventListener("click", handleLogin);
+      const ownerReturnLoginBtn = document.getElementById("ownerReturnLoginBtn");
+      if (ownerReturnLoginBtn) ownerReturnLoginBtn.addEventListener("click", () => { void handleOwnerReturnLogin(); });
+      const ownerVerifyOtpBtn = document.getElementById("ownerVerifyOtpBtn");
+      if (ownerVerifyOtpBtn) ownerVerifyOtpBtn.addEventListener("click", () => { void handleOwnerVerifyOtp(); });
+      const ownerChangePwFromLoginBtn = document.getElementById("ownerChangePwFromLoginBtn");
+      if (ownerChangePwFromLoginBtn) ownerChangePwFromLoginBtn.addEventListener("click", showOwnerFirstLoginForPasswordReset);
       const sendOwnerOtpBtn = document.getElementById("sendOwnerOtpBtn");
       if (sendOwnerOtpBtn) sendOwnerOtpBtn.addEventListener("click", () => { void requestOwnerLoginOtp(); });
       document.querySelectorAll('input[name="role"]').forEach(el => {
-        el.addEventListener("change", syncLoginFormForRole);
+        el.addEventListener("change", () => {
+          syncLoginFormForRole();
+          void refreshOwnerLoginPanelMode();
+        });
       });
       syncLoginFormForRole();
+      void refreshOwnerLoginPanelMode();
+      const loginIdEl = document.getElementById("loginId");
+      if (loginIdEl && !globalThis.__insOwnerLoginIdWired){
+        globalThis.__insOwnerLoginIdWired = true;
+        let ownerLoginIdTimer = null;
+        loginIdEl.addEventListener("input", () => {
+          clearTimeout(ownerLoginIdTimer);
+          ownerLoginIdTimer = setTimeout(() => { void refreshOwnerLoginPanelMode(); }, 400);
+        });
+        loginIdEl.addEventListener("blur", () => { void refreshOwnerLoginPanelMode(); });
+      }
       document.getElementById("openPwFromLoginBtn").addEventListener("click", () => {
         const role = document.querySelector('input[name="role"]:checked')?.value || "admin";
         const u = role === "admin" ? ADMIN_USER : role === "watchman" ? WATCHMAN_USER : normalizeLoginId("user", document.getElementById("loginId").value);
@@ -11808,6 +12061,12 @@
 
       document.getElementById("pwCloseBtn").addEventListener("click", () => showBackdrop("pwBackdrop", false));
       document.getElementById("pwSaveBtn").addEventListener("click", savePwModal);
+      const ownerSetupPwCloseBtn = document.getElementById("ownerSetupPwCloseBtn");
+      if (ownerSetupPwCloseBtn) ownerSetupPwCloseBtn.addEventListener("click", () => showBackdrop("ownerSetupPwBackdrop", false));
+      const ownerSetupPwSubmitBtn = document.getElementById("ownerSetupPwSubmitBtn");
+      if (ownerSetupPwSubmitBtn) ownerSetupPwSubmitBtn.addEventListener("click", () => { void submitOwnerSetupPassword(); });
+      reduceBrowserFieldSuggestions(document.getElementById("ownerSetupPwNew"));
+      reduceBrowserFieldSuggestions(document.getElementById("ownerSetupPwNew2"));
 
       document.getElementById("payCloseBtn").addEventListener("click", () => showBackdrop("payBackdrop", false));
       document.getElementById("paySaveBtn").addEventListener("click", savePaymentsFromModal);
