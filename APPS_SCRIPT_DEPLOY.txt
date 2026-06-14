@@ -16,6 +16,7 @@ Steps
 4. Deploy → New deployment → Select type: Web app.
    - Execute as: Me
    - Who has access: Anyone  (simplest for the portal; tighten later if needed)
+   In appsscript.json use "access": "ANYONE_ANONYMOUS" (required for Cloudflare /api/collection relay).
 5. Deploy. Copy the Web app URL (must look like …/macros/s/…/exec).
 6. In infinity_nakshatra_dashboard.html set:
      const COLLECTION_API_URL = "PASTE_THE_FULL_URL_HERE";
