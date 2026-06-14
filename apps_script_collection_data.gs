@@ -8,8 +8,9 @@
  * 1) Set SCRIPT_API_KEY to a long random secret.
  * 2) SPREADSHEET_ID must match the portal HTML (same Google Sheet).
  * 3) Master log tab: collection_data (created automatically if missing).
- * 4) Each row is also copied to a month tab: collection_m_YYYYMM
- *      e.g. ym "2025-04" -> tab name "collection_m_202504"
+ * 4) Each row is also copied to a year tab: collection_y_YYYY
+ *      e.g. ym "2025-04" -> tab name "collection_y_2025"
+ *    Legacy month tabs collection_m_YYYYMM are still read if present (not created for new rows).
  *
  * POST JSON:
  *   { "apiKey": "...", "entry": { ... } }  — single collection row (same as before)
@@ -26,7 +27,9 @@
 const SCRIPT_API_KEY = "xUNCXr9NM3AT_-62lagdREjlfca685cuzgTXCttCNFQ";
 const SPREADSHEET_ID = "1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA";
 const TARGET_SHEET_NAME = "collection_data";
-/** Prefix for per-calendar-month backup tabs (ym format YYYY-MM in portal). */
+/** Prefix for per-year backup tabs (ym format YYYY-MM in portal). */
+const YEAR_TAB_PREFIX = "collection_y_";
+/** Legacy month tabs — read-only for old data; no longer created on write. */
 const MONTH_TAB_PREFIX = "collection_m_";
 
 // Portal backend tabs (shared across devices)
@@ -215,14 +218,14 @@ function paymentsFromCollectionSheet_(sh, ss) {
   return out;
 }
 
-function paymentsFromMonthBackupTabs_(ss) {
+function paymentsFromBackupTabs_(ss) {
   var sheets = ss.getSheets();
   var map = {};
   var si;
   for (si = 0; si < sheets.length; si++) {
     var sh = sheets[si];
     var name = String(sh.getName() || "");
-    if (name.indexOf(MONTH_TAB_PREFIX) !== 0) continue;
+    if (name.indexOf(YEAR_TAB_PREFIX) !== 0 && name.indexOf(MONTH_TAB_PREFIX) !== 0) continue;
     var rows = paymentsFromCollectionSheet_(sh, ss);
     var i;
     for (i = 0; i < rows.length; i++) {
@@ -879,7 +882,7 @@ function paymentsFromCollectionData_(ss) {
     ensureHeaders_(master);
     out = paymentsFromCollectionSheet_(master, ss);
   }
-  var monthRows = paymentsFromMonthBackupTabs_(ss);
+  var monthRows = paymentsFromBackupTabs_(ss);
   return mergePortalPaymentsDedupe_(out, monthRows);
 }
 
@@ -1019,7 +1022,15 @@ function json_(obj, status) {
   return out;
 }
 
-/** ym "2025-04" (or "2025-4") -> "collection_m_202504"; invalid ym -> null */
+/** ym "2025-04" (or "2025-4") -> "collection_y_2025"; invalid ym -> null */
+function yearBackupSheetName_(ym) {
+  const s = String(ym || "").trim();
+  const m = s.match(/^(\d{4})-\d{1,2}$/);
+  if (!m) return null;
+  return YEAR_TAB_PREFIX + m[1];
+}
+
+/** Legacy: ym -> "collection_m_202504" (read/delete only). */
 function monthBackupSheetName_(ym) {
   const s = String(ym || "").trim();
   const m = s.match(/^(\d{4})-(\d{1,2})$/);
@@ -1102,17 +1113,17 @@ function appendCollectionRow_(ss, entry) {
     monthLabel: String(entry && entry.monthLabel != null ? entry.monthLabel : ym)
   });
   const row = buildRow_(entryNorm);
-  // At most one row per plot+month per sheet. Master and month tabs are checked independently so a
-  // row present only on collection_data still gets mirrored to collection_m_YYYYMM.
+  // At most one row per plot+month per sheet. Master and year tabs are checked independently so a
+  // row present only on collection_data still gets mirrored to collection_y_YYYY.
   if (!collectionAnyRowExists_(master, plotNo, ym)) {
     master.appendRow(row);
   }
-  const mname = monthBackupSheetName_(ym);
-  if (mname) {
-    const msh = ss.getSheetByName(mname) || ss.insertSheet(mname);
-    ensureHeaders_(msh);
-    if (!collectionAnyRowExists_(msh, plotNo, ym)) {
-      msh.appendRow(row);
+  const yname = yearBackupSheetName_(ym);
+  if (yname) {
+    const ysh = ss.getSheetByName(yname) || ss.insertSheet(yname);
+    ensureHeaders_(ysh);
+    if (!collectionAnyRowExists_(ysh, plotNo, ym)) {
+      ysh.appendRow(row);
     }
   }
 }
@@ -1133,16 +1144,32 @@ function deleteCollectionRowsForPlotMonths_(ss, plotNo, yms) {
     });
   }
 
-  // Delete from month backup tabs
+  // Delete from year backup tabs (one tab may hold many months)
+  var yearTabs = {};
+  for (var ymKey in setYm) {
+    if (!Object.prototype.hasOwnProperty.call(setYm, ymKey)) continue;
+    var yname = yearBackupSheetName_(ymKey);
+    if (yname) yearTabs[yname] = true;
+  }
+  for (var yt in yearTabs) {
+    if (!Object.prototype.hasOwnProperty.call(yearTabs, yt)) continue;
+    var ysh = ss.getSheetByName(yt);
+    if (!ysh) continue;
+    removed += deleteWhere_(ysh, function(row){
+      return String(row[1]).trim() === plot && !!setYm[ymCellToCanon_(ss, row[2])];
+    });
+  }
+
+  // Legacy month backup tabs (if still present from older portal versions)
   for (var ym in setYm) {
     if (!Object.prototype.hasOwnProperty.call(setYm, ym)) continue;
     var mname = monthBackupSheetName_(ym);
     if (!mname) continue;
     var msh = ss.getSheetByName(mname);
     if (!msh) continue;
-    var ymKey = normalizeYm_(ym);
+    var ymNorm = normalizeYm_(ym);
     removed += deleteWhere_(msh, function(row){
-      return String(row[1]).trim() === plot && ymCellToCanon_(ss, row[2]) === ymKey;
+      return String(row[1]).trim() === plot && ymCellToCanon_(ss, row[2]) === ymNorm;
     });
   }
   return removed;
@@ -1763,4 +1790,43 @@ function doPost(e) {
   } catch (err) {
     return json_({ ok: false, error: String(err && err.message ? err.message : err) }, 500);
   }
+}
+
+/**
+ * Run once in Apps Script editor: copy rows from legacy collection_m_YYYYMM tabs
+ * into collection_y_YYYY (skips duplicates). Old month tabs are left in place — delete manually after verifying.
+ */
+function migrateCollectionMonthTabsToYearTabs() {
+  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var sheets = ss.getSheets();
+  var moved = 0;
+  var si;
+  for (si = 0; si < sheets.length; si++) {
+    var sh = sheets[si];
+    var name = String(sh.getName() || "");
+    if (name.indexOf(MONTH_TAB_PREFIX) !== 0) continue;
+    var ymPart = name.slice(MONTH_TAB_PREFIX.length);
+    if (!/^\d{6}$/.test(ymPart)) continue;
+    var ym = ymPart.slice(0, 4) + "-" + ymPart.slice(4, 6);
+    var yname = yearBackupSheetName_(ym);
+    if (!yname) continue;
+    var ysh = ss.getSheetByName(yname) || ss.insertSheet(yname);
+    ensureHeaders_(ysh);
+    ensureHeaders_(sh);
+    var lastRow = sh.getLastRow();
+    if (lastRow < 2) continue;
+    var vals = sh.getRange(2, 1, lastRow, COLLECTION_HEADERS.length).getValues();
+    var ri;
+    for (ri = 0; ri < vals.length; ri++) {
+      var row = vals[ri];
+      var plotNo = String(row[1] || "").trim();
+      var rowYm = portalYmCanon_(ss, row[2]);
+      if (!plotNo || !rowYm) continue;
+      if (!collectionAnyRowExists_(ysh, plotNo, rowYm)) {
+        ysh.appendRow(row);
+        moved++;
+      }
+    }
+  }
+  Logger.log("Migrated " + moved + " row(s) from collection_m_* to collection_y_* tabs.");
 }

@@ -46,7 +46,7 @@ Use the **exact** deployment URL.
 
 | Action | Tabs |
 |--------|------|
-| Default **`entry`** POST | **`collection_data`** + **`collection_m_YYYYMM`** (month mirror). |
+| Default **`entry`** POST | **`collection_data`** + **`collection_y_YYYY`** (one tab per calendar year). Legacy **`collection_m_YYYYMM`** tabs are still read if present. |
 | **`action: "bulk"`** | Same, for many collection rows. |
 | **`action: "updatePlotRow"`** | Updates **cells on the owner tab** identified by **`sheetGid`** (same gid the portal used for CSV) for the given **Plot No.** and column names (`Primary Contact Number`, `Alternate Number`, …). |
 | **`action: "upsertPlotRow"`** | **`insert: true`** — append a new row (all sheet columns from form values; defaults **Sold/Unsold** to **Unsold** if empty). **`insert: false`** — update every key in **`values`** for an existing **Plot No.** (admin **Unsold → Update** modal). |
@@ -62,7 +62,20 @@ Collection columns: `atIso`, `plotNo`, `ym`, `monthLabel`, `amount`, `lateFee`, 
 | **Sheet → Portal** | `loadCsv()` pulls CSV on login and on **`AUTO_REFRESH_MS`**. Change the sheet → next refresh updates stats and tables. |
 | **Portal → Sheet (contacts)** | Owner **Update** on primary/alternate numbers → saved locally **and** POST **`updatePlotRow`** (if API + gid are set). |
 | **Portal → Sheet (unsold row editor)** | Admin **Unsold** stat box **Update** → modal with **every column from the loaded CSV**; **Save** calls **`upsertPlotRow`** (update existing unsold plot or add a new unsold row). |
-| **Portal → Sheet (payments)** | Admin **Add Payment** / approve / **Backup payments to Sheet** → **`collection_data`** + month tabs (not the main owner grid). |
+| **Portal → Sheet (payments)** | Admin **Add Payment** / approve / **Backup payments to Sheet** → **`collection_data`** + year tabs (not the main owner grid). |
+
+### Consolidating old month tabs
+
+New payment rows go to **`collection_y_2025`** (one tab per calendar year), not **`collection_m_202504`**.
+
+To merge existing **`collection_m_*`** data into year tabs (one-time):
+
+1. Google Sheet → **Extensions → Apps Script**
+2. Function dropdown → **`migrateCollectionMonthTabsToYearTabs`**
+3. **Run ▶** → check **Execution log** for row count
+4. Verify **`collection_y_*`** tabs, then delete old **`collection_m_*`** tabs manually if you no longer need them
+
+The portal still **reads** legacy month tabs until you delete them.
 
 Editing arbitrary cells in the main owner table from the portal (full grid edit) is **not** implemented; only **contact** fields above sync to the sheet row for that plot.
 
@@ -92,4 +105,4 @@ Editing arbitrary cells in the main owner table from the portal (full grid edit)
 | **CORS / fetch errors** | Use **`http://localhost`**, not `file://`. |
 | **All zeros / empty grid** | **`SHEET_EXPORT_GIDS`** order; sheet shared for CSV; row 1 = headers; **Plot No.** column populated. |
 | **Sheet update failed (contacts)** | Web app deployed; **Plot No.** column exists; plot exists on that tab; gid matches loaded tab. |
-| **Month tab missing** | `ym` must be **`YYYY-MM`**. |
+| **Month tab missing** | `ym` must be **`YYYY-MM`**. New rows go to **`collection_y_YYYY`**. |

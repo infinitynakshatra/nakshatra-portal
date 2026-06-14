@@ -4811,7 +4811,7 @@
         alert("No payment rows found in this browser (localStorage).");
         return;
       }
-      if (!confirm(`Upload ${entries.length} payment row(s) to Google Sheet?\n\nRows go to tab \"collection_data\" and to month tabs \"collection_m_YYYYMM\". Running again can duplicate rows.`)) return;
+      if (!confirm(`Upload ${entries.length} payment row(s) to Google Sheet?\n\nRows go to tab \"collection_data\" and to year tabs \"collection_y_YYYY\". Running again can duplicate rows.`)) return;
       const r = await postCollectionBulkToSheet(entries);
       if (r.skipped){
         alert("Collection API not configured.");
@@ -4821,7 +4821,7 @@
         alert("Backup failed: " + (r.error || r.body || r.status || "unknown"));
         return;
       }
-      alert(`Uploaded ${r.count != null ? r.count : entries.length} row(s). Check tab collection_data and collection_m_* in your spreadsheet.`);
+      alert(`Uploaded ${r.count != null ? r.count : entries.length} row(s). Check tab collection_data and collection_y_* in your spreadsheet.`);
     }
 
     function csvUrlWithBust(gid){
