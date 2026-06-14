@@ -8,7 +8,7 @@
     "apps-script:pull": "clasp pull && node scripts/apply-clasp-pull.js",
     "apps-script:push": "node scripts/prepare-clasp-push.js && clasp push --force",
     "apps-script:open": "clasp open-script",
-    "apps-script:deploy": "node scripts/prepare-clasp-push.js && clasp push --force && clasp deploy --deploymentId AKfycbzb0rCrAZsblO78Py05zq5gRuEUmX6pU1G6D_5kDQE37KkZ3b2q_BF1ccG1FoUtyytu --description \"Portal API (Cursor)\"",
+    "apps-script:deploy": "node scripts/prepare-clasp-push.js && clasp push --force && clasp deploy --deploymentId AKfycbymDJTDSDm-p9jSL7Y1TMJs3tb5ZKXJAQTlqq6b49hcO4Zr4sGS4bOslKEOfgOtJQ8w --description \"Nakshatra portal Web app\"",
     "git:status": "git status -sb",
     "git:pull": "git pull --rebase origin main",
     "git:push": "git push origin main"

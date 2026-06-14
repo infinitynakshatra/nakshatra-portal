@@ -1213,6 +1213,9 @@ function doGet() {
     ensureSheetWithHeaders_(ss, PORTAL_EXPENSES_SHEET, PORTAL_EXPENSES_HEADERS);
     ensureSheetWithHeaders_(ss, PORTAL_FY_SETTINGS_SHEET, PORTAL_FY_SETTINGS_HEADERS);
     ensureSheetWithHeaders_(ss, PORTAL_GATE_VISITS_SHEET, PORTAL_GATE_VISITS_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_OWNER_LOGIN_OTP_SHEET, PORTAL_OWNER_LOGIN_OTP_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_OWNER_AUTH_SHEET, PORTAL_OWNER_AUTH_HEADERS);
+    ensureSheetWithHeaders_(ss, PORTAL_OWNER_SETUP_SHEET, PORTAL_OWNER_SETUP_HEADERS);
     return json_({ ok: true, service: "Infinity Nakshatra portal backend", now: nowIso_() }, 200);
   } catch (err) {
     return json_({ ok: false, error: String(err && err.message ? err.message : err) }, 500);
@@ -1550,6 +1553,7 @@ function doPost(e) {
       return json_({ ok: true, updated: nM }, 200);
     }
     if (action === "requestOwnerLoginOtp") {
+      try {
       var mobOtp = String(data.mobile || "").replace(/\D/g, "").slice(-10);
       if (mobOtp.length !== 10) return json_({ ok: false, error: "invalid_mobile" }, 400);
       if (!mobileRegisteredAsOwner_(ss, mobOtp)) return json_({ ok: false, error: "mobile_not_registered" }, 404);
@@ -1572,6 +1576,9 @@ function doPost(e) {
       }
       audit_(ss, mobOtp, "requestOwnerLoginOtp", { emailHint: maskOwnerEmail_(ownerEmail) });
       return json_({ ok: true, emailHint: maskOwnerEmail_(ownerEmail) }, 200);
+      } catch (eOtpReq) {
+        return json_({ ok: false, error: "otp_request_failed", detail: String(eOtpReq && eOtpReq.message ? eOtpReq.message : eOtpReq) }, 500);
+      }
     }
     if (action === "verifyOwnerLoginOtp") {
       var mobV = String(data.mobile || "").replace(/\D/g, "").slice(-10);

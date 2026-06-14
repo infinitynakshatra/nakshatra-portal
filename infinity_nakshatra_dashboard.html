@@ -5378,6 +5378,7 @@
         return `Please wait ${sec} second(s) before requesting another OTP.`;
       }
       if (c === "email_send_failed") return "Could not send OTP email. Try again later or contact the society office.";
+      if (c === "otp_request_failed") return "Could not send OTP (server error). Ask admin to redeploy Apps Script and authorize email in the script project.";
       if (c === "invalid_otp") return "Invalid or expired OTP. Request a new code and try again.";
       if (c === "invalid_mobile") return "Enter a valid 10-digit mobile number.";
       if (c === "invalid_password") return "Incorrect password. Try again or use Change Password with OTP.";
@@ -5386,6 +5387,8 @@
       if (c === "password_too_short") return "Password must be at least 8 characters.";
       if (c === "password_same_as_mobile") return "Password cannot be the same as your mobile number.";
       if (c === "invalid_setup_token") return "Verification expired. Request OTP again and retry.";
+      if (c === "missing entry or unknown action" || String(c).includes("unknown action")) return "Portal server needs an Apps Script redeploy. Contact admin or try again after a few minutes.";
+      if (String(c).startsWith("HTTP ")) return "Could not reach the portal server. Check your connection and try again.";
       return "Could not complete the request. Try again.";
     }
 
@@ -5415,7 +5418,12 @@
           mobile: userId
         });
         let j = {};
-        try { j = JSON.parse(r.txt || "{}"); } catch {}
+        const rawTxt = String(r.txt || "");
+        if (rawTxt.trim().startsWith("<")){
+          setErr(errEl, "Portal server returned an error page. Admin: run npm run apps-script:deploy and set Web app access to Anyone.");
+          return;
+        }
+        try { j = JSON.parse(rawTxt || "{}"); } catch {}
         if (!r.ok || !j.ok){
           setErr(errEl, ownerOtpErrorMessage_(j.error || r.error, j));
           return;
