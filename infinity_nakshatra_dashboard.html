@@ -5377,7 +5377,7 @@
         const sec = Math.max(1, Math.ceil((Number(j?.retryAfterMs) || 60000) / 1000));
         return `Please wait ${sec} second(s) before requesting another OTP.`;
       }
-      if (c === "email_send_failed") return "Could not send OTP email. Try again later or contact the society office.";
+      if (c === "email_send_failed") return "Could not send OTP email. Ask admin to open Apps Script, run any function once, and approve Gmail/Mail permissions. Also check spam folder.";
       if (c === "otp_request_failed") return "Could not send OTP (server error). Ask admin to redeploy Apps Script and authorize email in the script project.";
       if (c === "invalid_otp") return "Invalid or expired OTP. Request a new code and try again.";
       if (c === "invalid_mobile") return "Enter a valid 10-digit mobile number.";
@@ -5410,7 +5410,8 @@
         sentHint.textContent = "";
       }
       const btn = document.getElementById("sendOwnerOtpBtn");
-      if (btn) btn.disabled = true;
+      const btnLabel = btn ? btn.textContent : "";
+      if (btn) { btn.disabled = true; btn.textContent = "Sending OTP…"; }
       try {
         const r = await appsScriptPostJson({
           apiKey: COLLECTION_API_KEY,
@@ -5437,7 +5438,7 @@
         const otpEl = document.getElementById("loginOtp");
         if (otpEl) otpEl.focus();
       } finally {
-        if (btn) btn.disabled = false;
+        if (btn) { btn.disabled = false; btn.textContent = btnLabel || "Send OTP"; }
       }
     }
 

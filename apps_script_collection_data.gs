@@ -512,28 +512,62 @@ function ownerMobileDigitsFromRow_(sh, row) {
   return null;
 }
 
-function ownerEmailFromRow_(sh, row) {
+function normalizeOwnerEmail_(raw) {
+  var s = String(raw || "").trim();
+  if (!s) return "";
+  s = s.replace(/\s+/g, "");
+  var m = s.match(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/);
+  return m ? String(m[0]).toLowerCase() : "";
+}
+
+function ownerSheetColMap_(sh) {
+  var primaryCol = findColByHeaderKey_(sh, "Primary Contact Number");
+  var altCols = [];
+  var ai;
+  for (ai = 0; ai < OWNER_PHONE_ALT_HEADERS.length; ai++) {
+    var ac = findColByHeaderKey_(sh, OWNER_PHONE_ALT_HEADERS[ai]);
+    if (ac > 0) altCols.push(ac);
+  }
+  var emailCols = [];
   var ei;
   for (ei = 0; ei < OWNER_EMAIL_HEADERS.length; ei++) {
     var ec = findColByHeaderKey_(sh, OWNER_EMAIL_HEADERS[ei]);
-    if (ec < 1) continue;
-    var em = String(sh.getRange(row, ec).getDisplayValue() || "").trim();
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return em;
+    if (ec > 0) emailCols.push(ec);
+  }
+  return { primaryCol: primaryCol, altCols: altCols, emailCols: emailCols };
+}
+
+function mobileDigitsFromRowValues_(rowValues, colMap) {
+  function fromCol(col1Based) {
+    if (col1Based < 1) return null;
+    var v = String(rowValues[col1Based - 1] || "").trim();
+    var digits = v.replace(/\D/g, "");
+    if (digits.length < 10) return null;
+    return digits.slice(-10);
+  }
+  var dig = fromCol(colMap.primaryCol);
+  if (dig) return dig;
+  var i;
+  for (i = 0; i < colMap.altCols.length; i++) {
+    dig = fromCol(colMap.altCols[i]);
+    if (dig) return dig;
+  }
+  return null;
+}
+
+function emailFromRowValues_(rowValues, colMap) {
+  var ei;
+  for (ei = 0; ei < colMap.emailCols.length; ei++) {
+    var em = normalizeOwnerEmail_(rowValues[colMap.emailCols[ei] - 1]);
+    if (em) return em;
   }
   return "";
 }
 
-function mobileRegisteredAsOwner_(ss, mobile) {
-  return !!lookupOwnerEmailRowForMobile_(ss, mobile, false);
-}
-
-function lookupOwnerEmailForMobile_(ss, mobile) {
-  return lookupOwnerEmailRowForMobile_(ss, mobile, true);
-}
-
-function lookupOwnerEmailRowForMobile_(ss, mobile, needEmail) {
+/** One pass over plot sheets: registered mobile + Registered Email-ID (faster than row-by-row reads). */
+function lookupOwnerForMobile_(ss, mobile) {
   var want = String(mobile || "").replace(/\D/g, "").slice(-10);
-  if (want.length !== 10) return needEmail ? "" : false;
+  if (want.length !== 10) return { found: false, email: "" };
   var gi;
   for (gi = 0; gi < PORTAL_OWNER_PLOT_SHEET_GIDS.length; gi++) {
     var sh;
@@ -544,16 +578,65 @@ function lookupOwnerEmailRowForMobile_(ss, mobile, needEmail) {
     }
     if (!sh) continue;
     var lastRow = sh.getLastRow();
+    var lastCol = sh.getLastColumn();
+    if (lastRow < 2 || lastCol < 1) continue;
+    var colMap = ownerSheetColMap_(sh);
+    if (colMap.primaryCol < 1 && colMap.altCols.length === 0) continue;
+    var rows = sh.getRange(2, 1, lastRow, lastCol).getDisplayValues();
     var r;
-    for (r = 2; r <= lastRow; r++) {
-      var dig = ownerMobileDigitsFromRow_(sh, r);
-      if (dig !== want) continue;
-      if (!needEmail) return true;
-      var em = ownerEmailFromRow_(sh, r);
-      if (em) return em;
+    for (r = 0; r < rows.length; r++) {
+      if (mobileDigitsFromRowValues_(rows[r], colMap) !== want) continue;
+      return { found: true, email: emailFromRowValues_(rows[r], colMap) };
     }
   }
-  return needEmail ? "" : false;
+  return { found: false, email: "" };
+}
+
+function sendOwnerLoginOtpEmail_(toEmail, otpCode) {
+  var subject = "Infinity Nakshatra Society — login OTP";
+  var body =
+    "Your one-time login code is: " + otpCode +
+    "\n\nValid for 10 minutes. Do not share this code." +
+    "\n\nIf you did not request this, ignore this email.";
+  var gmailErr = "";
+  try {
+    GmailApp.sendEmail(String(toEmail), subject, body, { name: "Infinity Nakshatra Society" });
+    return { ok: true };
+  } catch (eG) {
+    gmailErr = String(eG && eG.message ? eG.message : eG);
+  }
+  try {
+    MailApp.sendEmail(String(toEmail), subject, body);
+    return { ok: true };
+  } catch (eM) {
+    return { ok: false, detail: String(eM && eM.message ? eM.message : eM) || gmailErr };
+  }
+}
+
+function ownerEmailFromRow_(sh, row) {
+  var ei;
+  for (ei = 0; ei < OWNER_EMAIL_HEADERS.length; ei++) {
+    var ec = findColByHeaderKey_(sh, OWNER_EMAIL_HEADERS[ei]);
+    if (ec < 1) continue;
+    var em = normalizeOwnerEmail_(sh.getRange(row, ec).getDisplayValue());
+    if (em) return em;
+  }
+  return "";
+}
+
+function mobileRegisteredAsOwner_(ss, mobile) {
+  return lookupOwnerForMobile_(ss, mobile).found;
+}
+
+function lookupOwnerEmailForMobile_(ss, mobile) {
+  return lookupOwnerForMobile_(ss, mobile).email;
+}
+
+function lookupOwnerEmailRowForMobile_(ss, mobile, needEmail) {
+  var info = lookupOwnerForMobile_(ss, mobile);
+  if (!info.found) return needEmail ? "" : false;
+  if (!needEmail) return true;
+  return info.email || "";
 }
 
 function maskOwnerEmail_(email) {
@@ -1556,24 +1639,20 @@ function doPost(e) {
       try {
       var mobOtp = String(data.mobile || "").replace(/\D/g, "").slice(-10);
       if (mobOtp.length !== 10) return json_({ ok: false, error: "invalid_mobile" }, 400);
-      if (!mobileRegisteredAsOwner_(ss, mobOtp)) return json_({ ok: false, error: "mobile_not_registered" }, 404);
-      var ownerEmail = lookupOwnerEmailForMobile_(ss, mobOtp);
+      var ownerInfo = lookupOwnerForMobile_(ss, mobOtp);
+      if (!ownerInfo.found) return json_({ ok: false, error: "mobile_not_registered" }, 404);
+      var ownerEmail = ownerInfo.email;
       if (!ownerEmail) return json_({ ok: false, error: "no_email_on_file" }, 400);
       var waitMs = ownerLoginOtpCooldownMs_(ss, mobOtp);
       if (waitMs > 0) return json_({ ok: false, error: "otp_cooldown", retryAfterMs: waitMs }, 429);
       var otpCode = String(Math.floor(100000 + Math.random() * 900000));
+      var sent = sendOwnerLoginOtpEmail_(ownerEmail, otpCode);
+      if (!sent.ok) {
+        return json_({ ok: false, error: "email_send_failed", detail: sent.detail || "" }, 500);
+      }
       var otpHash = hashOwnerLoginOtp_(mobOtp, otpCode);
       var otpExp = Date.now() + 10 * 60 * 1000;
       writeOwnerLoginOtp_(ss, mobOtp, otpHash, otpExp);
-      try {
-        MailApp.sendEmail(
-          ownerEmail,
-          "Infinity Nakshatra Society — login OTP",
-          "Your one-time login code is: " + otpCode + "\n\nValid for 10 minutes. Do not share this code.\n\nIf you did not request this, ignore this email."
-        );
-      } catch (eMail) {
-        return json_({ ok: false, error: "email_send_failed" }, 500);
-      }
       audit_(ss, mobOtp, "requestOwnerLoginOtp", { emailHint: maskOwnerEmail_(ownerEmail) });
       return json_({ ok: true, emailHint: maskOwnerEmail_(ownerEmail) }, 200);
       } catch (eOtpReq) {

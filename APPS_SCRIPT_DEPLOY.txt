@@ -71,7 +71,12 @@ IMPORTANT — Web app access for Cloudflare relay:
   Apps Script → Deploy → Manage deployments → Edit (pencil)
   - Execute as: Me
   - Who has access: Anyone   (NOT "Anyone with Google account")
-  Anonymous POST from Cloudflare /api/collection requires "Anyone".
+  In appsscript.json use "access": "ANYONE_ANONYMOUS".
+
+IMPORTANT — Owner login OTP email (first time after deploy):
+  Apps Script → open project → select function sendOwnerLoginOtpEmail_ or requestOwnerLoginOtp
+  → Run → Authorize → allow Gmail / Mail access for the society admin Google account.
+  Without this step, Send OTP shows "Could not send OTP email".
 
 ----------------------------------------------------------------------
 My Gate (Security visitor log)
