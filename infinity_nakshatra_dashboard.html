@@ -403,7 +403,6 @@
     .serviceContactsTable thead th:nth-child(3),
     .serviceContactsTable tbody td.svcContactCell{
       width:24%;
-      max-width:7.75rem;
       min-width:0 !important;
       word-break:break-word;
       overflow-wrap:anywhere;
@@ -432,23 +431,30 @@
     .serviceContactsTable tbody td.docActionsCell .btn{
       flex-shrink:0;
     }
-    .serviceContactsTable .svcContactCell a{
+    .serviceContactsTable .svcContactCell a:not(.mobileCallBtn){
       word-break:break-all;
     }
-    .serviceContactsTable .svcContactWrap{
+    .mobileCallWrap{
       display:inline-flex;
       align-items:center;
-      flex-wrap:wrap;
+      flex-wrap:nowrap;
       gap:4px;
+      white-space:nowrap;
     }
-    .serviceContactsTable .svcCallBtn{
+    .mobileCallNum{
+      text-decoration:none;
+      color:inherit;
+    }
+    .mobileCallBtn{
       flex-shrink:0;
       text-decoration:none;
     }
+    .serviceContactsTable tbody td.svcContactCell,
+    .societyMembersTable tbody td.mobileCallCell{
+      white-space:nowrap;
+    }
     @media (max-width: 520px){
       .serviceContactsTable thead th:nth-child(1){ font-size:10px; padding:6px 2px; }
-      .serviceContactsTable thead th:nth-child(3),
-      .serviceContactsTable tbody td.svcContactCell{ max-width:6.25rem; }
     }
     /* Add Payment — same shell as See Payment, compact body */
     .modalPayAdd{
@@ -5542,6 +5548,17 @@
       })();
     }
 
+    function phoneCallCellHtml_(raw){
+      const t = norm(raw);
+      if (!t) return "—";
+      const digits = t.replace(/\D/g, "");
+      if (digits.length >= 10 && digits.length <= 15 && /^[\d\s\-+().]+$/.test(t)){
+        const tel = escapeHtml(digits);
+        return `<span class="mobileCallWrap"><span class="mobileCallNum">${escapeHtml(t)}</span><a class="btn call tiny mobileCallBtn" href="tel:${tel}" aria-label="Call ${escapeHtml(t)}">Call</a></span>`;
+      }
+      return escapeHtml(t);
+    }
+
     function renderServiceContactsTables(){
       const adminBody = document.getElementById("adminServiceContactsTbody");
       const userBody = document.getElementById("userServiceContactsTbody");
@@ -5556,8 +5573,7 @@
         }
         const digits = t.replace(/\D/g, "");
         if (digits.length >= 10 && digits.length <= 15 && /^[\d\s\-+().]+$/.test(t)){
-          const tel = escapeHtml(digits);
-          return `<span class="svcContactWrap"><a href="tel:${tel}">${escapeHtml(t)}</a><a class="btn call tiny svcCallBtn" href="tel:${tel}" aria-label="Call ${escapeHtml(t)}">Call</a></span>`;
+          return phoneCallCellHtml_(t);
         }
         return escapeHtml(t);
       };
@@ -6219,7 +6235,7 @@
               <td class="socMemberSrCell">${i + 1}</td>
               <td>${escapeHtml(m.name)}</td>
               <td>${escapeHtml(m.plotNo || "—")}</td>
-              <td class="mono">${escapeHtml(m.mobile || "—")}</td>
+              <td class="mono mobileCallCell">${phoneCallCellHtml_(m.mobile)}</td>
               <td class="socMemberActionsCell">
                 <button type="button" class="btn secondary tiny" data-soc-adhoc-edit="${escapeHtml(m.id)}">Edit</button>
                 <button type="button" class="btn danger tiny" data-soc-adhoc-del="${escapeHtml(m.id)}">Delete</button>
@@ -6239,7 +6255,7 @@
               <td>${escapeHtml(m.plotHouseNo || "—")}</td>
               <td>${escapeHtml(m.role || "—")}</td>
               <td class="socMemberRespCell">${escapeHtml(m.responsibility || "—")}</td>
-              <td class="mono">${escapeHtml(m.mobile || "—")}</td>
+              <td class="mono mobileCallCell">${phoneCallCellHtml_(m.mobile)}</td>
               <td class="socMemberActionsCell">
                 <button type="button" class="btn secondary tiny" data-soc-gb-edit="${escapeHtml(m.id)}">Edit</button>
                 <button type="button" class="btn danger tiny" data-soc-gb-del="${escapeHtml(m.id)}">Delete</button>
@@ -6282,7 +6298,7 @@
               <td class="socMemberSrCell">${i + 1}</td>
               <td>${escapeHtml(m.name)}</td>
               <td>${escapeHtml(m.plotNo || "—")}</td>
-              <td class="mono">${escapeHtml(m.mobile || "—")}</td>
+              <td class="mono mobileCallCell">${phoneCallCellHtml_(m.mobile)}</td>
             </tr>
           `).join("");
         }
@@ -6298,7 +6314,7 @@
               <td>${escapeHtml(m.plotHouseNo || "—")}</td>
               <td>${escapeHtml(m.role || "—")}</td>
               <td class="socMemberRespCell">${escapeHtml(m.responsibility || "—")}</td>
-              <td class="mono">${escapeHtml(m.mobile || "—")}</td>
+              <td class="mono mobileCallCell">${phoneCallCellHtml_(m.mobile)}</td>
             </tr>
           `).join("");
         }
