@@ -435,6 +435,16 @@
     .serviceContactsTable .svcContactCell a{
       word-break:break-all;
     }
+    .serviceContactsTable .svcContactWrap{
+      display:inline-flex;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:4px;
+    }
+    .serviceContactsTable .svcCallBtn{
+      flex-shrink:0;
+      text-decoration:none;
+    }
     @media (max-width: 520px){
       .serviceContactsTable thead th:nth-child(1){ font-size:10px; padding:6px 2px; }
       .serviceContactsTable thead th:nth-child(3),
@@ -1349,6 +1359,12 @@
       border-color:rgba(255,107,107,0.45);
       background:rgba(255,107,107,0.12);
       color:#ffb4b4;
+      box-shadow:none;
+    }
+    .btn.call{
+      border-color:rgba(76,175,80,0.55);
+      background:rgba(76,175,80,0.2);
+      color:#9ef0a6;
       box-shadow:none;
     }
     .btn:hover{transform:translateY(-1px); filter:brightness(1.05);}
@@ -5540,7 +5556,8 @@
         }
         const digits = t.replace(/\D/g, "");
         if (digits.length >= 10 && digits.length <= 15 && /^[\d\s\-+().]+$/.test(t)){
-          return `<a href="tel:${escapeHtml(digits)}">${escapeHtml(t)}</a>`;
+          const tel = escapeHtml(digits);
+          return `<span class="svcContactWrap"><a href="tel:${tel}">${escapeHtml(t)}</a><a class="btn call tiny svcCallBtn" href="tel:${tel}" aria-label="Call ${escapeHtml(t)}">Call</a></span>`;
         }
         return escapeHtml(t);
       };
