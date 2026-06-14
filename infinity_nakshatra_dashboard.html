@@ -1851,7 +1851,7 @@
       <div class="field" id="loginOtpWrap" style="display:none;">
         <label for="loginOtp">Enter OTP</label>
         <input id="loginOtp" name="ins_login_otp" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" data-lpignore="true" data-1p-ignore="true" data-form-type="other" autocapitalize="none" spellcheck="false" placeholder="6-digit code from email" />
-        <div class="smallNote" id="ownerOtpHint" style="margin-top:6px;">Owner login uses a free email OTP (not SMS). Tap <b>Send OTP</b> — the code is sent to the email linked to your mobile in society records.</div>
+        <div class="smallNote" id="ownerOtpHint" style="margin-top:6px;">Owner login uses a free email OTP (not SMS). Tap <b>Send OTP</b> — the code is sent to your <b>Registered Email-ID</b> in society records.</div>
         <div class="smallNote" id="ownerOtpSentHint" style="margin-top:6px; display:none;"></div>
       </div>
 
@@ -5265,7 +5265,7 @@
     function ownerOtpErrorMessage_(code, j){
       const c = String(code || "");
       if (c === "mobile_not_registered") return "This mobile is not registered as an owner. Check the number or contact the society office.";
-      if (c === "no_email_on_file") return "No email is linked to this mobile in society records. Ask admin to add an Owner Email column for your plot.";
+      if (c === "no_email_on_file") return "No Registered Email-ID is linked to this mobile in society records. Ask admin to add it for your plot.";
       if (c === "otp_cooldown"){
         const sec = Math.max(1, Math.ceil((Number(j?.retryAfterMs) || 60000) / 1000));
         return `Please wait ${sec} second(s) before requesting another OTP.`;

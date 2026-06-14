@@ -78,6 +78,7 @@ const PORTAL_FY_SETTINGS_HEADERS = ["ownerPortalMayYear"];
 const PORTAL_OWNER_LOGIN_OTP_SHEET = "portal_owner_login_otp";
 const PORTAL_OWNER_LOGIN_OTP_HEADERS = ["mobile", "otpHash", "expiresAt", "createdAt"];
 var OWNER_EMAIL_HEADERS = [
+  "Registered Email-ID",
   "Owner Email",
   "Email",
   "Primary Email",
