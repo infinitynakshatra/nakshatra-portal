@@ -635,6 +635,8 @@
     .seePayStatus.missed{color:#ffb4b4;}
     .seePayStatus.pending{color:var(--warn);}
     .seePayStatus.paid{color:var(--accent2);}
+    .seePayStatus.na{color:var(--muted);}
+    tr.seePayNA td{background:rgba(148,163,184,0.06) !important; color:var(--muted);}
 
     .miniStats{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
     .miniStatsRow{display:flex; justify-content:space-between; gap:8px; font-size:11px; color:var(--muted);}
@@ -3769,6 +3771,7 @@
     const LS_USER_CONTACT_BY_PLOT = "ins_user_contact_by_plot_v1";
     const COL_PRIMARY_CONTACT = "Primary Contact Number";
     const COL_ALTERNATE_NUMBER = "Alternate Number";
+    const COL_MAINTENANCE_STARTING_FROM = "Maintenance Starting From";
 
     function indianFyMayYearForDate(dt){
       const d = dt instanceof Date ? dt : new Date(dt);
@@ -4157,16 +4160,20 @@
       return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
     }
 
-    /** True when every plot linked to this mobile has maintenance amount > 0 for `ym`. */
+    /** True when every plot linked to this mobile has maintenance amount > 0 for `ym` (N/A months skipped). */
     function ownerPreviousMonthMaintenancePaid_(mobDigits, ym){
       const plots = plotNosForOwnerMobileDigits_(mobDigits);
       if (!plots.length) return false;
       const want = normalizePortalYm(ym || portalYmForPreviousCalendarMonth_(new Date()));
+      let anyApplicable = false;
       for (const plotNo of plots){
+        const row = sheetRowForPlotNo(plotNo);
+        if (!plotMaintenanceApplicableForYm_(row, want)) continue;
+        anyApplicable = true;
         const entries = paymentsLoadEntries(plotNo);
         if (maintenanceReceivedForYm_(entries, want) <= 0) return false;
       }
-      return true;
+      return anyApplicable;
     }
 
     /** Explicit deny / allow overrides portal default (default: Deny unless previous calendar month maintenance is paid). */
@@ -4214,7 +4221,7 @@
       }
       const denied = effectiveOwnerAccessDenied_(mob);
       const prevYmLabel = ymPendingAdminLabel(portalYmForPreviousCalendarMonth_(new Date()));
-      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="Default: Allow only if ${escapeHtml(prevYmLabel)} maintenance is paid (previous calendar month); override here.">
+      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="Default: Allow only if ${escapeHtml(prevYmLabel)} maintenance is paid (previous calendar month, when applicable per Maintenance Starting From); override here.">
         <option value="allow" ${denied ? "" : "selected"}>Allow</option>
         <option value="deny" ${denied ? "selected" : ""}>Deny</option>
       </select></td>`;
@@ -4914,6 +4921,7 @@
       if (/^name of owner 1/.test(t)) return "Name of Owner 1";
       if (/^name of owner 2/.test(t)) return "Name of Owner 2";
       if (/^name of owner 3/.test(t)) return "Name of Owner 3";
+      if (t.includes("maintenance") && t.includes("starting")) return COL_MAINTENANCE_STARTING_FROM;
       return null;
     }
 
@@ -7993,9 +8001,10 @@
         totalReceived += receivedHist;
         totalLate += lateHist;
         if (ymsAct.length){
-          const exp = ymsAct.length * MC_PER_MONTH;
+          const applicable = filterYmsApplicableForPlot_(row, ymsAct);
+          const exp = applicable.length * MC_PER_MONTH;
           let recvAct = 0;
-          for (const ym of ymsAct){
+          for (const ym of applicable){
             recvAct += sumEntriesForYm(entries, ym).amount;
           }
           totalExpected += exp;
@@ -8623,6 +8632,51 @@
       return (allRows || []).find(r => plotNoOfRow(r) === k) || null;
     }
 
+    /** Canonical YYYY-MM from sheet column Maintenance Starting From (empty = liable from first month). */
+    function maintenanceStartYmFromRow_(row){
+      if (!row) return "";
+      const raw = row[COL_MAINTENANCE_STARTING_FROM];
+      return normalizePortalYm(String(raw != null ? raw : ""));
+    }
+
+    /** False for months before Maintenance Starting From, unsold, or contact-missing plots. */
+    function plotMaintenanceApplicableForYm_(row, ym){
+      if (!row) return false;
+      const ymCanon = normalizePortalYm(ym);
+      if (!ymCanon) return false;
+      const startYm = maintenanceStartYmFromRow_(row);
+      if (startYm && ymCanon < startYm) return false;
+      if (soldKey(row["Sold/Unsold"]) === "unsold") return false;
+      if (isContactMissingGroupStatusRow(row)) return false;
+      return true;
+    }
+
+    function existingMemberPlotCountForYm_(ym){
+      const byPlot = new Map();
+      for (const r of (allRows || [])){
+        const p = norm(plotNoOfRow(r));
+        if (!p) continue;
+        if (!byPlot.has(p)) byPlot.set(p, r);
+      }
+      let n = 0;
+      for (const [, r] of byPlot){
+        if (plotMaintenanceApplicableForYm_(r, ym)) n++;
+      }
+      return n;
+    }
+
+    function totalExpectedForSelectedMonths_(selectedYms){
+      let total = 0;
+      for (const ym of (selectedYms || [])){
+        total += existingMemberPlotCountForYm_(ym) * MC_PER_MONTH;
+      }
+      return total;
+    }
+
+    function filterYmsApplicableForPlot_(row, yms){
+      return (yms || []).filter(ym => plotMaintenanceApplicableForYm_(row, ym));
+    }
+
     function arrayBufferToBase64(buffer){
       const bytes = new Uint8Array(buffer);
       let binary = "";
@@ -8728,6 +8782,11 @@
         let rowSum = 0;
         let rowPaidMonths = 0;
         slots.forEach((slot, i) => {
+          const na = !plotMaintenanceApplicableForYm_(r, slot.ym);
+          if (isShort && na){
+            row.push("N/A");
+            return;
+          }
           const v = Math.round(sumEntriesForYm(entries, slot.ym).amount);
           colSums[i] += v;
           rowSum += v;
@@ -8739,7 +8798,7 @@
             }
             row.push(paid ? "Paid" : "Unpaid");
           } else {
-            row.push(String(v));
+            row.push(na ? "N/A" : String(v));
           }
         });
         grandTotal += rowSum;
@@ -8767,20 +8826,22 @@
       const expenseGrand = expensePerSlot.reduce((a, b) => a + b, 0);
       const balancePerSlot = slots.map((_, i) => Math.round(colSums[i] - expensePerSlot[i]));
       const balanceGrand = Math.round(grandTotal - expenseGrand);
-      const poolN = dirStats.existingMemberPlotNos.length;
+      const poolNPerSlot = slots.map(slot => existingMemberPlotCountForYm_(slot.ym));
       const paidOwnersPerSlot = slots.map(slot => {
         let c = 0;
         for (const plotNo of dirStats.existingMemberPlotNos){
+          const row = sheetRowForPlotNo(plotNo);
+          if (!plotMaintenanceApplicableForYm_(row, slot.ym)) continue;
           const entries = paymentsLoadEntries(plotNo);
           if (Math.round(sumEntriesForYm(entries, slot.ym).amount) > 0) c++;
         }
         return c;
       });
-      const unpaidOwnersPerSlot = paidOwnersPerSlot.map(paid => poolN - paid);
+      const unpaidOwnersPerSlot = poolNPerSlot.map((pool, i) => Math.max(0, pool - paidOwnersPerSlot[i]));
       const paidOwnersTotalSum = paidOwnersPerSlot.reduce((a, b) => a + b, 0);
       const unpaidOwnersTotalSum = unpaidOwnersPerSlot.reduce((a, b) => a + b, 0);
-      const expectedAmtPerSlot = slots.map(() => Math.round(poolN * 350));
-      const expectedAmtGrand = Math.round(poolN * 350 * slots.length);
+      const expectedAmtPerSlot = poolNPerSlot.map(n => Math.round(n * MC_PER_MONTH));
+      const expectedAmtGrand = expectedAmtPerSlot.reduce((a, b) => a + b, 0);
       const pendingAmtPerSlot = slots.map((_, i) => Math.max(0, Math.round(expectedAmtPerSlot[i] - colSums[i])));
       const pendingAmtGrand = Math.max(0, Math.round(expectedAmtGrand - grandTotal));
 
@@ -9249,8 +9310,10 @@
         const plotNo = plotNoOfRow(r);
         if (!plotNo) continue;
         const entries = paymentsLoadEntries(plotNo);
+        const applicableYms = filterYmsApplicableForPlot_(r, selectedYms);
+        if (!applicableYms.length) continue;
         let missedInFilter = false;
-        for (const ym of selectedYms){
+        for (const ym of applicableYms){
           if (maintenanceReceivedForYm_(entries, ym) <= 0){
             missedInFilter = true;
             break;
@@ -9310,9 +9373,8 @@
         }
       }
 
-      // Expected/pending: existing members (sold, not contact-missing) × ₹350 per selected month.
-      const existingN = existingMemberPlotCountForMc_();
-      const expected = selectedYms.length * existingN * 350;
+      // Expected/pending: liable members per month (Maintenance Starting From) × ₹350.
+      const expected = totalExpectedForSelectedMonths_(selectedYms);
 
       const pending = Math.max(0, expected - received);
 
@@ -9320,7 +9382,13 @@
       pendingEl.textContent = String(Math.round(pending));
       lateFeeEl.textContent = String(Math.round(lateFee));
       const expectedFoot = document.getElementById("mcExpectedFoot");
-      if (expectedFoot) expectedFoot.textContent = `From ${existingN} Members`;
+      if (expectedFoot){
+        const maxN = existingMemberPlotCountForMc_();
+        const liableMonths = selectedYms.reduce((s, ym) => s + existingMemberPlotCountForYm_(ym), 0);
+        expectedFoot.textContent = liableMonths === selectedYms.length * maxN
+          ? `From ${maxN} Members`
+          : `From ${liableMonths} member-month(s) (Maintenance Starting From applied)`;
+      }
       const maintFoot = document.getElementById("mcMaintCollectedFoot");
       if (maintFoot){
         const doneOwners = countPaymentCompletedOwnersForMc_(selectedYms);
@@ -9355,6 +9423,7 @@
         const entries = paymentsLoadEntries(plotNo);
         let missedCount = 0;
         for (const ym of selectedYms){
+          if (!plotMaintenanceApplicableForYm_(r, ym)) continue;
           const sums = sumEntriesForYm(entries, ym);
           if (sums.amount <= 0) missedCount++;
         }
@@ -9426,13 +9495,16 @@
         let missedInFilter = false;
 
         for (const ym of selectedYms){
+          if (!plotMaintenanceApplicableForYm_(r, ym)) continue;
           const sums = sumEntriesForYm(entries, ym);
           recv += sums.amount;
           late += sums.lateFee;
           if (sums.amount <= 0) missedInFilter = true;
         }
 
-        // Done = paid for every selected month (immediate reflect after entry).
+        // Done = paid for every applicable selected month.
+        const applicableYms = filterYmsApplicableForPlot_(r, selectedYms);
+        if (!applicableYms.length) continue;
         if (missedInFilter) continue;
 
         const nameRaw = norm(r["Name of Owner 1"]) || norm(r["Name of Owner 2"]) || norm(r["Name of Owner 3"]);
@@ -9745,6 +9817,7 @@
 
       const slots = isUser ? buildIndianFYSlots(getOwnerMayYear()) : allAdminSlotsUnion();
       const entries = paymentsLoadEntries(plotNo);
+      const plotRow = sheetRowForPlotNo(plotNo);
       const now = new Date();
 
       let totalReceived = 0;
@@ -9752,34 +9825,38 @@
       let paidMonths = 0;
       let missedMonths = 0;
       let pendingMonths = 0;
+      let naMonths = 0;
 
       const body = slots.map((slot) => {
+        const na = !plotMaintenanceApplicableForYm_(plotRow, slot.ym);
         const sums = sumEntriesForYm(entries, slot.ym);
         const amt = sums.amount;
         const late = sums.lateFee;
         const hasPaid = amt > 0;
-        if (hasPaid){
-          totalReceived += amt;
-          totalLateFee += late;
-          paidMonths++;
-        } else if (now > slot.dueEnd){
-          missedMonths++;
-        } else {
-          pendingMonths++;
-        }
 
         let statusText;
         let rowClass;
         let stClass;
-        if (hasPaid){
+
+        if (na){
+          naMonths++;
+          statusText = "Not Applicable";
+          rowClass = "seePayNA";
+          stClass = "na";
+        } else if (hasPaid){
+          totalReceived += amt;
+          totalLateFee += late;
+          paidMonths++;
           statusText = "Paid";
           rowClass = "seePayPaid";
           stClass = "paid";
         } else if (now > slot.dueEnd){
+          missedMonths++;
           statusText = "Missed";
           rowClass = "seePayMissed";
           stClass = "missed";
         } else {
+          pendingMonths++;
           statusText = "Pending";
           rowClass = "seePayPending";
           stClass = "pending";
@@ -9791,7 +9868,7 @@
           year: "numeric"
         });
 
-        const amtDisp = hasPaid ? escapeHtml(String(amt)) : "—";
+        const amtDisp = hasPaid ? escapeHtml(String(amt)) : (na ? "—" : "—");
         const lateDisp = late > 0 ? escapeHtml(String(late)) : "—";
 
         return `<tr class="${rowClass}">
@@ -9808,6 +9885,7 @@
         <div class="seePayStat"><div class="k">Total received${isUser ? " (FY)" : ""}</div><div class="v">${escapeHtml(String(totalReceived))}</div></div>
         <div class="seePayStat"><div class="k">Late fee received (FY)</div><div class="v">${escapeHtml(String(totalLateFee))}</div></div>
         <div class="seePayStat"><div class="k">Months paid</div><div class="v">${paidMonths}</div></div>
+        <div class="seePayStat"><div class="k">Not applicable</div><div class="v" style="color:var(--muted);">${naMonths}</div></div>
         <div class="seePayStat"><div class="k">Due missed</div><div class="v" style="color:#ffb4b4;">${missedMonths}</div></div>
         <div class="seePayStat"><div class="k">Upcoming / pending</div><div class="v" style="color:var(--warn);">${pendingMonths}</div></div>
       `;
@@ -10395,9 +10473,11 @@
     function renderUserPaymentsChartAndTable(plotNo){
       const slots = getOwnerHistorySlots();
       const entries = paymentsLoadEntries(plotNo);
+      const plotRow = sheetRowForPlotNo(plotNo);
       const pairs = slots.map(s => {
+        const na = !plotMaintenanceApplicableForYm_(plotRow, s.ym);
         const sums = sumEntriesForYm(entries, s.ym);
-        return { label: s.label, amount: Number(sums.amount) || 0 };
+        return { label: s.label, amount: Number(sums.amount) || 0, na };
       });
       if (!pairs.length){
         destroyPayCharts_();
@@ -10411,19 +10491,20 @@
       payChart = null;
       if (!window.Chart){
         const expectedPerMonth = Number(MC_PER_MONTH) || 350;
-        const paidFlags = pairs.map(p => (Number(p.amount) || 0) >= (expectedPerMonth - 0.01));
-        renderUserPayDonutChart_(plotNo, pairs, paidFlags);
+        const paidFlags = pairs.filter(p => !p.na).map(p => (Number(p.amount) || 0) >= (expectedPerMonth - 0.01));
+        renderUserPayDonutChart_(plotNo, pairs.filter(p => !p.na), paidFlags);
         return;
       }
       const expectedPerMonth = Number(MC_PER_MONTH) || 350;
-      const paidFlags = pairs.map(p => (Number(p.amount) || 0) >= (expectedPerMonth - 0.01));
-      renderUserPayDonutChart_(plotNo, pairs, paidFlags);
-      const statusLabels = paidFlags.map(x => (x ? "Paid" : "Pending"));
+      const paidFlags = pairs.map(p => p.na ? null : (Number(p.amount) || 0) >= (expectedPerMonth - 0.01));
+      renderUserPayDonutChart_(plotNo, pairs.filter(p => !p.na), paidFlags.filter(x => x != null));
+      const statusLabels = paidFlags.map(x => (x === null ? "N/A" : (x ? "Paid" : "Pending")));
       const paidTeal = "rgba(0, 133, 119, 0.92)";
       const pendingGray = "rgba(211, 211, 211, 0.92)";
-      const barColors = paidFlags.map(x => x ? paidTeal : pendingGray);
-      const barBorders = paidFlags.map(x => x ? "#008577" : "#d3d3d3");
-      const barLabelColors = paidFlags.map(x => x ? "rgba(255,255,255,0.95)" : "rgba(26,26,26,0.85)");
+      const naGray = "rgba(148, 163, 184, 0.35)";
+      const barColors = paidFlags.map(x => x === null ? naGray : (x ? paidTeal : pendingGray));
+      const barBorders = paidFlags.map(x => x === null ? "#94a3b8" : (x ? "#008577" : "#d3d3d3"));
+      const barLabelColors = paidFlags.map(x => x === null ? "rgba(100,116,139,0.9)" : (x ? "rgba(255,255,255,0.95)" : "rgba(26,26,26,0.85)"));
 
       const paidUnpaidLabelPlugin = {
         id: "insPaidUnpaidLabels",
