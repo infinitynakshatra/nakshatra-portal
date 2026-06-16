@@ -607,32 +607,27 @@
     }
     .bankViewQrBlock{margin-top:16px;}
     .bankViewQrRow{
-      display:flex;
-      flex-wrap:wrap;
-      align-items:flex-end;
-      gap:16px 20px;
+      display:grid;
+      grid-template-columns:max-content max-content;
+      align-items:end;
+      gap:20px 28px;
+      justify-content:start;
     }
     #bankViewQrImg{
       display:block;
+      width:auto;
       max-width:min(220px, 52vw);
-      width:100%;
       height:auto;
       border-radius:12px;
       border:1px solid var(--border);
       background:#fff;
     }
-    .bankViewQrDownloadBtn{
-      min-width:132px;
-      min-height:46px;
-      padding:12px 22px;
-      border-radius:10px;
-      border:1px solid #16a34a;
-      background:#22c55e;
-      color:#052e16;
-      font-weight:800;
-      box-shadow:var(--shadow);
+    @media (max-width: 520px){
+      .bankViewQrRow{
+        grid-template-columns:1fr;
+        gap:14px;
+      }
     }
-    .bankViewQrDownloadBtn:hover{filter:brightness(1.06);}
     .seePayDueBanner{
       margin-top:10px;
       padding:11px 14px;
@@ -1484,6 +1479,19 @@
       font: inherit;
       cursor: pointer;
     }
+    .btn.bankViewQrDownloadBtn{
+      min-width:132px;
+      min-height:46px;
+      padding:12px 22px;
+      border-radius:10px;
+      border:1px solid #16a34a;
+      background:#22c55e;
+      color:#052e16;
+      font-weight:800;
+      box-shadow:var(--shadow);
+      white-space:nowrap;
+    }
+    .btn.bankViewQrDownloadBtn:hover{filter:brightness(1.06);}
     .btn.danger{
       border-color:rgba(255,107,107,0.45);
       background:rgba(255,107,107,0.12);
@@ -3412,10 +3420,13 @@
       <div class="seePayDueBanner" id="bankViewGuideBanner"></div>
       <div class="seePayScroll">
         <div class="kvGrid" id="bankViewKv"></div>
-        <div style="margin-top:16px; text-align:center;">
-          <img id="bankViewQrImg" alt="UPI / payment QR" style="display:none; max-width:min(280px,86vw); border-radius:12px; border:1px solid var(--border);" />
-          <div class="smallNote" id="bankViewQrHint">No QR image is shown.</div>
+        <div class="bankViewQrBlock" id="bankViewQrBlock" style="display:none;">
+          <div class="bankViewQrRow">
+            <img id="bankViewQrImg" alt="UPI / payment QR" />
+            <button class="btn bankViewQrDownloadBtn" id="bankViewQrDownloadBtn" type="button">Download</button>
+          </div>
         </div>
+        <div class="smallNote" id="bankViewQrHint">No QR image is shown.</div>
       </div>
     </div>
   </div>
@@ -5675,18 +5686,50 @@
       }
       const img = document.getElementById("bankViewQrImg");
       const hint = document.getElementById("bankViewQrHint");
+      const block = document.getElementById("bankViewQrBlock");
+      const dlBtn = document.getElementById("bankViewQrDownloadBtn");
       if (img && hint){
         const q = effectiveBankingQrSrc_(c);
         if (q){
           img.src = q;
-          img.style.display = "block";
+          if (block) block.style.display = "block";
           hint.style.display = "none";
+          if (dlBtn) dlBtn.disabled = false;
         } else {
           img.removeAttribute("src");
-          img.style.display = "none";
+          if (block) block.style.display = "none";
           hint.style.display = "block";
           hint.textContent = "No QR image is shown.";
+          if (dlBtn) dlBtn.disabled = true;
         }
+      }
+    }
+
+    async function downloadBankViewQr_(){
+      const img = document.getElementById("bankViewQrImg");
+      if (!img || !img.src || img.src === window.location.href) return;
+      const src = img.currentSrc || img.src;
+      const baseName = "infinity-nakshatra-upi-qr.png";
+      const a = document.createElement("a");
+      a.download = baseName;
+      try {
+        if (src.startsWith("data:")){
+          a.href = src;
+          a.click();
+          return;
+        }
+        const res = await fetch(src, { cache: "no-store" });
+        if (!res.ok) throw new Error("fetch_failed");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        a.href = url;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+      } catch {
+        a.href = src;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        a.click();
       }
     }
     async function openBankingViewModal(){
@@ -11664,6 +11707,8 @@
       }
       const bankViewCloseBtn = document.getElementById("bankViewCloseBtn");
       if (bankViewCloseBtn) bankViewCloseBtn.addEventListener("click", () => showBackdrop("bankViewBackdrop", false));
+      const bankViewQrDownloadBtn = document.getElementById("bankViewQrDownloadBtn");
+      if (bankViewQrDownloadBtn) bankViewQrDownloadBtn.addEventListener("click", () => { void downloadBankViewQr_(); });
       const bankEditCloseBtn = document.getElementById("bankEditCloseBtn");
       if (bankEditCloseBtn) bankEditCloseBtn.addEventListener("click", () => showBackdrop("bankEditBackdrop", false));
       const bankEditSaveBtn = document.getElementById("bankEditSaveBtn");
