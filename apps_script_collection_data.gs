@@ -45,6 +45,9 @@ const PORTAL_PROJECT_DOCS_SHEET = "portal_project_docs";
 const PORTAL_PROJECT_DOCS_HEADERS = ["key", "jsonPayload"];
 const PORTAL_MEETING_DOCS_SHEET = "portal_meeting_docs";
 const PORTAL_MEETING_DOCS_HEADERS = ["key", "jsonPayload"];
+/** Per-owner private document links (one row per owner key: mobile or plot:NN). */
+const PORTAL_OWN_DOCS_SHEET = "portal_owner_docs";
+const PORTAL_OWN_DOCS_HEADERS = ["ownerKey", "jsonPayload"];
 const PORTAL_SOCIETY_DETAILS_SHEET = "portal_society_details";
 const PORTAL_SOCIETY_DETAILS_HEADERS = ["key", "jsonPayload"];
 const PORTAL_SERVICE_CONTACTS_SHEET = "portal_service_contacts";
@@ -595,6 +598,67 @@ function writePortalMeetingDocs_(ss, docs) {
   var row = ["default", payload];
   if (sh.getLastRow() < 2) sh.appendRow(row);
   else sh.getRange(2, 1, 1, 2).setValues([row]);
+  return { ok: true };
+}
+
+function sanitizeOwnDocsList_(docs) {
+  var out = [];
+  var arr = Array.isArray(docs) ? docs : [];
+  for (var i = 0; i < arr.length && i < 120; i++) {
+    var d = arr[i];
+    if (!d) continue;
+    var id = String(d.id || "").trim();
+    var name = String(d.name || "").trim().slice(0, 500);
+    if (!id || !name) continue;
+    out.push({
+      id: id,
+      name: name,
+      details: String(d.details || "").slice(0, 4000),
+      url: String(d.url || "").trim().slice(0, 2000),
+      createdAt: Number(d.createdAt) || 0
+    });
+  }
+  return out;
+}
+
+function readPortalOwnDocs_(ss, ownerKey) {
+  var key = normalizeOwnerAccessKey_(ownerKey);
+  if (!key) return [];
+  var sh = ss.getSheetByName(PORTAL_OWN_DOCS_SHEET);
+  if (!sh || sh.getLastRow() < 2) return [];
+  var vals = sh.getDataRange().getValues();
+  for (var i = 1; i < vals.length; i++) {
+    if (String(vals[i][0] || "").trim() === key) {
+      var s = String(vals[i][1] || "").trim();
+      if (!s) return [];
+      try {
+        var o = JSON.parse(s);
+        return sanitizeOwnDocsList_(o && Array.isArray(o.docs) ? o.docs : []);
+      } catch (e) {
+        return [];
+      }
+    }
+  }
+  return [];
+}
+
+function writePortalOwnDocs_(ss, ownerKey, docs) {
+  var key = normalizeOwnerAccessKey_(ownerKey);
+  if (!key) return { ok: false, error: "invalid_owner_key" };
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_OWN_DOCS_SHEET, PORTAL_OWN_DOCS_HEADERS);
+  var clean = sanitizeOwnDocsList_(docs);
+  var payload = JSON.stringify({ v: 1, docs: clean });
+  if (payload.length > 48000) return { ok: false, error: "own_docs_payload_too_large" };
+  var vals = sh.getDataRange().getValues();
+  var foundRow = -1;
+  for (var i = 1; i < vals.length; i++) {
+    if (String(vals[i][0] || "").trim() === key) {
+      foundRow = i + 1;
+      break;
+    }
+  }
+  if (foundRow > 1) sh.getRange(foundRow, 1, 1, 2).setValues([[key, payload]]);
+  else sh.appendRow([key, payload]);
   return { ok: true };
 }
 
@@ -1359,12 +1423,20 @@ function doPost(e) {
     // Shared portal backend
     if (action === "state") {
       var st0 = getPortalState_(ss);
+      var ownerQ = normalizeOwnerAccessKey_(String(data.forUserMobile || ""));
       var mobQ = String(data.forUserMobile || "").replace(/\D/g, "");
       if (mobQ) {
         try {
           st0.inbox = readUserInbox_(ss, mobQ);
         } catch (eInbox) {
           st0.inbox = [];
+        }
+      }
+      if (ownerQ) {
+        try {
+          st0.ownDocs = readPortalOwnDocs_(ss, ownerQ);
+        } catch (eOwn) {
+          st0.ownDocs = [];
         }
       }
       return json_(st0, 200);
@@ -1603,6 +1675,16 @@ function doPost(e) {
       audit_(ss, actorMtg, "saveMeetingDocs", { count: sanitizeProjectDocsList_(mtgIn).length });
       invalidatePortalStateCache_();
       return json_({ ok: true, count: sanitizeProjectDocsList_(mtgIn).length }, 200);
+    }
+    if (action === "saveOwnDocs") {
+      var ownerSave = normalizeOwnerAccessKey_(String(data.forUserMobile || data.actor || ""));
+      if (!ownerSave) return json_({ ok: false, error: "forUserMobile required" }, 400);
+      var docsOwn = Array.isArray(data.docs) ? data.docs : [];
+      var wrOwn = writePortalOwnDocs_(ss, ownerSave, docsOwn);
+      if (!wrOwn.ok) return json_(wrOwn, 400);
+      audit_(ss, ownerSave, "saveOwnDocs", { count: sanitizeOwnDocsList_(docsOwn).length });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, count: sanitizeOwnDocsList_(docsOwn).length }, 200);
     }
     if (action === "saveSocietyDetails") {
       var actorSoc = String(data.actor || "admin").trim();
