@@ -183,7 +183,7 @@
       gap:8px;
       margin-top:8px;
       margin-bottom:0;
-      align-items:flex-start;
+      align-items:stretch;
     }
     .payDonutPanel{
       flex:0 1 240px;
@@ -10539,7 +10539,7 @@
       if (!inner) return;
       const n = Math.max(1, Number(barCount) || 12);
       const mobile = window.matchMedia("(max-width: 720px)").matches;
-      const chartH = mobile ? 108 : 118;
+      const chartH = mobile ? 152 : 165;
       inner.style.height = chartH + "px";
       if (mobile){
         const slotW = 36;
@@ -10710,13 +10710,10 @@
               min: 0,
               max: expectedPerMonth,
               grace: 0,
-              ticks: { display: false },
-              grid: { color: "rgba(255,255,255,0.06)", drawBorder: false },
-              border: { display: false },
-              afterFit(scale){ scale.width = 6; }
+              display: false
             }
           },
-          layout: { padding: { top: 2, bottom: 0, left: 0, right: 2 } }
+          layout: { padding: { top: 0, bottom: 0, left: 0, right: 0 } }
         },
         plugins: [paidUnpaidLabelPlugin]
       });
