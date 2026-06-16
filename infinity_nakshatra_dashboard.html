@@ -1390,6 +1390,7 @@
       line-height:1.5;
     }
     .projectDetailsScroll .adminNotesBlock ul{margin:6px 0 0; padding-left:18px;}
+    .projectDetailsScroll .adminNotesBlock ul ul{margin-top:4px;}
     .projectDetailsScroll .adminNotesBlock li{margin:4px 0;}
     .projectDetailsScroll .adminNotesBlock p{margin:6px 0 0;}
     .btn{
@@ -3344,7 +3345,7 @@
         <div class="kvGrid" id="bankViewKv"></div>
         <div style="margin-top:16px; text-align:center;">
           <img id="bankViewQrImg" alt="UPI / payment QR" style="display:none; max-width:min(280px,86vw); border-radius:12px; border:1px solid var(--border);" />
-          <div class="smallNote" id="bankViewQrHint">No QR image uploaded yet.</div>
+          <div class="smallNote" id="bankViewQrHint">No QR image is shown.</div>
         </div>
       </div>
     </div>
@@ -3404,7 +3405,7 @@
         <div class="field" style="margin-top:10px;">
           <label for="bankEditQrFile">UPI / payment QR image</label>
           <input id="bankEditQrFile" type="file" accept="image/*" />
-          <div class="smallNote">PNG or JPG, max ~2 MB. Owners can view and scan this; they cannot replace it.</div>
+          <div class="smallNote">PNG or JPG, max ~2 MB. A default society QR is bundled; upload to replace it, or Remove to hide.</div>
         </div>
         <div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
           <img id="bankEditQrPreview" alt="QR preview" style="display:none; max-width:200px; border-radius:10px; border:1px solid var(--border);" />
@@ -3749,6 +3750,10 @@
     /** Owner-submitted payment rows awaiting admin approve/reject (same browser). */
     const LS_PAY_PENDING = "ins_pay_pending_v1";
     const LS_BANKING_KEY = "ins_society_banking_v1";
+    /** Bundled society UPI QR (PhonePe / Rani Sanjay Patil). Used when admin has not uploaded a custom image. */
+    const DEFAULT_BANKING_QR_URL = "/assets/society-upi-qr.png";
+    /** Saved in qrDataUrl when admin explicitly removes the QR (do not fall back to default). */
+    const BANKING_QR_REMOVED = "__qr_removed__";
     /** Shared project documents (admin-managed; same browser for demo). */
     const LS_PROJECT_DOCS = "ins_project_docs_v1";
     const LS_MEETING_DOCS = "ins_meeting_docs_v1";
@@ -5480,6 +5485,14 @@
         guidelines: defaultBankingGuide()
       };
     }
+
+    /** Display URL for banking QR: custom upload, bundled default, or none if admin removed. */
+    function effectiveBankingQrSrc_(c){
+      const q = norm(c?.qrDataUrl);
+      if (q === BANKING_QR_REMOVED) return "";
+      if (q && (q.startsWith("data:") || q.startsWith("http://") || q.startsWith("https://") || q.startsWith("/"))) return q;
+      return DEFAULT_BANKING_QR_URL;
+    }
     function mergeBankingFromObject_(o, base){
         const rawGuide = norm(o.guidelines);
         const guidelines =
@@ -5594,7 +5607,7 @@
       const img = document.getElementById("bankViewQrImg");
       const hint = document.getElementById("bankViewQrHint");
       if (img && hint){
-        const q = norm(c.qrDataUrl);
+        const q = effectiveBankingQrSrc_(c);
         if (q){
           img.src = q;
           img.style.display = "block";
@@ -5603,7 +5616,7 @@
           img.removeAttribute("src");
           img.style.display = "none";
           hint.style.display = "block";
-          hint.textContent = "No QR image has been uploaded yet.";
+          hint.textContent = "No QR image is shown.";
         }
       }
     }
@@ -5639,9 +5652,9 @@
       if (fi) fi.value = "";
       const prev = document.getElementById("bankEditQrPreview");
       if (prev){
-        const q = norm(c.qrDataUrl);
-        if (q){
-          prev.src = q;
+        const eff = effectiveBankingQrSrc_(c);
+        if (eff){
+          prev.src = eff;
           prev.style.display = "block";
         } else {
           prev.removeAttribute("src");
@@ -5655,7 +5668,7 @@
       if (!sess || sess.role !== "admin") return;
       const cur = loadBankingConfig();
       let qr = norm(cur.qrDataUrl);
-      if (bankQrEditState.cleared && !bankQrEditState.newDataUrl) qr = "";
+      if (bankQrEditState.cleared && !bankQrEditState.newDataUrl) qr = BANKING_QR_REMOVED;
       else if (bankQrEditState.newDataUrl) qr = bankQrEditState.newDataUrl;
       const c = {
         primaryAccountHolder: norm(document.getElementById("bankEditPrimaryHolder").value),
