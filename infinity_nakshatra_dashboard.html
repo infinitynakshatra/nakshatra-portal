@@ -8065,13 +8065,15 @@
       else if (slots.length) sel.value = slots[0].ym;
     }
 
-    function refreshExpenseManageYmDropdown(){
+    function refreshExpenseManageYmDropdown(preferredYm){
       const sel = document.getElementById("expenseManageYm");
       if (!sel) return;
+      const pref = normalizePortalYm(preferredYm || "");
+      if (pref) ensureAdminFyIncludesYm(pref);
       const slots = allAdminSlotsUnion();
-      const cur = norm(sel.value);
       sel.innerHTML = slots.map(s => `<option value="${escapeHtml(s.ym)}">${escapeHtml(s.label)}</option>`).join("");
-      if (cur && slots.some(s => s.ym === cur)) sel.value = cur;
+      const want = pref || norm(sel.value);
+      if (want && slots.some(s => s.ym === want)) sel.value = want;
       else if (slots.length) sel.value = slots[0].ym;
     }
 
@@ -11300,8 +11302,8 @@
         if (!ex || !expenseRowIsValid_(ex)) return;
         const idEl = document.getElementById("expenseManageEditId");
         if (idEl) idEl.value = String(ex.id || "");
-        const ymSel = document.getElementById("expenseManageYm");
-        if (ymSel) ymSel.value = normalizePortalYm(String(ex.ym || ""));
+        const ymCanon = normalizePortalYm(String(ex.ym || ""));
+        refreshExpenseManageYmDropdown(ymCanon);
         const setv = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
         setv("expenseManageCategory", expenseCellStr_(ex.category));
         setv("expenseManageAmount", String(Math.round(toMoneyNumber(ex.amount)) || ""));

@@ -1730,7 +1730,7 @@ function doPost(e) {
       }
       if (targetU < 0) return json_({ ok: false, error: "not_found" }, 404);
       shU.getRange(targetU, 2).setValue(nowIso_());
-      shU.getRange(targetU, 3, 1, 7).setValues([[ymU, catU, amountU, descU, paidU]]);
+      shU.getRange(targetU, 3, 1, 5).setValues([[ymU, catU, amountU, descU, paidU]]);
       audit_(ss, actorU, "updateExpense", { id: idU, ym: ymU, amount: amountU });
       invalidatePortalStateCache_();
       return json_({ ok: true }, 200);
