@@ -1340,8 +1340,14 @@
       line-height:1.05;
       min-height:0;
     }
-    .portalDashLead{color:var(--view-title); font-weight:900; font-size:1.08em;}
-    .portalDashSub{font-size:inherit; font-weight:inherit; color:inherit;}
+    .topbar .title p .portalDashLead,
+    #subtitle .portalDashLead,
+    #userTagline .portalDashLead{
+      color:var(--warn);
+      font-weight:900;
+      font-size:1.08em;
+    }
+    .portalDashSub{font-size:inherit; font-weight:inherit; color:var(--muted);}
     .mcOwnerPortalFyLabel{color:#fff; font-weight:700;}
     .mcOwnerPortalFyHelp{color:var(--warn); font-weight:600;}
     .pill{
