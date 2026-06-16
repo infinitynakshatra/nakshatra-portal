@@ -4160,13 +4160,14 @@
       return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
     }
 
-    /** True when maintenance does not apply to this plot (sheet says N/A or plot is Unsold). */
+    /** True only for Unsold plots (all maintenance months are N/A). Sold plots are never fully N/A. */
     function isMaintenanceStartNotApplicableRow_(row){
       if (!row) return true;
-      if (soldKey(row["Sold/Unsold"]) === "unsold") return true;
-      const raw = String(row[COL_MAINTENANCE_STARTING_FROM] ?? "").trim();
-      if (!raw) return false;
-      const low = raw.toLowerCase().replace(/\s+/g, " ");
+      return soldKey(row["Sold/Unsold"]) === "unsold";
+    }
+
+    function isMaintenanceStartingFromNaText_(raw){
+      const low = String(raw || "").trim().toLowerCase().replace(/\s+/g, " ");
       return low === "not applicable" || low === "n/a" || low === "na" || low === "—" || low === "-";
     }
 
@@ -4182,15 +4183,16 @@
       return true;
     }
 
-    /** Default: Allow when Maintenance Starting From rules are met (first contribution paid + prior month if applicable). */
+    /** Default: Deny unless maintenance rules met; paid owners are Allow even if a stale deny was saved earlier. */
     function effectiveOwnerAccessDenied_(mobileDigits){
       const d = digitsOnly(String(mobileDigits || ""));
       if (d.length < 10) return false;
-      const ex = ownerAccessLoadMerged()[d];
-      if (ex === "deny") return true;
-      if (ex === "allow") return false;
       if (!Array.isArray(allRows) || allRows.length === 0) return false;
-      return !ownerMaintenanceAccessOk_(d);
+      const ex = ownerAccessLoadMerged()[d];
+      if (ex === "allow") return false;
+      if (ownerMaintenanceAccessOk_(d)) return false;
+      if (ex === "deny") return true;
+      return true;
     }
 
     function ownerAccessPersistLocalSparse(sparseDenyMap){
@@ -4224,7 +4226,7 @@
         return `<td class="ownerAccessCell"><span class="smallNote">—</span></td>`;
       }
       const denied = effectiveOwnerAccessDenied_(mob);
-      const startHint = "Maintenance Starting From: first contribution (start month) must be paid; then previous calendar month when applicable. N/A or Unsold = no maintenance.";
+      const startHint = "Unsold = N/A. Sold: months before Maintenance Starting From are N/A; unpaid months show 0. Access Allow when start month paid (+ prior month when applicable).";
       return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="${escapeHtml(startHint)}">
         <option value="allow" ${denied ? "" : "selected"}>Allow</option>
         <option value="deny" ${denied ? "selected" : ""}>Deny</option>
@@ -7929,7 +7931,20 @@
       const m6 = s.match(/^(\d{4})(\d{2})$/);
       if (m6) return `${m6[1]}-${m6[2]}`;
       const mon3 = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const monFull = ["January","February","March","April","May","June","July","August","September","October","November","December"];
       const cleaned = s.replace(/['’]/g, "-").replace(/\s+/g, "");
+      const lowClean = cleaned.toLowerCase();
+      for (let i = 0; i < 12; i++){
+        const name = monFull[i].toLowerCase();
+        if (!lowClean.startsWith(name)) continue;
+        const tail = cleaned.slice(name.length).replace(/^[\s\-]+/, "");
+        const yyFull = tail.match(/^(\d{2}|\d{4})$/);
+        if (!yyFull) break;
+        let yNum = Number(yyFull[1]);
+        if (!Number.isFinite(yNum)) break;
+        if (yNum < 100) yNum += 2000;
+        return `${yNum}-${String(i + 1).padStart(2, "0")}`;
+      }
       const head = cleaned.slice(0, 3);
       const mi = mon3.findIndex(x => x.toLowerCase() === head.toLowerCase());
       if (mi < 0) return s;
@@ -8636,21 +8651,20 @@
       return (allRows || []).find(r => plotNoOfRow(r) === k) || null;
     }
 
-    /** Canonical YYYY-MM from Maintenance Starting From, or "" if N/A / unsold / empty / unparseable. */
+    /** Canonical YYYY-MM from Maintenance Starting From, or "" if unsold / N/A text / empty / unparseable. */
     function maintenanceStartYmFromRow_(row){
       if (!row || isMaintenanceStartNotApplicableRow_(row)) return "";
       const raw = String(row[COL_MAINTENANCE_STARTING_FROM] ?? "").trim();
-      if (!raw) return "";
+      if (!raw || isMaintenanceStartingFromNaText_(raw)) return "";
       const parsed = normalizePortalYm(raw);
       return parsed && /^\d{4}-\d{2}$/.test(parsed) ? parsed : "";
     }
 
-    /** False for N/A rows, months before Maintenance Starting From, or contact-missing plots. */
+    /** False only for Unsold plots or months before Maintenance Starting From. */
     function plotMaintenanceApplicableForYm_(row, ym){
       if (!row || isMaintenanceStartNotApplicableRow_(row)) return false;
       const ymCanon = normalizePortalYm(ym);
       if (!ymCanon) return false;
-      if (isContactMissingGroupStatusRow(row)) return false;
       const startYm = maintenanceStartYmFromRow_(row);
       if (!startYm) return true;
       return ymCanon >= startYm;
@@ -9896,7 +9910,7 @@
           year: "numeric"
         });
 
-        const amtDisp = hasPaid ? escapeHtml(String(amt)) : (na ? "—" : "—");
+        const amtDisp = na ? "—" : (hasPaid ? escapeHtml(String(amt)) : "0");
         const lateDisp = late > 0 ? escapeHtml(String(late)) : "—";
 
         return `<tr class="${rowClass}">
