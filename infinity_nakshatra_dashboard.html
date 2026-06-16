@@ -635,8 +635,8 @@
     .seePayStatus.missed{color:#ffb4b4;}
     .seePayStatus.pending{color:var(--warn);}
     .seePayStatus.paid{color:var(--accent2);}
-    .seePayStatus.na{color:var(--muted);}
-    tr.seePayNA td{background:rgba(148,163,184,0.06) !important; color:var(--muted);}
+    .seePayStatus.na{color:#92400e;}
+    tr.seePayNA td{background:rgba(255,247,200,0.45) !important; color:var(--text);}
 
     .miniStats{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
     .miniStatsRow{display:flex; justify-content:space-between; gap:8px; font-size:11px; color:var(--muted);}
@@ -4160,33 +4160,37 @@
       return `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`;
     }
 
-    /** True when every plot linked to this mobile has maintenance amount > 0 for `ym` (N/A months skipped). */
-    function ownerPreviousMonthMaintenancePaid_(mobDigits, ym){
-      const plots = plotNosForOwnerMobileDigits_(mobDigits);
-      if (!plots.length) return false;
-      const want = normalizePortalYm(ym || portalYmForPreviousCalendarMonth_(new Date()));
-      let anyApplicable = false;
-      for (const plotNo of plots){
-        const row = sheetRowForPlotNo(plotNo);
-        if (!plotMaintenanceApplicableForYm_(row, want)) continue;
-        anyApplicable = true;
-        const entries = paymentsLoadEntries(plotNo);
-        if (maintenanceReceivedForYm_(entries, want) <= 0) return false;
-      }
-      return anyApplicable;
+    /** True when maintenance does not apply to this plot (sheet says N/A or plot is Unsold). */
+    function isMaintenanceStartNotApplicableRow_(row){
+      if (!row) return true;
+      if (soldKey(row["Sold/Unsold"]) === "unsold") return true;
+      const raw = String(row[COL_MAINTENANCE_STARTING_FROM] ?? "").trim();
+      if (!raw) return false;
+      const low = raw.toLowerCase().replace(/\s+/g, " ");
+      return low === "not applicable" || low === "n/a" || low === "na" || low === "—" || low === "-";
     }
 
-    /** Explicit deny / allow overrides portal default (default: Deny unless previous calendar month maintenance is paid). */
+    /** True when every liable plot for this mobile satisfies Maintenance Starting From access rules. */
+    function ownerMaintenanceAccessOk_(mobDigits){
+      const plots = plotNosForOwnerMobileDigits_(mobDigits);
+      if (!plots.length) return false;
+      for (const plotNo of plots){
+        const row = sheetRowForPlotNo(plotNo);
+        if (isMaintenanceStartNotApplicableRow_(row)) continue;
+        if (!plotOwnerMaintenanceAccessOk_(row, plotNo)) return false;
+      }
+      return true;
+    }
+
+    /** Default: Allow when Maintenance Starting From rules are met (first contribution paid + prior month if applicable). */
     function effectiveOwnerAccessDenied_(mobileDigits){
       const d = digitsOnly(String(mobileDigits || ""));
       if (d.length < 10) return false;
       const ex = ownerAccessLoadMerged()[d];
       if (ex === "deny") return true;
       if (ex === "allow") return false;
-      // Do not treat "no payments" as deny until the plot directory is loaded. Otherwise owner login races
-      // CSV /state merge and shows "blocked by administrator" (logging in as Admin first loads data and hides the bug).
       if (!Array.isArray(allRows) || allRows.length === 0) return false;
-      return !ownerPreviousMonthMaintenancePaid_(d);
+      return !ownerMaintenanceAccessOk_(d);
     }
 
     function ownerAccessPersistLocalSparse(sparseDenyMap){
@@ -4220,8 +4224,8 @@
         return `<td class="ownerAccessCell"><span class="smallNote">—</span></td>`;
       }
       const denied = effectiveOwnerAccessDenied_(mob);
-      const prevYmLabel = ymPendingAdminLabel(portalYmForPreviousCalendarMonth_(new Date()));
-      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="Default: Allow only if ${escapeHtml(prevYmLabel)} maintenance is paid (previous calendar month, when applicable per Maintenance Starting From); override here.">
+      const startHint = "Maintenance Starting From: first contribution (start month) must be paid; then previous calendar month when applicable. N/A or Unsold = no maintenance.";
+      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="${escapeHtml(startHint)}">
         <option value="allow" ${denied ? "" : "selected"}>Allow</option>
         <option value="deny" ${denied ? "selected" : ""}>Deny</option>
       </select></td>`;
@@ -4235,7 +4239,7 @@
       const merged = { ...ownerAccessLoadMerged() };
       if (value === "deny") merged[d] = "deny";
       else {
-        if (!ownerPreviousMonthMaintenancePaid_(d)) merged[d] = "allow";
+        if (!ownerMaintenanceAccessOk_(d)) merged[d] = "allow";
         else delete merged[d];
       }
       const sparse = sanitizeOwnerAccessMap_(merged);
@@ -8632,23 +8636,40 @@
       return (allRows || []).find(r => plotNoOfRow(r) === k) || null;
     }
 
-    /** Canonical YYYY-MM from sheet column Maintenance Starting From (empty = liable from first month). */
+    /** Canonical YYYY-MM from Maintenance Starting From, or "" if N/A / unsold / empty / unparseable. */
     function maintenanceStartYmFromRow_(row){
-      if (!row) return "";
-      const raw = row[COL_MAINTENANCE_STARTING_FROM];
-      return normalizePortalYm(String(raw != null ? raw : ""));
+      if (!row || isMaintenanceStartNotApplicableRow_(row)) return "";
+      const raw = String(row[COL_MAINTENANCE_STARTING_FROM] ?? "").trim();
+      if (!raw) return "";
+      const parsed = normalizePortalYm(raw);
+      return parsed && /^\d{4}-\d{2}$/.test(parsed) ? parsed : "";
     }
 
-    /** False for months before Maintenance Starting From, unsold, or contact-missing plots. */
+    /** False for N/A rows, months before Maintenance Starting From, or contact-missing plots. */
     function plotMaintenanceApplicableForYm_(row, ym){
-      if (!row) return false;
+      if (!row || isMaintenanceStartNotApplicableRow_(row)) return false;
       const ymCanon = normalizePortalYm(ym);
       if (!ymCanon) return false;
-      const startYm = maintenanceStartYmFromRow_(row);
-      if (startYm && ymCanon < startYm) return false;
-      if (soldKey(row["Sold/Unsold"]) === "unsold") return false;
       if (isContactMissingGroupStatusRow(row)) return false;
-      return true;
+      const startYm = maintenanceStartYmFromRow_(row);
+      if (!startYm) return true;
+      return ymCanon >= startYm;
+    }
+
+    /** Access for one plot: start month paid (first contribution); previous calendar month paid when applicable. */
+    function plotOwnerMaintenanceAccessOk_(row, plotNo){
+      if (!row || isMaintenanceStartNotApplicableRow_(row)) return true;
+      const entries = paymentsLoadEntries(plotNo);
+      const startYm = maintenanceStartYmFromRow_(row);
+      if (startYm){
+        if (maintenanceReceivedForYm_(entries, startYm) <= 0) return false;
+        const prevYm = portalYmForPreviousCalendarMonth_(new Date());
+        if (plotMaintenanceApplicableForYm_(row, prevYm) && maintenanceReceivedForYm_(entries, prevYm) <= 0) return false;
+        return true;
+      }
+      const prevYm = portalYmForPreviousCalendarMonth_(new Date());
+      if (!plotMaintenanceApplicableForYm_(row, prevYm)) return true;
+      return maintenanceReceivedForYm_(entries, prevYm) > 0;
     }
 
     function existingMemberPlotCountForYm_(ym){
@@ -8783,7 +8804,7 @@
         let rowPaidMonths = 0;
         slots.forEach((slot, i) => {
           const na = !plotMaintenanceApplicableForYm_(r, slot.ym);
-          if (isShort && na){
+          if (na){
             row.push("N/A");
             return;
           }
@@ -8798,7 +8819,7 @@
             }
             row.push(paid ? "Paid" : "Unpaid");
           } else {
-            row.push(na ? "N/A" : String(v));
+            row.push(String(v));
           }
         });
         grandTotal += rowSum;
@@ -9052,8 +9073,12 @@
           if (col < firstMonthCol || col >= afterMonthCol) return;
           const t = data.cell.text;
           const raw = Array.isArray(t) ? t.join("") : String(t ?? "");
+          const label = raw.trim();
+          if (label === "N/A" || label === "Not Applicable"){
+            data.cell.styles.fillColor = [255, 247, 200];
+            return;
+          }
           if (isShort){
-            const label = raw.trim();
             if (label === "Paid") data.cell.styles.fillColor = [214, 255, 214];
             else if (label === "Unpaid") data.cell.styles.fillColor = [255, 222, 222];
             return;
@@ -9354,7 +9379,9 @@
         }
         for (const plotNo of plotSet){
           const entries = paymentsLoadEntries(plotNo);
+          const row = sheetRowForPlotNo(plotNo);
           for (const ym of selectedYms){
+            if (row && !plotMaintenanceApplicableForYm_(row, ym)) continue;
             received += maintenanceReceivedForYm_(entries, ym);
             lateFee += toMoneyNumber(sumEntriesForYm(entries, ym).lateFee);
           }
@@ -9366,6 +9393,7 @@
         if (!plotNo) continue;
         const entries = paymentsLoadEntries(plotNo);
         for (const ym of selectedYms){
+          if (!plotMaintenanceApplicableForYm_(r, ym)) continue;
           const sums = sumEntriesForYm(entries, ym);
           received += sums.amount;
           lateFee += sums.lateFee;
