@@ -194,7 +194,9 @@
       background:rgba(10,31,45,0.72);
       backdrop-filter:blur(10px);
       box-shadow:var(--shadow);
-      align-self:flex-start;
+      align-self:stretch;
+      display:flex;
+      flex-direction:column;
     }
     .payDonutTitle{
       margin:0 0 6px;
@@ -280,7 +282,18 @@
     .payBarPanel{
       flex:1 1 280px;
       min-width:0;
-      align-self:flex-start;
+      align-self:stretch;
+      display:flex;
+      flex-direction:column;
+    }
+    .payBarPanel .payChartScroll{
+      flex:1 1 auto;
+      display:flex;
+      flex-direction:column;
+      min-height:165px;
+    }
+    .payBarPanel .payChartInner{
+      flex:1 1 auto;
     }
     @media (max-width:720px){
       .payDonutPanel{flex:1 1 100%;}
@@ -592,6 +605,34 @@
       margin-top:12px;
       -webkit-overflow-scrolling:touch;
     }
+    .bankViewQrBlock{margin-top:16px;}
+    .bankViewQrRow{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:flex-end;
+      gap:16px 20px;
+    }
+    #bankViewQrImg{
+      display:block;
+      max-width:min(220px, 52vw);
+      width:100%;
+      height:auto;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:#fff;
+    }
+    .bankViewQrDownloadBtn{
+      min-width:132px;
+      min-height:46px;
+      padding:12px 22px;
+      border-radius:10px;
+      border:1px solid #16a34a;
+      background:#22c55e;
+      color:#052e16;
+      font-weight:800;
+      box-shadow:var(--shadow);
+    }
+    .bankViewQrDownloadBtn:hover{filter:brightness(1.06);}
     .seePayDueBanner{
       margin-top:10px;
       padding:11px 14px;
@@ -10707,13 +10748,23 @@
               border: { display: false }
             },
             y: {
+              type: "linear",
               min: 0,
               max: expectedPerMonth,
+              suggestedMax: expectedPerMonth,
               grace: 0,
-              display: false
+              beginAtZero: true,
+              ticks: { display: false, maxTicksLimit: 0 },
+              grid: { display: false },
+              border: { display: false },
+              afterFit(scale){
+                scale.width = 0;
+                scale.paddingLeft = 0;
+                scale.paddingRight = 0;
+              }
             }
           },
-          layout: { padding: { top: 0, bottom: 0, left: 0, right: 0 } }
+          layout: { padding: { top: 4, bottom: 0, left: 0, right: 0 } }
         },
         plugins: [paidUnpaidLabelPlugin]
       });
