@@ -4189,16 +4189,18 @@
       return low === "not applicable" || low === "n/a" || low === "na" || low === "—" || low === "-";
     }
 
-    /** True when every liable plot for this mobile satisfies Maintenance Starting From access rules. */
+    /** True when every sold plot for this mobile satisfies Maintenance Starting From access rules. */
     function ownerMaintenanceAccessOk_(mobDigits){
       const plots = plotNosForOwnerMobileDigits_(mobDigits);
       if (!plots.length) return false;
+      let anyLiable = false;
       for (const plotNo of plots){
         const row = sheetRowForPlotNo(plotNo);
         if (isMaintenanceStartNotApplicableRow_(row)) continue;
+        anyLiable = true;
         if (!plotOwnerMaintenanceAccessOk_(row, plotNo)) return false;
       }
-      return true;
+      return anyLiable;
     }
 
     /** Default: Deny unless maintenance rules met; paid owners are Allow even if a stale deny was saved earlier. */
@@ -4211,6 +4213,7 @@
       if (k.startsWith("plot:")){
         const plotNo = k.slice(5);
         const r = row || sheetRowForPlotNo(plotNo);
+        if (r && isMaintenanceStartNotApplicableRow_(r)) return true;
         if (r && plotOwnerMaintenanceAccessOk_(r, plotNo)) return false;
         if (ex === "deny") return true;
         return true;
