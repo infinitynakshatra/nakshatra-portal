@@ -2047,14 +2047,14 @@
                 <span class="mcKpiCardLabel">Expected Amount</span>
                 <b class="mcKpiCardValue" id="mcExpected">—</b>
               </div>
-              <span class="mcKpiCardFoot" id="mcExpectedFoot">From — Members</span>
+              <span class="mcKpiCardFoot mcKpiCardFootEmpty" id="mcExpectedFoot" aria-hidden="true"></span>
             </div>
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
                 <span class="mcKpiCardLabel">Maintenance collected</span>
                 <b class="mcKpiCardValue" id="mcMaintenanceCollectedSummary">—</b>
               </div>
-              <span class="mcKpiCardFoot" id="mcMaintCollectedFoot">Payment Received from — owners.</span>
+              <span class="mcKpiCardFoot mcKpiCardFootEmpty" id="mcMaintCollectedFoot" aria-hidden="true"></span>
             </div>
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
@@ -2115,7 +2115,6 @@
                 </div>
               </div>
             </div>
-            <div class="smallNote" style="margin-top:8px;">Saved to spreadsheet tab <strong>portal_expenses</strong> when Apps Script is configured.</div>
           </div>
         </div>
       </div>
@@ -4122,13 +4121,32 @@
       const out = {};
       if (!obj || typeof obj !== "object") return out;
       for (const [k, v] of Object.entries(obj)){
-        const d = digitsOnly(String(k));
-        if (d.length < 10 || d.length > 15) continue;
+        const nk = normalizeOwnerAccessKey_(k);
+        if (!nk) continue;
         const s = String(v).toLowerCase();
-        if (s === "deny") out[d] = "deny";
-        else if (s === "allow") out[d] = "allow";
+        if (s === "deny") out[nk] = "deny";
+        else if (s === "allow") out[nk] = "allow";
       }
       return out;
+    }
+
+    /** Mobile (last 10 digits) or plot:NN when no contact on sheet. */
+    function normalizeOwnerAccessKey_(k){
+      const s = String(k || "").trim();
+      if (/^plot:\d+$/i.test(s)) return s.toLowerCase();
+      const d = digitsOnly(s);
+      if (d.length >= 10) return d.slice(-10);
+      return "";
+    }
+
+    function ownerAccessKeyFromRow_(row){
+      if (!row) return "";
+      const primary = digitsOnly(row[COL_PRIMARY_CONTACT] || row["Primary Contact Number"]);
+      if (primary.length >= 10) return primary.slice(-10);
+      const alt = digitsOnly(row[COL_ALTERNATE_NUMBER] || row["Alternate Number"]);
+      if (alt.length >= 10) return alt.slice(-10);
+      const pn = norm(plotNoOfRow(row));
+      return pn ? `plot:${pn}` : "";
     }
 
     function ownerAccessLoadMerged(){
@@ -4184,15 +4202,26 @@
     }
 
     /** Default: Deny unless maintenance rules met; paid owners are Allow even if a stale deny was saved earlier. */
-    function effectiveOwnerAccessDenied_(mobileDigits){
-      const d = digitsOnly(String(mobileDigits || ""));
-      if (d.length < 10) return false;
+    function effectiveOwnerAccessDeniedForKey_(accessKey, row){
+      const k = normalizeOwnerAccessKey_(accessKey);
+      if (!k) return false;
       if (!Array.isArray(allRows) || allRows.length === 0) return false;
-      const ex = ownerAccessLoadMerged()[d];
+      const ex = ownerAccessLoadMerged()[k];
       if (ex === "allow") return false;
-      if (ownerMaintenanceAccessOk_(d)) return false;
+      if (k.startsWith("plot:")){
+        const plotNo = k.slice(5);
+        const r = row || sheetRowForPlotNo(plotNo);
+        if (r && plotOwnerMaintenanceAccessOk_(r, plotNo)) return false;
+        if (ex === "deny") return true;
+        return true;
+      }
+      if (ownerMaintenanceAccessOk_(k)) return false;
       if (ex === "deny") return true;
       return true;
+    }
+
+    function effectiveOwnerAccessDenied_(mobileDigits){
+      return effectiveOwnerAccessDeniedForKey_(mobileDigits);
     }
 
     function ownerAccessPersistLocalSparse(sparseDenyMap){
@@ -4220,29 +4249,44 @@
       return { ok:true };
     }
 
-    function ownerAccessSelectCellHtml(mobRaw){
-      const mob = digitsOnly(mobRaw);
-      if (mob.length < 10){
+    function ownerAccessSelectCellHtml(rowOrMob){
+      let key = "";
+      let row = null;
+      if (rowOrMob && typeof rowOrMob === "object"){
+        row = rowOrMob;
+        key = ownerAccessKeyFromRow_(row);
+      } else {
+        key = normalizeOwnerAccessKey_(rowOrMob);
+      }
+      if (!key){
         return `<td class="ownerAccessCell"><span class="smallNote">—</span></td>`;
       }
-      const denied = effectiveOwnerAccessDenied_(mob);
+      const denied = effectiveOwnerAccessDeniedForKey_(key, row);
       const startHint = "Unsold = N/A. Sold: months before Maintenance Starting From are N/A; unpaid months show 0. Access Allow when start month paid (+ prior month when applicable).";
-      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(mob)}" aria-label="Login access for ${escapeHtml(mob)}" title="${escapeHtml(startHint)}">
+      return `<td class="ownerAccessCell"><select class="ownerAccessSelect" data-owner-access="${escapeHtml(key)}" aria-label="Login access for plot or mobile ${escapeHtml(key)}" title="${escapeHtml(startHint)}">
         <option value="allow" ${denied ? "" : "selected"}>Allow</option>
         <option value="deny" ${denied ? "selected" : ""}>Deny</option>
       </select></td>`;
     }
 
-    async function onOwnerPortalAccessChange(mobileDigits, value){
+    async function onOwnerPortalAccessChange(accessKey, value){
       const sess = readSession();
       if (!sess || sess.role !== "admin") return;
-      const d = digitsOnly(String(mobileDigits || ""));
-      if (d.length < 10) return;
+      const k = normalizeOwnerAccessKey_(accessKey);
+      if (!k) return;
       const merged = { ...ownerAccessLoadMerged() };
-      if (value === "deny") merged[d] = "deny";
+      if (value === "deny") merged[k] = "deny";
       else {
-        if (!ownerMaintenanceAccessOk_(d)) merged[d] = "allow";
-        else delete merged[d];
+        let maintenanceOk = false;
+        if (k.startsWith("plot:")){
+          const plotNo = k.slice(5);
+          const row = sheetRowForPlotNo(plotNo);
+          maintenanceOk = !!(row && plotOwnerMaintenanceAccessOk_(row, plotNo));
+        } else {
+          maintenanceOk = ownerMaintenanceAccessOk_(k);
+        }
+        if (!maintenanceOk) merged[k] = "allow";
+        else delete merged[k];
       }
       const sparse = sanitizeOwnerAccessMap_(merged);
       ownerAccessPersistLocalSparse(sparse);
@@ -8525,7 +8569,7 @@
           return `<tr>
             <td>${escapeHtml(name)}</td>
             <td>${plotLinksCell}</td>
-            ${ownerAccessSelectCellHtml(pc)}
+            ${ownerAccessSelectCellHtml(firstPlot ? sheetRowForPlotNo(firstPlot) : null)}
             ${totalAmountPaidCellHtmlForMobile_(pc)}
             <td>${pc ? escapeHtml(pc) : ""}</td>
             <td><button class="btn secondary" type="button" data-addpayplot="${escapeHtml(firstPlot)}" ${addDis}>Click</button></td>
@@ -8539,7 +8583,7 @@
         const plotNo = plotNoOfRow(r);
         const tds = displayHeaders.map(h => {
           if (h === OWNER_ACCESS_COL){
-            return ownerAccessSelectCellHtml(r["Primary Contact Number"]);
+            return ownerAccessSelectCellHtml(r);
           }
           if (h === OWNER_TOTAL_PAID_COL){
             return totalAmountPaidCellHtmlForPlot_(plotNoOfRow(r));
@@ -9423,19 +9467,6 @@
       expectedEl.textContent = String(Math.round(expected));
       pendingEl.textContent = String(Math.round(pending));
       lateFeeEl.textContent = String(Math.round(lateFee));
-      const expectedFoot = document.getElementById("mcExpectedFoot");
-      if (expectedFoot){
-        const maxN = existingMemberPlotCountForMc_();
-        const liableMonths = selectedYms.reduce((s, ym) => s + existingMemberPlotCountForYm_(ym), 0);
-        expectedFoot.textContent = liableMonths === selectedYms.length * maxN
-          ? `From ${maxN} Members`
-          : `From ${liableMonths} member-month(s) (Maintenance Starting From applied)`;
-      }
-      const maintFoot = document.getElementById("mcMaintCollectedFoot");
-      if (maintFoot){
-        const doneOwners = countPaymentCompletedOwnersForMc_(selectedYms);
-        maintFoot.textContent = `Payment Received from ${doneOwners} owners.`;
-      }
 
       const selYmSet = new Set(selectedYms.map(y => normalizePortalYm(String(y))));
       let expensesSum = 0;

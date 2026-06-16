@@ -704,19 +704,27 @@ function writePortalServiceContacts_(ss, contacts) {
   return { ok: true };
 }
 
-/** Mobile digits -> "deny" | "allow" (omit key for portal default: deny if no payments, allow if paid). */
+/** Mobile (last 10 digits) or plot:NN when no contact on sheet. */
+function normalizeOwnerAccessKey_(k) {
+  var s = String(k || "").trim();
+  if (/^plot:\d+$/i.test(s)) return s.toLowerCase();
+  var d = String(k || "").replace(/\D/g, "");
+  if (d.length >= 10) return d.slice(-10);
+  return "";
+}
+
+/** Mobile digits -> "deny" | "allow" (omit key for portal default). */
 function sanitizeOwnerAccessMap_(raw) {
   var out = {};
   if (!raw || typeof raw !== "object") return out;
   var keys = Object.keys(raw);
   var i;
   for (i = 0; i < keys.length && i < 5000; i++) {
-    var k = keys[i];
-    var d = String(k || "").replace(/\D/g, "");
-    if (d.length < 10 || d.length > 15) continue;
-    var v = String(raw[k] || "").toLowerCase();
-    if (v === "deny") out[d] = "deny";
-    else if (v === "allow") out[d] = "allow";
+    var nk = normalizeOwnerAccessKey_(keys[i]);
+    if (!nk) continue;
+    var v = String(raw[keys[i]] || "").toLowerCase();
+    if (v === "deny") out[nk] = "deny";
+    else if (v === "allow") out[nk] = "allow";
   }
   return out;
 }
