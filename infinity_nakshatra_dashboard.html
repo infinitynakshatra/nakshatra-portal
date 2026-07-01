@@ -766,7 +766,7 @@
     .mcBrand .smallNote{color:var(--muted);}
     #adminMaintenanceMcRow .mcKpiStrip{
       display:grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(7, minmax(0, 1fr));
       gap:6px;
     }
     #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix .mcKpiCard{
@@ -2083,6 +2083,7 @@
             <h3>Maintenance Collection &amp; Expense Management</h3>
           </div>
           <div class="mcBtns">
+            <button class="btn secondary tiny adminOnly" id="otherEarningsAddBtn" type="button">Add other Earnings</button>
             <button class="btn secondary tiny" id="doneOwnersBtn" type="button">Payment completed owners</button>
             <button class="btn secondary tiny" id="pendingListBtn" type="button">Payment pending owners</button>
             <button class="btn secondary tiny adminOnly" id="backupPaymentsSheetBtn" type="button" title="Requires COLLECTION_API_URL + key">Backup payments to Sheet</button>
@@ -2146,6 +2147,13 @@
               <div class="mcKpiCardHead">
                 <span class="mcKpiCardLabel">Late Fee Amount</span>
                 <b class="mcKpiCardValue" id="lateFeeReceived">—</b>
+              </div>
+              <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Other Earnings</span>
+                <b class="mcKpiCardValue" id="mcOtherEarningsSummary">—</b>
               </div>
               <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
             </div>
@@ -3589,6 +3597,104 @@
     </div>
   </div>
 
+  <div class="backdrop" id="otherEarningsAddBackdrop" aria-hidden="true">
+    <div class="modal modalPayAdd" role="dialog" aria-modal="true" aria-labelledby="otherEarningsAddTitle" style="width:min(560px, 96vw);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="otherEarningsAddTitle">Add other earnings</div>
+          <div class="modalSub">Bank interest, donations, scrap sales, and other non-maintenance income.</div>
+        </div>
+        <button class="btn secondary" id="otherEarningsAddCloseBtn" type="button">Close</button>
+      </div>
+      <div class="expenseFormGrid" style="margin-top:8px;">
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="otherEarningsYmInput">Month (FY)</label>
+          <select id="otherEarningsYmInput" aria-label="Other earnings month"></select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="otherEarningsCategoryInput">Category</label>
+          <input id="otherEarningsCategoryInput" type="text" placeholder="e.g. Bank interest, Donation, Scraps" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="otherEarningsAmountInput">Amount</label>
+          <input id="otherEarningsAmountInput" type="number" min="0" step="1" placeholder="0" />
+        </div>
+        <div class="field" style="margin:0; grid-column:1 / -1;">
+          <label class="mcDdLabel" for="otherEarningsDescInput">Description</label>
+          <input id="otherEarningsDescInput" type="text" placeholder="Short description" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0; grid-column:1 / -1;">
+          <label class="mcDdLabel" for="otherEarningsSourceInput">Source / reference</label>
+          <input id="otherEarningsSourceInput" type="text" placeholder="Bank, donor name, etc." autocomplete="off" />
+        </div>
+      </div>
+      <div class="err" id="otherEarningsAddErr"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; justify-content:flex-end;">
+        <button class="btn secondary" id="otherEarningsShowUpdateBtn" type="button">Show/Update Earnings</button>
+        <button class="btn" id="otherEarningsSaveBtn" type="button">Save earnings</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="otherEarningsManageBackdrop" aria-hidden="true">
+    <div class="modal modalSeePay" role="dialog" aria-modal="true" aria-labelledby="otherEarningsManageTitle" style="width:min(960px, 98vw); max-height:min(92vh, 900px);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="otherEarningsManageTitle">Show / Update other earnings</div>
+          <div class="modalSub">Rows from <strong>portal_other_earnings</strong>. Edit and save changes to the spreadsheet.</div>
+        </div>
+        <button class="btn secondary" id="otherEarningsManageCloseBtn" type="button">Close</button>
+      </div>
+      <div class="scroll-x" style="overflow:auto; max-height:min(420px, 55vh); margin-top:8px;">
+        <table class="adminDirTable">
+          <thead>
+            <tr>
+              <th>Recorded</th>
+              <th>Month</th>
+              <th>Category</th>
+              <th>Amount</th>
+              <th>Description</th>
+              <th>Source</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="otherEarningsManageTbody">
+            <tr><td colspan="7">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="smallNote" style="margin-top:12px;">Click <b>Edit</b> on a row, adjust the fields below, then <b>Save changes</b>. Use <b>Delete</b> to remove a row.</p>
+      <input type="hidden" id="otherEarningsManageEditId" value="" />
+      <div class="expenseFormGrid" style="margin-top:10px;">
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="otherEarningsManageYm">Month (FY)</label>
+          <select id="otherEarningsManageYm" aria-label="Other earnings month for edit"></select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="otherEarningsManageCategory">Category</label>
+          <input id="otherEarningsManageCategory" type="text" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="otherEarningsManageAmount">Amount</label>
+          <input id="otherEarningsManageAmount" type="number" min="0" step="1" />
+        </div>
+        <div class="field" style="margin:0; grid-column:1 / -1;">
+          <label class="mcDdLabel" for="otherEarningsManageDesc">Description</label>
+          <input id="otherEarningsManageDesc" type="text" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="otherEarningsManageSource">Source / reference</label>
+          <input id="otherEarningsManageSource" type="text" autocomplete="off" />
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <button class="btn" id="otherEarningsManageSaveBtn" type="button" disabled>Save changes</button>
+        <button class="btn secondary" id="otherEarningsManageCancelEditBtn" type="button">Cancel edit</button>
+      </div>
+      <div class="err" id="otherEarningsManageErr"></div>
+    </div>
+  </div>
+
   <div class="backdrop" id="prevNotifBackdrop" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="prevNotifModalTitle" style="width:min(960px, 96vw);">
       <div class="modalHead">
@@ -4200,7 +4306,7 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsCount: 0, lastFetchError: "", paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], banking: null, inbox: [], projectDocs: [], meetingDocs: [], ownDocs: [], societyDetails: null, serviceContacts: [], ownerAccess: {}, ownerPortalMayYear: null, gateVisits: [] };
+    let portalServerState = { loaded: false, paymentsCount: 0, lastFetchError: "", paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], otherEarnings: [], banking: null, inbox: [], projectDocs: [], meetingDocs: [], ownDocs: [], societyDetails: null, serviceContacts: [], ownerAccess: {}, ownerPortalMayYear: null, gateVisits: [] };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
@@ -4492,6 +4598,7 @@
         tickets: Array.isArray(j.tickets) ? j.tickets : [],
         notices: Array.isArray(j.notices) ? j.notices : [],
         expenses: Array.isArray(j.expenses) ? j.expenses : [],
+        otherEarnings: Array.isArray(j.otherEarnings) ? j.otherEarnings : [],
         banking: (j.banking !== undefined && j.banking !== null && typeof j.banking === "object") ? j.banking : null,
         inbox: Array.isArray(j.inbox) ? j.inbox : [],
         projectDocs: Array.isArray(j.projectDocs) ? j.projectDocs : [],
@@ -4728,6 +4835,66 @@
       const r = await appsScriptPostJson({
         apiKey: COLLECTION_API_KEY,
         action: "deleteExpense",
+        actor: "admin",
+        id: String(payload.id || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "delete_failed", detail: j };
+      return { ok:true };
+    }
+
+    async function portalServerAddOtherEarning(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "addOtherEarning",
+        actor: "admin",
+        ym: String(payload.ym || ""),
+        amount: Number(payload.amount) || 0,
+        category: String(payload.category || ""),
+        description: String(payload.description || ""),
+        source: String(payload.source || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true, id: j.id };
+    }
+
+    async function portalServerUpdateOtherEarning(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "updateOtherEarning",
+        actor: "admin",
+        id: String(payload.id || ""),
+        ym: String(payload.ym || ""),
+        amount: Number(payload.amount) || 0,
+        category: String(payload.category || ""),
+        description: String(payload.description || ""),
+        source: String(payload.source || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true };
+    }
+
+    async function portalServerDeleteOtherEarning(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "deleteOtherEarning",
         actor: "admin",
         id: String(payload.id || "")
       });
@@ -8320,6 +8487,7 @@
         host.querySelectorAll(".mcYmChk").forEach(c => { c.checked = set.has(String(c.dataset.ym)); });
       }
       refreshExpenseYmDropdown();
+      refreshOtherEarningsYmDropdown();
     }
 
     function refreshExpenseYmDropdown(){
@@ -8342,6 +8510,115 @@
       const want = pref || norm(sel.value);
       if (want && slots.some(s => s.ym === want)) sel.value = want;
       else if (slots.length) sel.value = slots[0].ym;
+    }
+
+    function refreshOtherEarningsYmDropdown(){
+      const sel = document.getElementById("otherEarningsYmInput");
+      if (!sel) return;
+      const slots = allAdminSlotsUnion();
+      const cur = norm(sel.value);
+      sel.innerHTML = slots.map(s => `<option value="${escapeHtml(s.ym)}">${escapeHtml(s.label)}</option>`).join("");
+      if (cur && slots.some(s => s.ym === cur)) sel.value = cur;
+      else if (slots.length) sel.value = slots[0].ym;
+    }
+
+    function refreshOtherEarningsManageYmDropdown(preferredYm){
+      const sel = document.getElementById("otherEarningsManageYm");
+      if (!sel) return;
+      const pref = normalizePortalYm(preferredYm || "");
+      if (pref) ensureAdminFyIncludesYm(pref);
+      const slots = allAdminSlotsUnion();
+      sel.innerHTML = slots.map(s => `<option value="${escapeHtml(s.ym)}">${escapeHtml(s.label)}</option>`).join("");
+      const want = pref || norm(sel.value);
+      if (want && slots.some(s => s.ym === want)) sel.value = want;
+      else if (slots.length) sel.value = slots[0].ym;
+    }
+
+    function otherEarningsRowIsValid_(row){
+      if (!row || typeof row !== "object") return false;
+      const id = String(row.id || "").trim();
+      if (!id || id.toLowerCase() === "null") return false;
+      return true;
+    }
+
+    function otherEarningsCellStr_(v){
+      const t = String(v ?? "").trim();
+      if (!t || t.toLowerCase() === "null") return "";
+      return t;
+    }
+
+    function renderOtherEarningsManageTable(){
+      const tb = document.getElementById("otherEarningsManageTbody");
+      if (!tb) return;
+      const list = [...(portalServerState.otherEarnings || [])].filter(otherEarningsRowIsValid_).sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      if (!list.length){
+        tb.innerHTML = `<tr><td colspan="7">No other earnings rows yet.</td></tr>`;
+        return;
+      }
+      tb.innerHTML = list.map(row => {
+        const id = escapeHtml(String(row.id || ""));
+        const rawAt = String(row.atIso || "");
+        const at = escapeHtml(rawAt.length >= 19 ? rawAt.slice(0, 19).replace("T", " ") : rawAt);
+        const ymCanon = normalizePortalYm(String(row.ym || ""));
+        const ymLab = escapeHtml(fyLabelForYm(ymCanon) || ymCanon || "—");
+        return `<tr>
+          <td>${at}</td>
+          <td>${ymLab}</td>
+          <td>${escapeHtml(otherEarningsCellStr_(row.category))}</td>
+          <td>${escapeHtml(String(Math.round(toMoneyNumber(row.amount))))}</td>
+          <td>${escapeHtml(otherEarningsCellStr_(row.description))}</td>
+          <td>${escapeHtml(otherEarningsCellStr_(row.source))}</td>
+          <td><span class="expenseManageRowActions">
+            <button type="button" class="btn secondary tiny otherEarningsManageEditRowBtn" data-other-earnings-id="${id}">Edit</button>
+            <button type="button" class="btn danger tiny otherEarningsManageDeleteRowBtn" data-other-earnings-id="${id}">Delete</button>
+          </span></td>
+        </tr>`;
+      }).join("");
+    }
+
+    function resetOtherEarningsManageEdit(){
+      const idEl = document.getElementById("otherEarningsManageEditId");
+      if (idEl) idEl.value = "";
+      const saveBtn = document.getElementById("otherEarningsManageSaveBtn");
+      if (saveBtn) saveBtn.disabled = true;
+      const setv = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+      setv("otherEarningsManageCategory", "");
+      setv("otherEarningsManageAmount", "");
+      setv("otherEarningsManageDesc", "");
+      setv("otherEarningsManageSource", "");
+      refreshOtherEarningsManageYmDropdown();
+      const err = document.getElementById("otherEarningsManageErr");
+      if (err) err.textContent = "";
+    }
+
+    async function openOtherEarningsAddModal(){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+      if (!isServerEnabled()){
+        alert("Configure COLLECTION_API_URL and API key to save other earnings to the spreadsheet.");
+        return;
+      }
+      refreshOtherEarningsYmDropdown();
+      setErr(document.getElementById("otherEarningsAddErr"), "");
+      showBackdrop("otherEarningsAddBackdrop", true);
+    }
+
+    async function openOtherEarningsManageModal(){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+      if (!isServerEnabled()){
+        alert("Configure COLLECTION_API_URL and API key to load other earnings from the spreadsheet.");
+        return;
+      }
+      const fr = await portalServerFetchState();
+      if (!fr.ok && !fr.skipped){
+        alert(fr.error || "Could not load other earnings from server.");
+        return;
+      }
+      refreshOtherEarningsManageYmDropdown();
+      resetOtherEarningsManageEdit();
+      renderOtherEarningsManageTable();
+      showBackdrop("otherEarningsManageBackdrop", true);
     }
 
     function expenseRowIsValid_(ex){
@@ -9098,8 +9375,18 @@
         return Math.round(t);
       });
       const expenseGrand = expensePerSlot.reduce((a, b) => a + b, 0);
-      const balancePerSlot = slots.map((_, i) => Math.round(colSums[i] - expensePerSlot[i]));
-      const balanceGrand = Math.round(grandTotal - expenseGrand);
+      const otherEarningsPerSlot = slots.map(s => {
+        let t = 0;
+        for (const oe of portalServerState.otherEarnings || []){
+          if (!otherEarningsRowIsValid_(oe)) continue;
+          if (normalizePortalYm(String(oe.ym || "")) !== normalizePortalYm(s.ym)) continue;
+          t += toMoneyNumber(oe.amount);
+        }
+        return Math.round(t);
+      });
+      const otherEarningsGrand = otherEarningsPerSlot.reduce((a, b) => a + b, 0);
+      const balancePerSlot = slots.map((_, i) => Math.round(colSums[i] + otherEarningsPerSlot[i] - expensePerSlot[i]));
+      const balanceGrand = Math.round(grandTotal + otherEarningsGrand - expenseGrand);
       const poolNPerSlot = slots.map(slot => existingMemberPlotCountForYm_(slot.ym));
       const paidOwnersPerSlot = slots.map(slot => {
         let c = 0;
@@ -9456,6 +9743,97 @@
           };
         })()
       });
+
+      const slotYmSetForOtherEarningsPdf = new Set(slots.map(s => normalizePortalYm(s.ym)));
+      const otherEarningsReportRowsAll = (portalServerState.otherEarnings || []).filter(row => {
+        if (!otherEarningsRowIsValid_(row)) return false;
+        return slotYmSetForOtherEarningsPdf.has(normalizePortalYm(String(row.ym || "")));
+      }).sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      const otherEarningsReportBody = otherEarningsReportRowsAll.slice(0, 200).map(row => {
+        const ym = normalizePortalYm(String(row.ym || ""));
+        const slot = slots.find(s => normalizePortalYm(s.ym) === ym);
+        const monthLabel = slot ? sixMonthReportColumnLabel(slot) : ym;
+        const at = String(row.atIso || "").replace("T", " ").slice(0, 19);
+        return [
+          at,
+          monthLabel,
+          String(row.category || "").trim().slice(0, 200),
+          String(row.description || "").trim().slice(0, 200),
+          String(row.source || "").trim().slice(0, 400),
+          `Rs. ${Math.round(toMoneyNumber(row.amount))}`
+        ];
+      });
+      if (!otherEarningsReportBody.length){
+        otherEarningsReportBody.push(["—", "—", "—", "No other earnings recorded for this six-month period.", "—", "Rs. 0"]);
+      }
+
+      doc.addPage();
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(`Other Earnings Report — ${rangeTitle}`, cx, 11, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.6);
+      doc.text(`As of ${footerDateTimeStr}`, cx, 17, { align: "center" });
+      if (otherEarningsReportRowsAll.length > 200){
+        doc.setFontSize(7);
+        doc.text("(Showing first 200 other earnings rows; total below includes all rows in this period.)", cx, 22, { align: "center" });
+      }
+      const oeLine = { lineWidth: 0.12, lineColor: [55, 55, 55] };
+      doc.autoTable({
+        startY: otherEarningsReportRowsAll.length > 200 ? 26 : 21,
+        margin: { left: margin, right: margin, bottom: 10 },
+        tableWidth: tableW,
+        theme: "grid",
+        head: [["Date / time", "Month", "Category", "Description", "Source", "Amount (Rs.)"]],
+        body: otherEarningsReportBody,
+        foot: [[`TOTAL (${otherEarningsReportRowsAll.length} entries)`, "", "", "", "", `Rs. ${Math.round(otherEarningsGrand)}`]],
+        showFoot: "lastPage",
+        styles: {
+          font: "helvetica",
+          fontSize: 7,
+          cellPadding: 0.85,
+          valign: "middle",
+          textColor: 20,
+          overflow: "linebreak",
+          halign: "left",
+          ...oeLine
+        },
+        headStyles: {
+          font: "helvetica",
+          fontStyle: "bold",
+          fillColor: [230, 238, 248],
+          textColor: 15,
+          fontSize: 7.2,
+          ...oeLine
+        },
+        footStyles: {
+          font: "helvetica",
+          fontStyle: "bold",
+          fillColor: [236, 248, 236],
+          fontSize: 7,
+          ...oeLine
+        },
+        didParseCell: function (data) {
+          if (data.column.index === 5) data.cell.styles.halign = "right";
+        },
+        columnStyles: (() => {
+          const wDate = 30;
+          const wMonth = 15;
+          const wCat = 42;
+          const wAmt = 24;
+          const remDescSrc = tableW - wDate - wMonth - wCat - wAmt;
+          const wDesc = remDescSrc / 2;
+          const wSrc = remDescSrc / 2;
+          return {
+            0: { cellWidth: wDate, halign: "left" },
+            1: { cellWidth: wMonth, halign: "left" },
+            2: { cellWidth: wCat, halign: "left" },
+            3: { cellWidth: wDesc, halign: "left" },
+            4: { cellWidth: wSrc, halign: "left" },
+            5: { cellWidth: wAmt, halign: "right" }
+          };
+        })()
+      });
       }
 
       const rangeTitle = `${slots[0].shortMonth}-${slots[0].calendarYear} To ${slots[slots.length - 1].shortMonth}-${slots[slots.length - 1].calendarYear}`;
@@ -9511,8 +9889,8 @@
         startY: ySum,
         margin: { left: (pageW - finW) / 2, right: (pageW - finW) / 2 },
         tableWidth: finW,
-        head: [["Total Amount Received", "Total Expenses", "Balance Amount"]],
-        body: [[`Rs. ${Math.round(grandTotal)}`, `Rs. ${expenseGrand}`, `Rs. ${balanceGrand}`]]
+        head: [["Total Maintenance Amount Received", "Total Other Earnings", "Total Expenses", "Balance Amount"]],
+        body: [[`Rs. ${Math.round(grandTotal)}`, `Rs. ${Math.round(otherEarningsGrand)}`, `Rs. ${expenseGrand}`, `Rs. ${balanceGrand}`]]
       });
       ySum = doc.lastAutoTable.finalY + 8;
       }
@@ -9531,6 +9909,7 @@
             ["Expected Amount", ...expectedAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${expectedAmtGrand}`],
             ["Received Amount", ...colSums.map(v => `Rs. ${Math.round(v)}`), `Rs. ${Math.round(grandTotal)}`],
             ["Pending Amount", ...pendingAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${pendingAmtGrand}`],
+            ["Other Earnings", ...otherEarningsPerSlot.map(v => `Rs. ${v}`), `Rs. ${otherEarningsGrand}`],
             ["Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${expenseGrand}`],
             ["Balance", ...balancePerSlot.map(v => `Rs. ${v}`), `Rs. ${balanceGrand}`]
           ];
@@ -9558,7 +9937,7 @@
             }
             return;
           }
-          if (data.section === "body" && data.row.index === 6){
+          if (data.section === "body" && data.row.index === 7){
             data.cell.styles.fillColor = [255, 247, 200];
             data.cell.styles.fontStyle = "bold";
           }
@@ -9665,18 +10044,27 @@
 
       const selYmSet = new Set(selectedYms.map(y => normalizePortalYm(String(y))));
       let expensesSum = 0;
+      let otherEarningsSum = 0;
       for (const ex of portalServerState.expenses || []){
         if (!expenseRowIsValid_(ex)) continue;
         const ymx = normalizePortalYm(String(ex.ym || ""));
         if (!selYmSet.has(ymx)) continue;
         expensesSum += toMoneyNumber(ex.amount);
       }
+      for (const oe of portalServerState.otherEarnings || []){
+        if (!otherEarningsRowIsValid_(oe)) continue;
+        const ymx = normalizePortalYm(String(oe.ym || ""));
+        if (!selYmSet.has(ymx)) continue;
+        otherEarningsSum += toMoneyNumber(oe.amount);
+      }
       const collEl = document.getElementById("mcMaintenanceCollectedSummary");
+      const oeEl = document.getElementById("mcOtherEarningsSummary");
       const expEl = document.getElementById("mcExpensesSummary");
       const balEl = document.getElementById("mcBalanceSummary");
       if (collEl) collEl.textContent = String(Math.round(received));
+      if (oeEl) oeEl.textContent = String(Math.round(otherEarningsSum));
       if (expEl) expEl.textContent = String(Math.round(expensesSum));
-      if (balEl) balEl.textContent = String(Math.round(received - expensesSum));
+      if (balEl) balEl.textContent = String(Math.round(received + otherEarningsSum - expensesSum));
     }
 
     function openPendingModal(){
@@ -11669,6 +12057,126 @@
         const saveBtn = document.getElementById("expenseManageSaveBtn");
         if (saveBtn) saveBtn.disabled = false;
         const err = document.getElementById("expenseManageErr");
+        if (err) err.textContent = "";
+      });
+      const otherEarningsAddBtn = document.getElementById("otherEarningsAddBtn");
+      if (otherEarningsAddBtn) otherEarningsAddBtn.addEventListener("click", () => { void openOtherEarningsAddModal(); });
+      const otherEarningsAddCloseBtn = document.getElementById("otherEarningsAddCloseBtn");
+      if (otherEarningsAddCloseBtn) otherEarningsAddCloseBtn.addEventListener("click", () => showBackdrop("otherEarningsAddBackdrop", false));
+      const otherEarningsShowUpdateBtn = document.getElementById("otherEarningsShowUpdateBtn");
+      if (otherEarningsShowUpdateBtn) otherEarningsShowUpdateBtn.addEventListener("click", () => { void openOtherEarningsManageModal(); });
+      const otherEarningsSaveBtn = document.getElementById("otherEarningsSaveBtn");
+      if (otherEarningsSaveBtn) otherEarningsSaveBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        if (!isServerEnabled()){
+          alert("Configure COLLECTION_API_URL and API key to save other earnings to the spreadsheet.");
+          return;
+        }
+        const ym = normalizePortalYm(String(document.getElementById("otherEarningsYmInput")?.value || ""));
+        const amount = toMoneyNumber(document.getElementById("otherEarningsAmountInput")?.value);
+        const category = norm(document.getElementById("otherEarningsCategoryInput")?.value);
+        const description = norm(document.getElementById("otherEarningsDescInput")?.value);
+        const source = norm(document.getElementById("otherEarningsSourceInput")?.value);
+        const errEl = document.getElementById("otherEarningsAddErr");
+        setErr(errEl, "");
+        if (!ym){ setErr(errEl, "Choose a month."); return; }
+        if (amount <= 0){ setErr(errEl, "Enter a positive amount."); return; }
+        void (async () => {
+          const sr = await portalServerAddOtherEarning({ ym, amount, category, description, source });
+          if (!sr.ok){
+            setErr(errEl, sr.error || "Could not save other earnings.");
+            return;
+          }
+          await portalServerFetchState();
+          updateMaintenanceCollectionCards();
+          const amtEl = document.getElementById("otherEarningsAmountInput");
+          const dEl = document.getElementById("otherEarningsDescInput");
+          if (amtEl) amtEl.value = "";
+          if (dEl) dEl.value = "";
+          showBackdrop("otherEarningsAddBackdrop", false);
+        })();
+      });
+      const otherEarningsManageCloseBtn = document.getElementById("otherEarningsManageCloseBtn");
+      if (otherEarningsManageCloseBtn) otherEarningsManageCloseBtn.addEventListener("click", () => showBackdrop("otherEarningsManageBackdrop", false));
+      const otherEarningsManageCancelEditBtn = document.getElementById("otherEarningsManageCancelEditBtn");
+      if (otherEarningsManageCancelEditBtn) otherEarningsManageCancelEditBtn.addEventListener("click", () => {
+        resetOtherEarningsManageEdit();
+        renderOtherEarningsManageTable();
+      });
+      const otherEarningsManageSaveBtn = document.getElementById("otherEarningsManageSaveBtn");
+      if (otherEarningsManageSaveBtn) otherEarningsManageSaveBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        const id = norm(document.getElementById("otherEarningsManageEditId")?.value);
+        if (!id){ alert("Choose a row with Edit first."); return; }
+        const ym = normalizePortalYm(String(document.getElementById("otherEarningsManageYm")?.value || ""));
+        const amount = toMoneyNumber(document.getElementById("otherEarningsManageAmount")?.value);
+        const category = norm(document.getElementById("otherEarningsManageCategory")?.value);
+        const description = norm(document.getElementById("otherEarningsManageDesc")?.value);
+        const source = norm(document.getElementById("otherEarningsManageSource")?.value);
+        const errEl = document.getElementById("otherEarningsManageErr");
+        if (errEl) errEl.textContent = "";
+        if (!ym){ if (errEl) errEl.textContent = "Choose a month."; return; }
+        if (amount <= 0){ if (errEl) errEl.textContent = "Enter a positive amount."; return; }
+        void (async () => {
+          const sr = await portalServerUpdateOtherEarning({ id, ym, amount, category, description, source });
+          if (!sr.ok){
+            if (errEl) errEl.textContent = sr.error || "Could not update other earnings.";
+            return;
+          }
+          await portalServerFetchState();
+          updateMaintenanceCollectionCards();
+          resetOtherEarningsManageEdit();
+          renderOtherEarningsManageTable();
+        })();
+      });
+      const otherEarningsManageTbody = document.getElementById("otherEarningsManageTbody");
+      if (otherEarningsManageTbody) otherEarningsManageTbody.addEventListener("click", (e) => {
+        const delBtn = e.target.closest(".otherEarningsManageDeleteRowBtn");
+        if (delBtn){
+          const sess = readSession();
+          if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+          if (!isServerEnabled()){
+            alert("Configure COLLECTION_API_URL and API key to delete other earnings.");
+            return;
+          }
+          const idDel = norm(delBtn.getAttribute("data-other-earnings-id"));
+          if (!idDel) return;
+          if (!confirm("Delete this other earnings row? This cannot be undone.")) return;
+          const errEl = document.getElementById("otherEarningsManageErr");
+          if (errEl) errEl.textContent = "";
+          void (async () => {
+            const dr = await portalServerDeleteOtherEarning({ id: idDel });
+            if (!dr.ok){
+              if (errEl) errEl.textContent = dr.error || "Could not delete other earnings.";
+              return;
+            }
+            await portalServerFetchState();
+            updateMaintenanceCollectionCards();
+            const editingId = norm(document.getElementById("otherEarningsManageEditId")?.value);
+            if (editingId && editingId === idDel) resetOtherEarningsManageEdit();
+            renderOtherEarningsManageTable();
+          })();
+          return;
+        }
+        const btn = e.target.closest(".otherEarningsManageEditRowBtn");
+        if (!btn) return;
+        const idRaw = btn.getAttribute("data-other-earnings-id");
+        const row = (portalServerState.otherEarnings || []).find(x => String(x.id) === String(idRaw));
+        if (!row || !otherEarningsRowIsValid_(row)) return;
+        const idEl = document.getElementById("otherEarningsManageEditId");
+        if (idEl) idEl.value = String(row.id || "");
+        const ymCanon = normalizePortalYm(String(row.ym || ""));
+        refreshOtherEarningsManageYmDropdown(ymCanon);
+        const setv = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+        setv("otherEarningsManageCategory", otherEarningsCellStr_(row.category));
+        setv("otherEarningsManageAmount", String(Math.round(toMoneyNumber(row.amount)) || ""));
+        setv("otherEarningsManageDesc", otherEarningsCellStr_(row.description));
+        setv("otherEarningsManageSource", otherEarningsCellStr_(row.source));
+        const saveBtn = document.getElementById("otherEarningsManageSaveBtn");
+        if (saveBtn) saveBtn.disabled = false;
+        const err = document.getElementById("otherEarningsManageErr");
         if (err) err.textContent = "";
       });
       const userBankViewBtn = document.getElementById("userBankViewBtn");

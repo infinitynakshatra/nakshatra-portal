@@ -65,6 +65,8 @@ const PORTAL_NOTICES_HEADERS = ["id","title","body","audience","createdAt","crea
 const PORTAL_AUDIT_HEADERS = ["atIso","actor","action","detail"];
 const PORTAL_EXPENSES_SHEET = "portal_expenses";
 const PORTAL_EXPENSES_HEADERS = ["id","atIso","ym","category","amount","description","paidTo"];
+const PORTAL_OTHER_EARNINGS_SHEET = "portal_other_earnings";
+const PORTAL_OTHER_EARNINGS_HEADERS = ["id","atIso","ym","category","amount","description","source"];
 /** Visitor log at society gate (watchman entries; photo stored in Drive when available). */
 const PORTAL_GATE_VISITS_SHEET = "portal_my_gate_visitors";
 const PORTAL_GATE_VISITS_HEADERS = ["id","atIso","plotNo","ownerMobile","visitorName","visitorMobile","vehicle","purpose","photoUrl"];
@@ -390,6 +392,28 @@ function readPortalExpenses_(ss) {
       amount: Number(r.amount || 0),
       description: String(r.description || ""),
       paidTo: String(r.paidTo || "")
+    });
+  }
+  return out;
+}
+
+function readPortalOtherEarnings_(ss) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_OTHER_EARNINGS_SHEET, PORTAL_OTHER_EARNINGS_HEADERS);
+  var rows = rowsToObjects_(sh, PORTAL_OTHER_EARNINGS_HEADERS);
+  var out = [];
+  var i;
+  for (i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var idRaw = String(r.id || "").trim();
+    if (!idRaw || idRaw.toLowerCase() === "null") continue;
+    out.push({
+      id: idRaw,
+      atIso: String(r.atIso || ""),
+      ym: portalYmCanon_(ss, r.ym),
+      category: String(r.category || ""),
+      amount: Number(r.amount || 0),
+      description: String(r.description || ""),
+      source: String(r.source || "")
     });
   }
   return out;
@@ -974,6 +998,7 @@ function getPortalState_(ss) {
         cachedOut.serviceContacts = readPortalServiceContacts_(ss);
         cachedOut.ownerAccess = readPortalOwnerAccess_(ss);
         cachedOut.expenses = readPortalExpenses_(ss);
+        cachedOut.otherEarnings = readPortalOtherEarnings_(ss);
         cachedOut.ownerPortalMayYear = readPortalOwnerFyMayYear_(ss);
         cachedOut.gateVisits = readPortalGateVisits_(ss);
         return cachedOut;
@@ -1018,6 +1043,7 @@ function getPortalState_(ss) {
   out.serviceContacts = readPortalServiceContacts_(ss);
   out.ownerAccess = readPortalOwnerAccess_(ss);
   out.expenses = readPortalExpenses_(ss);
+  out.otherEarnings = readPortalOtherEarnings_(ss);
   out.ownerPortalMayYear = readPortalOwnerFyMayYear_(ss);
   out.gateVisits = readPortalGateVisits_(ss);
   try {
@@ -1843,6 +1869,66 @@ function doPost(e) {
       if (targetDel < 0) return json_({ ok: false, error: "not_found" }, 404);
       shDel.deleteRow(targetDel);
       audit_(ss, actorDel, "deleteExpense", { id: idDel });
+      invalidatePortalStateCache_();
+      return json_({ ok: true }, 200);
+    }
+    if (action === "addOtherEarning") {
+      var actorOe = String(data.actor || "admin").trim();
+      var ymOe = normalizeYm_(data.ym);
+      var amountOe = Number(data.amount || 0);
+      var catOe = String(data.category || "").trim();
+      var descOe = String(data.description || "").trim();
+      var srcOe = String(data.source || "").trim();
+      if (!ymOe || amountOe <= 0) return json_({ ok: false, error: "ym and positive amount required" }, 400);
+      var shOe = ensureSheetWithHeaders_(ss, PORTAL_OTHER_EARNINGS_SHEET, PORTAL_OTHER_EARNINGS_HEADERS);
+      var idOe = newId_();
+      shOe.appendRow([idOe, nowIso_(), ymOe, catOe, amountOe, descOe, srcOe]);
+      audit_(ss, actorOe, "addOtherEarning", { id: idOe, ym: ymOe, amount: amountOe, category: catOe });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, id: idOe }, 200);
+    }
+    if (action === "updateOtherEarning") {
+      var actorOu = String(data.actor || "admin").trim();
+      var idOu = String(data.id || "").trim();
+      var ymOu = normalizeYm_(data.ym);
+      var amountOu = Number(data.amount || 0);
+      var catOu = String(data.category || "").trim();
+      var descOu = String(data.description || "").trim();
+      var srcOu = String(data.source || "").trim();
+      if (!idOu || !ymOu || amountOu <= 0) return json_({ ok: false, error: "id, ym and positive amount required" }, 400);
+      var shOu = ensureSheetWithHeaders_(ss, PORTAL_OTHER_EARNINGS_SHEET, PORTAL_OTHER_EARNINGS_HEADERS);
+      var lastRowOu = shOu.getLastRow();
+      if (lastRowOu < 2) return json_({ ok: false, error: "no_other_earnings" }, 404);
+      var valsOu = shOu.getRange(2, 1, lastRowOu, 1).getValues();
+      var targetOu = -1;
+      for (var oi = 0; oi < valsOu.length; oi++) {
+        if (String(valsOu[oi][0]) === idOu) { targetOu = oi + 2; break; }
+      }
+      if (targetOu < 0) return json_({ ok: false, error: "not_found" }, 404);
+      shOu.getRange(targetOu, 2).setValue(nowIso_());
+      shOu.getRange(targetOu, 3, 1, 5).setValues([[ymOu, catOu, amountOu, descOu, srcOu]]);
+      audit_(ss, actorOu, "updateOtherEarning", { id: idOu, ym: ymOu, amount: amountOu });
+      invalidatePortalStateCache_();
+      return json_({ ok: true }, 200);
+    }
+    if (action === "deleteOtherEarning") {
+      var actorOed = String(data.actor || "admin").trim();
+      var idOed = String(data.id || "").trim();
+      if (!idOed) return json_({ ok: false, error: "id required" }, 400);
+      var shOed = ensureSheetWithHeaders_(ss, PORTAL_OTHER_EARNINGS_SHEET, PORTAL_OTHER_EARNINGS_HEADERS);
+      var lastRowOed = shOed.getLastRow();
+      if (lastRowOed < 2) return json_({ ok: false, error: "no_other_earnings" }, 404);
+      var valsOed = shOed.getRange(2, 1, lastRowOed, 1).getValues();
+      var targetOed = -1;
+      for (var odi = 0; odi < valsOed.length; odi++) {
+        if (String(valsOed[odi][0]) === idOed) {
+          targetOed = odi + 2;
+          break;
+        }
+      }
+      if (targetOed < 0) return json_({ ok: false, error: "not_found" }, 404);
+      shOed.deleteRow(targetOed);
+      audit_(ss, actorOed, "deleteOtherEarning", { id: idOed });
       invalidatePortalStateCache_();
       return json_({ ok: true }, 200);
     }
