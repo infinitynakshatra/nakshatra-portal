@@ -1955,8 +1955,8 @@
         <a class="btn adminOnly" href="https://docs.google.com/spreadsheets/d/1vthuqpQqwaRGaJhaoJxVaHXv3Fd87M4eHeU9h3jDHWA/edit?pli=1&amp;gid=1304899070#gid=1304899070" target="_blank" rel="noreferrer">Google Sheet</a>
         <button class="btn secondary adminOnly" id="adminAddPayBtn" type="button">Add Payment</button>
         <button class="btn secondary adminOnly" id="adminAddMultiPayBtn" type="button">Add Multiple User Payment</button>
-        <button class="btn secondary adminOnly" id="adminSixMonthFullReportBtn" type="button" title="PDF: full six-month collection, expense, and summary report">Download Full Report</button>
-        <button class="btn secondary adminOnly" id="adminSixMonthShortReportBtn" type="button" title="PDF: short six-month collection report (paid/unpaid only)">Download Short Report</button>
+        <button class="btn secondary adminOnly" id="adminSixMonthFullReportBtn" type="button" title="PDF: full yearly (May–Apr) collection, expense, and summary report">Download Full Report</button>
+        <button class="btn secondary adminOnly" id="adminSixMonthShortReportBtn" type="button" title="PDF: short yearly (May–Apr) collection report (paid/unpaid only)">Download Short Report</button>
         <div class="profileWrap accountDetailsWrap adminOnly">
           <button class="btn secondary" id="adminAccountDetailsBtn" type="button" aria-expanded="false" aria-haspopup="true">Account Details</button>
           <div class="profilePanel" id="adminAccountDetailsPanel" role="menu" aria-label="Account and UPI">
@@ -9209,7 +9209,7 @@
     function getSixMonthReportSlots(){
       const years = getAdminFyMayYears();
       const y0 = years.length ? years[0] : SOCIETY_FY_START_MAY_YEAR;
-      return buildIndianFYSlots(y0).slice(0, 6);
+      return buildIndianFYSlots(y0);
     }
 
     function sheetRowForPlotNo(pn){
@@ -9463,7 +9463,7 @@
       const tableW = pageW - margin * 2;
       const nameColMm = 52;
       const fixed = isShort ? (7 + nameColMm + 14) : (7 + nameColMm + 22 + 14);
-      const mo = Math.max(11, (tableW - fixed) / slots.length);
+      const mo = Math.max(9, (tableW - fixed) / slots.length);
       const colWidths = isShort
         ? [7, nameColMm, ...slots.map(() => mo), 14]
         : [7, nameColMm, 22, ...slots.map(() => mo), 14];
@@ -9526,12 +9526,12 @@
 
       /* ~40 data rows + header per page (pages 1–2); page 3 holds remainder + foot. */
       const sixMoPdfRowsPerPage = 40;
-      const fs = 7;
+      const fs = slots.length > 6 ? 6.2 : 7;
       const pad = 0.55;
       const societyPdfLine = "INFINITY NAKSHATRA SOCIETY, SHIRASWADI (49/A)";
       const sixMonthReportSubtitle = isShort
-        ? "Six-Month Maintenance Collection Report"
-        : "Six-Month Maintenance Collection & Expense Transaction Summary Report";
+        ? "Yearly Maintenance Collection Report"
+        : "Yearly Maintenance Collection & Expense Transaction Summary Report";
 
       function paintSocietyLineEveryPage(d){
         const total = d.internal.getNumberOfPages();
@@ -9723,7 +9723,7 @@
         ];
       });
       if (!expenseReportBody.length){
-        expenseReportBody.push(["—", "—", "—", "No expenses recorded for this six-month period.", "—", "Rs. 0"]);
+        expenseReportBody.push(["—", "—", "—", "No expenses recorded for this financial year.", "—", "Rs. 0"]);
       }
 
       doc.addPage();
@@ -9814,7 +9814,7 @@
         ];
       });
       if (!otherEarningsReportBody.length){
-        otherEarningsReportBody.push(["—", "—", "—", "No other earnings recorded for this six-month period.", "—", "Rs. 0"]);
+        otherEarningsReportBody.push(["—", "—", "—", "No other earnings recorded for this financial year.", "—", "Rs. 0"]);
       }
 
       doc.addPage();
@@ -9898,8 +9898,8 @@
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       const sumDesc = isShort
-        ? "This report shows maintenance paid and unpaid status for 6 months."
-        : "This report shows the maintenance received for 6 months along with the monthly expense summary.";
+        ? "This report shows maintenance paid and unpaid status for the full financial year (May to April)."
+        : "This report shows the maintenance received for the full financial year (May to April) along with the monthly expense and other earnings summary.";
       const sumDescLines = doc.splitTextToSize(sumDesc, sumW - sm * 2);
       doc.text(sumDescLines, cx, ySum, { align: "center" });
       ySum += sumDescLines.length * 3.6 + 5;
@@ -10003,8 +10003,8 @@
 
       paintSocietyLineEveryPage(doc);
       doc.save(isShort
-        ? `Six-Month-Short-Report-${new Date().toISOString().slice(0, 10)}.pdf`
-        : `Six-Month-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
+        ? `Yearly-Short-Report-${new Date().toISOString().slice(0, 10)}.pdf`
+        : `Yearly-Transaction-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
       if (canvasFontBlobUrl) try { URL.revokeObjectURL(canvasFontBlobUrl); } catch {}
     }
 
