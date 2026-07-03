@@ -4262,7 +4262,25 @@
         return { ok:false, error: "COLLECTION_API_URL must be https://script.google.com/.../exec, http://127.0.0.1:PORT (local relay), or same-origin /api/collection (Cloudflare Pages)." };
       }
       const bodyStr = JSON.stringify(body);
+      const maxAttempts = 3;
       __insPushBackendLoading();
+      try {
+        let lastResult = { ok:false, error: "unknown" };
+        for (let attempt = 1; attempt <= maxAttempts; attempt++){
+          lastResult = await appsScriptPostJsonOnce_(url, bodyStr);
+          if (lastResult.ok) return lastResult;
+          const errText = String(lastResult.error || "");
+          const retryable = /HTTP (524|502|503|504)/.test(errText) || /Failed to fetch|network|timeout/i.test(errText);
+          if (!retryable || attempt >= maxAttempts) return lastResult;
+          await new Promise(res => setTimeout(res, 1200 * attempt));
+        }
+        return lastResult;
+      } finally {
+        __insPopBackendLoading();
+      }
+    }
+
+    async function appsScriptPostJsonOnce_(url, bodyStr){
       try {
         const res = await fetch(url, {
           method: "POST",
@@ -4298,8 +4316,6 @@
             : m;
           return { ok:false, error: base + collectionRelayHint() };
         }
-      } finally {
-        __insPopBackendLoading();
       }
     }
 
@@ -4907,16 +4923,50 @@
     }
 
     async function portalServerAddPayment(plotNo, ym, amount, lateFee){
+      return portalServerAddPayments(String(plotNo), [{ ym: String(ym), amount: Number(amount) || 0, lateFee: Number(lateFee) || 0 }]);
+    }
+
+    async function portalServerAddPayments(plotNo, items){
       const sess = readSession();
       const actor = sess?.role === "admin" ? "admin" : String(sess?.userId || "");
+      const list = (Array.isArray(items) ? items : []).map(it => ({
+        ym: String(it.ym || ""),
+        amount: Number(it.amount) || 0,
+        lateFee: Number(it.lateFee) || 0
+      })).filter(it => it.ym);
+      if (!list.length) return { ok:false, error: "no_items" };
       const r = await appsScriptPostJson({
         apiKey: COLLECTION_API_KEY,
-        action: "addPayment",
+        action: list.length === 1 ? "addPayment" : "addPayments",
         actor,
         plotNo: String(plotNo),
+        ...(list.length === 1
+          ? { ym: list[0].ym, amount: list[0].amount, lateFee: list[0].lateFee }
+          : { items: list })
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error, detail: r };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: r.txt || "bad_json" }; }
+      if (!j.ok) return { ok:false, error: j.error || "failed", detail: j };
+      return { ok:true, detail: j };
+    }
+
+    async function portalServerAddPaymentsBulkMonth(ym, rows){
+      const sess = readSession();
+      const actor = sess?.role === "admin" ? "admin" : String(sess?.userId || "");
+      const list = (Array.isArray(rows) ? rows : []).map(row => ({
+        plotNo: String(row.plotNo || ""),
+        amount: Number(row.amount) || 0,
+        lateFee: Number(row.lateFee) || 0
+      })).filter(row => row.plotNo);
+      if (!ym || !list.length) return { ok:false, error: "no_rows" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "addPaymentsBulkMonth",
+        actor,
         ym: String(ym),
-        amount: Number(amount) || 0,
-        lateFee: Number(lateFee) || 0
+        rows: list
       });
       if (r.skipped) return { ok:false, skipped:true };
       if (!r.ok) return { ok:false, error: r.error, detail: r };
@@ -10619,18 +10669,21 @@
               alert("Unable to add entries: could not load server state. Check COLLECTION_API_URL.");
               return;
             }
-            for (const {plotNo, amount, lateFee} of rows){
-              const sr = await portalServerAddPayment(plotNo, ym, amount, lateFee);
-              if (!sr.ok){
-                const e = sr.detail?.error || sr.error || "";
-                alert(`Plot ${plotNo}: ${String(e || "failed")}. Stopped; earlier rows may have saved.`);
-                await portalServerFetchState();
-                updateMaintenanceCollectionCards();
-                populatePayBulkPlotRowsTable();
-                return;
+            const sr = await portalServerAddPaymentsBulkMonth(ym, rows);
+            if (!sr.ok){
+              const e = sr.detail?.error || sr.error || "";
+              if (String(e) === "already_paid"){
+                const badPlot = sr.detail?.plotNo || "a plot";
+                alert(`Plot ${badPlot} already has a payment for this month. Stopped; earlier rows may have saved — refresh to verify.`);
+              } else {
+                alert(`Unable to add payments — ${String(e || "unknown")}. Try again in a moment.`);
               }
-              ensureAdminFyIncludesYm(ym);
+              await portalServerFetchState();
+              updateMaintenanceCollectionCards();
+              populatePayBulkPlotRowsTable();
+              return;
             }
+            ensureAdminFyIncludesYm(ym);
             await portalServerFetchState();
             updateMaintenanceCollectionCards();
             populatePayBulkPlotRowsTable();
@@ -10725,20 +10778,21 @@
             alert("Unable to add entry: could not load server state. Check COLLECTION_API_URL.");
             return;
           }
-          for (const row of adminMonthRows){
-            const sr = await portalServerAddPayment(plotNo, row.ym, row.amount, row.lateFee);
-            if (!sr.ok){
-              const e = sr.detail?.error || sr.error || "";
-              if (String(e) === "already_paid"){
-                alert(`Month ${row.ym}: already recorded. Stopped; earlier months in this batch may have been saved — refresh to verify.`);
-      } else {
-                alert(`Month ${row.ym}: unable to add — ${String(e || "unknown")}. Stopped.`);
-              }
-              await portalServerFetchState();
-              renderPaymentsTable(plotNo);
-              updateMaintenanceCollectionCards();
-              return;
+          const sr = await portalServerAddPayments(plotNo, adminMonthRows);
+          if (!sr.ok){
+            const e = sr.detail?.error || sr.error || "";
+            if (String(e) === "already_paid"){
+              const badYm = sr.detail?.ym || "that month";
+              alert(`Month ${badYm}: already recorded. Stopped; earlier months in this batch may have been saved — refresh to verify.`);
+            } else {
+              alert(`Unable to add payments — ${String(e || "unknown")}. Try again in a moment.`);
             }
+            await portalServerFetchState();
+            renderPaymentsTable(plotNo);
+            updateMaintenanceCollectionCards();
+            return;
+          }
+          for (const row of adminMonthRows){
             ensureAdminFyIncludesYm(row.ym);
           }
           const fr = await portalServerFetchState();

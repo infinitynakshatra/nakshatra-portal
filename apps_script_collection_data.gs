@@ -1196,6 +1196,101 @@ function collectionAnyRowExists_(sh, plotNo, ym) {
   return false;
 }
 
+function collectionKey_(plotNo, ym) {
+  return String(plotNo || "").trim() + "\t" + normalizeYm_(ym);
+}
+
+function collectionExistingKeySet_(sh, ss) {
+  var set = {};
+  var lastRow = sh.getLastRow();
+  if (lastRow < 2) return set;
+  var vals = sh.getRange(2, 2, lastRow, 2).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    set[collectionKey_(vals[i][0], ymCellToCanon_(ss, vals[i][1]))] = true;
+  }
+  return set;
+}
+
+/** Batch-append collection rows with one read per sheet (faster than repeated appendRow). */
+function appendCollectionEntriesBatch_(ss, entries) {
+  var list = Array.isArray(entries) ? entries : [];
+  if (!list.length) return;
+  var master = ss.getSheetByName(TARGET_SHEET_NAME) || ss.insertSheet(TARGET_SHEET_NAME);
+  ensureHeaders_(master);
+  var existingMaster = collectionExistingKeySet_(master, ss);
+  var masterBatch = [];
+  var yearBuckets = {};
+  var i;
+  for (i = 0; i < list.length; i++) {
+    var e = list[i] || {};
+    var plotNo = String(e.plotNo != null ? e.plotNo : "").trim();
+    var ym = portalYmCanon_(ss, e.ym != null ? e.ym : "");
+    if (!plotNo || !ym) continue;
+    var key = collectionKey_(plotNo, ym);
+    var row = buildRow_(Object.assign({}, e, {
+      plotNo: plotNo,
+      ym: ym,
+      monthLabel: String(e.monthLabel != null ? e.monthLabel : ym)
+    }));
+    if (!existingMaster[key]) {
+      masterBatch.push(row);
+      existingMaster[key] = true;
+    }
+    var yname = yearBackupSheetName_(ym);
+    if (yname) {
+      if (!yearBuckets[yname]) {
+        var ysh = ss.getSheetByName(yname) || ss.insertSheet(yname);
+        ensureHeaders_(ysh);
+        yearBuckets[yname] = { sh: ysh, existing: collectionExistingKeySet_(ysh, ss), rows: [] };
+      }
+      var bucket = yearBuckets[yname];
+      if (!bucket.existing[key]) {
+        bucket.rows.push(row);
+        bucket.existing[key] = true;
+      }
+    }
+  }
+  if (masterBatch.length) {
+    var mStart = master.getLastRow() + 1;
+    master.getRange(mStart, 1, mStart + masterBatch.length - 1, COLLECTION_HEADERS.length).setValues(masterBatch);
+  }
+  for (var yn in yearBuckets) {
+    if (!Object.prototype.hasOwnProperty.call(yearBuckets, yn)) continue;
+    var b = yearBuckets[yn];
+    if (!b.rows.length) continue;
+    var yStart = b.sh.getLastRow() + 1;
+    b.sh.getRange(yStart, 1, yStart + b.rows.length - 1, COLLECTION_HEADERS.length).setValues(b.rows);
+  }
+}
+
+function paymentYmSetForPlot_(paymentsSh, plotNo) {
+  var set = {};
+  var lastRow = paymentsSh.getLastRow();
+  if (lastRow < 2) return set;
+  var ss = paymentsSh.getParent();
+  var p = String(plotNo || "").trim();
+  var vals = paymentsSh.getRange(2, 3, lastRow, 4).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][0]).trim() !== p) continue;
+    set[ymCellToCanon_(ss, vals[i][1])] = true;
+  }
+  return set;
+}
+
+function paymentYmSetForMonth_(paymentsSh, ym) {
+  var set = {};
+  var lastRow = paymentsSh.getLastRow();
+  if (lastRow < 2) return set;
+  var ss = paymentsSh.getParent();
+  var y = normalizeYm_(ym);
+  var vals = paymentsSh.getRange(2, 3, lastRow, 4).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    if (ymCellToCanon_(ss, vals[i][1]) !== y) continue;
+    set[String(vals[i][0]).trim()] = true;
+  }
+  return set;
+}
+
 /**
  * Append one logical collection row to master + optional month tab.
  */
@@ -1573,10 +1668,10 @@ function doPost(e) {
       var paySh3 = ensureSheetWithHeaders_(ss, PORTAL_PAYMENTS_SHEET, PORTAL_PAYMENTS_HEADERS);
       if (paymentExists_(paySh3, plotNoP, ymP)) return json_({ ok:false, error:"already_paid" }, 409);
       var pid = newId_();
-      paySh3.appendRow([pid, nowIso_(), plotNoP, ymP, amountP, lateFeeP, "admin", "admin", "admin_portal_save", ""]);
-      // Also append to collection_data/month tab so the main sheet reflects it reliably.
-      appendCollectionRow_(ss, {
-        atIso: nowIso_(),
+      var atIsoP = nowIso_();
+      paySh3.appendRow([pid, atIsoP, plotNoP, ymP, amountP, lateFeeP, "admin", "admin", "admin_portal_save", ""]);
+      appendCollectionEntriesBatch_(ss, [{
+        atIso: atIsoP,
         plotNo: plotNoP,
         ym: ymP,
         monthLabel: ymP,
@@ -1588,10 +1683,104 @@ function doPost(e) {
         groupStatus: "",
         userAgent: "",
         note: "admin_portal_save_server"
-      });
+      }]);
       audit_(ss, actorP, "addPayment", { paymentId:pid, plotNo:plotNoP, ym:ymP, amount:amountP, lateFee:lateFeeP });
       invalidatePortalStateCache_();
       return json_({ ok:true, paymentId: pid }, 200);
+    }
+    if (action === "addPayments") {
+      var actorBp = String(data.actor || "admin").trim();
+      var plotBp = String(data.plotNo || "").trim();
+      var itemsBp = Array.isArray(data.items) ? data.items : [];
+      if (!plotBp || !itemsBp.length) return json_({ ok: false, error: "plotNo and items[] required" }, 400);
+      var payShBp = ensureSheetWithHeaders_(ss, PORTAL_PAYMENTS_SHEET, PORTAL_PAYMENTS_HEADERS);
+      var existingYmBp = paymentYmSetForPlot_(payShBp, plotBp);
+      var portalRowsBp = [];
+      var collEntriesBp = [];
+      var addedBp = [];
+      var atIsoBp = nowIso_();
+      var bi;
+      for (bi = 0; bi < itemsBp.length; bi++) {
+        var itBp = itemsBp[bi] || {};
+        var ymBp = normalizeYm_(itBp.ym);
+        var amtBp = Number(itBp.amount || 0);
+        var lateBp = Number(itBp.lateFee || 0);
+        if (!ymBp || (amtBp <= 0 && lateBp <= 0)) return json_({ ok: false, error: "invalid item at index " + bi }, 400);
+        if (existingYmBp[ymBp]) return json_({ ok: false, error: "already_paid", ym: ymBp, added: addedBp }, 409);
+        var pidBp = newId_();
+        portalRowsBp.push([pidBp, atIsoBp, plotBp, ymBp, amtBp, lateBp, "admin", "admin", "admin_portal_save", ""]);
+        collEntriesBp.push({
+          atIso: atIsoBp,
+          plotNo: plotBp,
+          ym: ymBp,
+          monthLabel: ymBp,
+          amount: amtBp,
+          lateFee: lateBp,
+          role: "admin",
+          ownerName: "",
+          mobile: "",
+          groupStatus: "",
+          userAgent: "",
+          note: "admin_portal_save_server"
+        });
+        existingYmBp[ymBp] = true;
+        addedBp.push({ ym: ymBp, paymentId: pidBp });
+      }
+      if (portalRowsBp.length) {
+        var psBp = payShBp.getLastRow() + 1;
+        payShBp.getRange(psBp, 1, psBp + portalRowsBp.length - 1, PORTAL_PAYMENTS_HEADERS.length).setValues(portalRowsBp);
+      }
+      appendCollectionEntriesBatch_(ss, collEntriesBp);
+      audit_(ss, actorBp, "addPayments", { plotNo: plotBp, count: addedBp.length });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, added: addedBp }, 200);
+    }
+    if (action === "addPaymentsBulkMonth") {
+      var actorBm = String(data.actor || "admin").trim();
+      var ymBm = normalizeYm_(data.ym);
+      var rowsBm = Array.isArray(data.rows) ? data.rows : [];
+      if (!ymBm || !rowsBm.length) return json_({ ok: false, error: "ym and rows[] required" }, 400);
+      var payShBm = ensureSheetWithHeaders_(ss, PORTAL_PAYMENTS_SHEET, PORTAL_PAYMENTS_HEADERS);
+      var existingPlotBm = paymentYmSetForMonth_(payShBm, ymBm);
+      var portalRowsBm = [];
+      var collEntriesBm = [];
+      var addedBm = [];
+      var atIsoBm = nowIso_();
+      var ri;
+      for (ri = 0; ri < rowsBm.length; ri++) {
+        var rowBm = rowsBm[ri] || {};
+        var plotBm = String(rowBm.plotNo || "").trim();
+        var amtBm = Number(rowBm.amount || 0);
+        var lateBm = Number(rowBm.lateFee || 0);
+        if (!plotBm || (amtBm <= 0 && lateBm <= 0)) return json_({ ok: false, error: "invalid row at index " + ri }, 400);
+        if (existingPlotBm[plotBm]) return json_({ ok: false, error: "already_paid", plotNo: plotBm, added: addedBm }, 409);
+        var pidBm = newId_();
+        portalRowsBm.push([pidBm, atIsoBm, plotBm, ymBm, amtBm, lateBm, "admin", "admin", "admin_portal_save", ""]);
+        collEntriesBm.push({
+          atIso: atIsoBm,
+          plotNo: plotBm,
+          ym: ymBm,
+          monthLabel: ymBm,
+          amount: amtBm,
+          lateFee: lateBm,
+          role: "admin",
+          ownerName: "",
+          mobile: "",
+          groupStatus: "",
+          userAgent: "",
+          note: "admin_portal_save_server"
+        });
+        existingPlotBm[plotBm] = true;
+        addedBm.push({ plotNo: plotBm, paymentId: pidBm });
+      }
+      if (portalRowsBm.length) {
+        var psBm = payShBm.getLastRow() + 1;
+        payShBm.getRange(psBm, 1, psBm + portalRowsBm.length - 1, PORTAL_PAYMENTS_HEADERS.length).setValues(portalRowsBm);
+      }
+      appendCollectionEntriesBatch_(ss, collEntriesBm);
+      audit_(ss, actorBm, "addPaymentsBulkMonth", { ym: ymBm, count: addedBm.length });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, added: addedBm }, 200);
     }
     if (action === "deletePaymentsForMonths") {
       var actorDel = String(data.actor || "admin").trim();
