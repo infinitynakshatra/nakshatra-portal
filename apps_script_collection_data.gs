@@ -1252,14 +1252,14 @@ function appendCollectionEntriesBatch_(ss, entries) {
   }
   if (masterBatch.length) {
     var mStart = master.getLastRow() + 1;
-    master.getRange(mStart, 1, mStart + masterBatch.length - 1, COLLECTION_HEADERS.length).setValues(masterBatch);
+    master.getRange(mStart, 1, masterBatch.length, COLLECTION_HEADERS.length).setValues(masterBatch);
   }
   for (var yn in yearBuckets) {
     if (!Object.prototype.hasOwnProperty.call(yearBuckets, yn)) continue;
     var b = yearBuckets[yn];
     if (!b.rows.length) continue;
     var yStart = b.sh.getLastRow() + 1;
-    b.sh.getRange(yStart, 1, yStart + b.rows.length - 1, COLLECTION_HEADERS.length).setValues(b.rows);
+    b.sh.getRange(yStart, 1, b.rows.length, COLLECTION_HEADERS.length).setValues(b.rows);
   }
 }
 
@@ -1728,7 +1728,7 @@ function doPost(e) {
       }
       if (portalRowsBp.length) {
         var psBp = payShBp.getLastRow() + 1;
-        payShBp.getRange(psBp, 1, psBp + portalRowsBp.length - 1, PORTAL_PAYMENTS_HEADERS.length).setValues(portalRowsBp);
+        payShBp.getRange(psBp, 1, portalRowsBp.length, PORTAL_PAYMENTS_HEADERS.length).setValues(portalRowsBp);
       }
       appendCollectionEntriesBatch_(ss, collEntriesBp);
       audit_(ss, actorBp, "addPayments", { plotNo: plotBp, count: addedBp.length });
@@ -1775,7 +1775,7 @@ function doPost(e) {
       }
       if (portalRowsBm.length) {
         var psBm = payShBm.getLastRow() + 1;
-        payShBm.getRange(psBm, 1, psBm + portalRowsBm.length - 1, PORTAL_PAYMENTS_HEADERS.length).setValues(portalRowsBm);
+        payShBm.getRange(psBm, 1, portalRowsBm.length, PORTAL_PAYMENTS_HEADERS.length).setValues(portalRowsBm);
       }
       appendCollectionEntriesBatch_(ss, collEntriesBm);
       audit_(ss, actorBm, "addPaymentsBulkMonth", { ym: ymBm, count: addedBm.length });
