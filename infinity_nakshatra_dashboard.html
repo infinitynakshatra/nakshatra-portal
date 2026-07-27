@@ -568,6 +568,26 @@
     .payMonthCheckboxHost .payMonthPickLabel{cursor:pointer; display:inline;}
     .payMonthCheckboxHost .payMonthPickTable input.payMonthAmt,
     .payMonthCheckboxHost .payMonthPickTable input.payMonthLate{width:100%; min-width:56px; max-width:100px; padding:5px 6px; font-size:12px;}
+    .payMonthCheckboxHost .payMonthPickTable tr.payMonthNA td{
+      background:rgba(255,107,107,0.14) !important;
+      color:var(--text);
+    }
+    .payMonthCheckboxHost .payMonthPickTable tr.payMonthPaid td{
+      background:rgba(108,255,201,0.12) !important;
+    }
+    .payMonthPaidMark{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:1.35rem;
+      height:1.35rem;
+      border-radius:50%;
+      background:rgba(16,185,129,0.95);
+      color:#fff;
+      font-weight:900;
+      font-size:12px;
+      line-height:1;
+    }
     .payBulkPlotTableWrap{
       max-height:min(280px, 42vh);
       overflow:auto;
@@ -581,6 +601,8 @@
     .payBulkPlotTable th{font-size:11px; color:var(--muted);}
     .payBulkPlotTable input.payBulkPlotAmt{width:100%; min-width:72px; max-width:120px;}
     .payBulkPlotTable input.payBulkPlotLate{width:100%; min-width:56px; max-width:96px;}
+    .payBulkPlotTable tr.payMonthNA td{background:rgba(255,107,107,0.14) !important;}
+    .payBulkPlotTable tr.payMonthPaid td{background:rgba(108,255,201,0.12) !important;}
     .modalPayAdd .field input,
     .modalPayAdd .field select{
       padding:7px 10px;
@@ -672,8 +694,8 @@
     .seePayStatus.missed{color:#ffb4b4;}
     .seePayStatus.pending{color:var(--warn);}
     .seePayStatus.paid{color:var(--accent2);}
-    .seePayStatus.na{color:#92400e;}
-    tr.seePayNA td{background:rgba(255,247,200,0.45) !important; color:var(--text);}
+    .seePayStatus.na{color:#ffb4b4;}
+    tr.seePayNA td{background:rgba(255,107,107,0.14) !important; color:var(--text);}
 
     .miniStats{display:flex; flex-direction:column; gap:6px; margin-top:8px;}
     .miniStatsRow{display:flex; justify-content:space-between; gap:8px; font-size:11px; color:var(--muted);}
@@ -8099,6 +8121,12 @@
         reqBtn.disabled = false;
         return;
       }
+      const plotRow = sheetRowForPlotNo(plotNo);
+      if (!plotMaintenanceApplicableForYm_(plotRow, ym)){
+        setErr(errEl, "This month is not applicable for your plot (maintenance starts later).");
+        reqBtn.disabled = true;
+        return;
+      }
       if (hasAnyPaymentForMonth(plotNo, ym)){
         setErr(errEl, "You have already added the payment for this specific month. You cannot add it again.");
         reqBtn.disabled = true;
@@ -10295,6 +10323,7 @@
       `;
       renderPaymentsTable(p);
       if (isAdmin) populatePayMonthAdminCheckboxes();
+      else populateFyMonthSelect(document.getElementById("payMonthSelect"), "user");
       updatePayModalMonthGuard();
     }
 
@@ -10302,7 +10331,25 @@
       if (!selectEl) return;
       const isAdmin = role === "admin";
       const slots = isAdmin ? allAdminSlotsUnion() : buildIndianFYSlots(getOwnerMayYear());
-      selectEl.innerHTML = slots.map(s => `<option value="${escapeHtml(s.ym)}">${escapeHtml(s.label)}</option>`).join("");
+      const plotNo = !isAdmin ? norm(document.getElementById("paySaveBtn")?.dataset.plot) : "";
+      const plotRow = plotNo ? sheetRowForPlotNo(plotNo) : null;
+      selectEl.innerHTML = slots.map(s => {
+        const na = plotRow && !plotMaintenanceApplicableForYm_(plotRow, s.ym);
+        const paid = plotNo && hasAnyPaymentForMonth(plotNo, s.ym);
+        let label = s.label;
+        let dis = "";
+        if (na){
+          label = `${s.label} (not applicable)`;
+          dis = "disabled";
+        } else if (paid){
+          label = `${s.label} (paid)`;
+          dis = "disabled";
+        }
+        return `<option value="${escapeHtml(s.ym)}" ${dis}>${escapeHtml(label)}</option>`;
+      }).join("");
+      // Prefer first selectable month
+      const firstOk = Array.from(selectEl.options).find(o => !o.disabled);
+      if (firstOk) selectEl.value = firstOk.value;
     }
 
     function getAdminBulkPlotRowPairs(){
@@ -10329,18 +10376,28 @@
         const primaryRaw = digitsOnly(row["Primary Contact Number"]) || norm(row["Primary Contact Number"]);
         const primaryDisp = primaryRaw ? primaryRaw : "—";
         const gstatDisp = groupStatusRaw(row) || "—";
+        const applicable = !ym || plotMaintenanceApplicableForYm_(row, ym);
+        let rowClass = "";
+        let selectCell = `<input type="checkbox" class="payBulkPlotCb" data-plot="${escapeHtml(plotNo)}" aria-label="Select plot ${escapeHtml(plotNo)}" />`;
         let dis = "";
         let paidHint = "";
-        if (ym){
+        if (ym && !applicable){
+          rowClass = "payMonthNA";
+          dis = "disabled";
+          paidHint = ` <span style="color:#ffb4b4; font-size:11px; font-weight:700;">(not applicable)</span>`;
+          selectCell = "";
+        } else if (ym){
           const sums = sumEntriesForYm(paymentsLoadEntries(plotNo), ym);
           if (toMoneyNumber(sums.amount) > 0 || toMoneyNumber(sums.lateFee) > 0){
+            rowClass = "payMonthPaid";
             dis = "disabled";
-            paidHint = ` <span style="color:var(--muted); font-size:11px;">(already paid)</span>`;
+            paidHint = ` <span style="color:var(--accent2); font-size:11px; font-weight:700;">(paid)</span>`;
+            selectCell = `<span class="payMonthPaidMark" title="Paid" aria-label="Paid">✓</span>`;
           }
         }
-        return `<tr>
+        return `<tr class="${rowClass}">
           <td>${escapeHtml(plotNo)}</td>
-          <td><input type="checkbox" class="payBulkPlotCb" data-plot="${escapeHtml(plotNo)}" ${dis} aria-label="Select plot ${escapeHtml(plotNo)}" /></td>
+          <td style="text-align:center;">${selectCell}</td>
           <td>${escapeHtml(name)}${paidHint}</td>
           <td>${escapeHtml(ymLabel)}</td>
           <td><input type="number" class="payBulkPlotAmt" data-plot="${escapeHtml(plotNo)}" value="350" inputmode="numeric" autocomplete="off" ${dis} /></td>
@@ -10356,19 +10413,35 @@
       if (!host) return;
       const slots = allAdminSlotsUnion();
       const plotNo = norm(document.getElementById("paySaveBtn")?.dataset.plot);
+      const plotRow = plotNo ? sheetRowForPlotNo(plotNo) : null;
       const entries = plotNo ? paymentsLoadEntries(plotNo) : [];
       let idx = 0;
       const body = slots.map(s => {
+        const applicable = plotNo ? plotMaintenanceApplicableForYm_(plotRow, s.ym) : true;
+        if (!applicable){
+          return `<tr class="payMonthNA">
+            <td><span>${escapeHtml(s.label)} <span style="font-weight:700;">(not applicable)</span></span></td>
+            <td><input type="number" class="payMonthAmt" value="" disabled aria-label="Not applicable" /></td>
+            <td><input type="number" class="payMonthLate" value="" disabled aria-label="Not applicable" /></td>
+            <td></td>
+          </tr>`;
+        }
         const sums = sumEntriesForYm(entries, s.ym);
         const has = toMoneyNumber(sums.amount) > 0 || toMoneyNumber(sums.lateFee) > 0;
-        const dis = has ? "disabled" : "";
-        const hint = has ? " <span style=\"color:var(--muted); font-weight:700;\">(already recorded)</span>" : "";
+        if (has){
+          return `<tr class="payMonthPaid">
+            <td><span>${escapeHtml(s.label)} <span style="color:var(--accent2); font-weight:700;">(paid)</span></span></td>
+            <td><input type="number" class="payMonthAmt" value="${escapeHtml(String(Math.round(toMoneyNumber(sums.amount)) || 350))}" disabled aria-label="Paid amount for ${escapeHtml(s.label)}" /></td>
+            <td><input type="number" class="payMonthLate" value="${escapeHtml(String(Math.round(toMoneyNumber(sums.lateFee)) || 0))}" disabled aria-label="Paid late fee for ${escapeHtml(s.label)}" /></td>
+            <td><span class="payMonthPaidMark" title="Paid" aria-label="Paid">✓</span></td>
+          </tr>`;
+        }
         const id = `payMonthCb_${idx++}`;
         return `<tr>
-          <td><label for="${id}" class="payMonthPickLabel">${escapeHtml(s.label)}${hint}</label></td>
-          <td><input type="number" class="payMonthAmt" value="350" inputmode="numeric" autocomplete="off" ${dis} aria-label="Payment amount for ${escapeHtml(s.label)}" /></td>
-          <td><input type="number" class="payMonthLate" value="" placeholder="0" inputmode="numeric" autocomplete="off" ${dis} aria-label="Payment late fee for ${escapeHtml(s.label)}" /></td>
-          <td><input type="checkbox" id="${id}" class="payMonthCb" value="${escapeHtml(s.ym)}" ${dis} aria-label="Select ${escapeHtml(s.label)}" /></td>
+          <td><label for="${id}" class="payMonthPickLabel">${escapeHtml(s.label)}</label></td>
+          <td><input type="number" class="payMonthAmt" value="350" inputmode="numeric" autocomplete="off" aria-label="Payment amount for ${escapeHtml(s.label)}" /></td>
+          <td><input type="number" class="payMonthLate" value="" placeholder="0" inputmode="numeric" autocomplete="off" aria-label="Payment late fee for ${escapeHtml(s.label)}" /></td>
+          <td><input type="checkbox" id="${id}" class="payMonthCb" value="${escapeHtml(s.ym)}" aria-label="Select ${escapeHtml(s.label)}" /></td>
         </tr>`;
       }).join("");
       host.innerHTML = `<table class="payMonthPickTable" role="group" aria-label="Months for payment">
@@ -10442,6 +10515,7 @@
       if (saveBtn){
         saveBtn.dataset.role = role;
         saveBtn.dataset.payFlow = isAdmin ? (isBulk ? "adminBulkPlots" : "adminMultiMonth") : "";
+        saveBtn.dataset.plot = actualPlot || "";
       }
 
       if (isAdmin){
@@ -10610,15 +10684,23 @@
       const isUser = sess && sess.role === "user";
       const slots = isUser ? getOwnerHistorySlots() : allAdminSlotsUnion();
       const entries = paymentsLoadEntries(plotNo);
+      const plotRow = sheetRowForPlotNo(plotNo);
       tbody.innerHTML = slots.map(s => {
+        const na = !plotMaintenanceApplicableForYm_(plotRow, s.ym);
         const sums = sumEntriesForYm(entries, s.ym);
         const a = sums.amount;
         const l = sums.lateFee;
+        if (na){
+          return `<tr class="payMonthNA" style="background:rgba(255,107,107,0.14);"><td>${escapeHtml(s.label)} <span style="font-weight:700;">(not applicable)</span></td><td>—</td><td>—</td></tr>`;
+        }
         const locked = isUser && hasAdminLockForMonth(plotNo, s.ym);
+        const paid = a > 0 || l > 0;
         const lockHint = locked ? ` <span style="color:var(--muted); font-size:11px; font-weight:800;">(admin)</span>` : "";
+        const paidHint = paid ? ` <span style="color:var(--accent2); font-size:11px; font-weight:800;">(paid)</span>` : "";
         const aDisp = a > 0 ? escapeHtml(String(a)) : "—";
         const lDisp = l > 0 ? escapeHtml(String(l)) : "—";
-        return `<tr><td>${escapeHtml(s.label)}${lockHint}</td><td>${aDisp}</td><td>${lDisp}</td></tr>`;
+        const rowStyle = paid ? ` style="background:rgba(108,255,201,0.12);"` : "";
+        return `<tr${rowStyle}><td>${escapeHtml(s.label)}${paidHint}${lockHint}</td><td>${aDisp}</td><td>${lDisp}</td></tr>`;
       }).join("") || `<tr><td colspan="3">—</td></tr>`;
     }
 
