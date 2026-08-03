@@ -4291,8 +4291,10 @@
     /**
      * POST JSON body to Apps Script (or to http://127.0.0.1:8765 relay). Content-Type: text/plain
      * avoids OPTIONS preflight. Server reads e.postData.contents.
+     * opts.quiet: skip the global Loading overlay (for background sync).
      */
-    async function appsScriptPostJson(body){
+    async function appsScriptPostJson(body, opts){
+      const quiet = !!(opts && opts.quiet);
       const url = sanitizeAppsScriptUrl(COLLECTION_API_URL);
       if (!url || !COLLECTION_API_KEY) return { ok:false, skipped:true };
       if (location.protocol === "file:"){
@@ -4306,7 +4308,7 @@
       }
       const bodyStr = JSON.stringify(body);
       const maxAttempts = collectionUsesPagesProxy() ? 4 : 3;
-      __insPushBackendLoading();
+      if (!quiet) __insPushBackendLoading();
       try {
         let lastResult = { ok:false, error: "unknown" };
         for (let attempt = 1; attempt <= maxAttempts; attempt++){
@@ -4321,7 +4323,7 @@
         }
         return lastResult;
       } finally {
-        __insPopBackendLoading();
+        if (!quiet) __insPopBackendLoading();
       }
     }
 
@@ -4883,6 +4885,44 @@
       try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
       if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
       return { ok:true, id: j.id };
+    }
+
+    function refreshExpensesUiFromLocal_(){
+      try { updateMaintenanceCollectionCards(); } catch {}
+      try {
+        if (document.getElementById("expenseManageBackdrop")?.classList.contains("show")) {
+          renderExpenseManageTable();
+        }
+      } catch {}
+    }
+
+    /** Avoid a second full /state round-trip after expense mutations (slow Loading overlay). */
+    function upsertLocalExpense_(row){
+      if (!row || !row.id) return;
+      if (!Array.isArray(portalServerState.expenses)) portalServerState.expenses = [];
+      const id = String(row.id);
+      const next = {
+        id,
+        atIso: String(row.atIso || new Date().toISOString()),
+        ym: normalizePortalYm(String(row.ym || "")),
+        category: String(row.category || ""),
+        amount: toMoneyNumber(row.amount),
+        description: String(row.description || ""),
+        paidTo: String(row.paidTo || ""),
+        billLink: String(row.billLink || "")
+      };
+      const idx = portalServerState.expenses.findIndex(x => String(x.id) === id);
+      if (idx >= 0) portalServerState.expenses[idx] = Object.assign({}, portalServerState.expenses[idx], next);
+      else portalServerState.expenses.push(next);
+      portalServerState.loaded = true;
+      refreshExpensesUiFromLocal_();
+    }
+
+    function removeLocalExpense_(id){
+      const idS = String(id || "");
+      if (!idS) return;
+      portalServerState.expenses = (portalServerState.expenses || []).filter(x => String(x.id) !== idS);
+      refreshExpensesUiFromLocal_();
     }
 
     async function portalServerUpdateExpense(payload){
@@ -12157,6 +12197,11 @@
             alert(sr.error || "Could not save expense.");
             return;
           }
+          upsertLocalExpense_({
+            id: sr.id,
+            atIso: new Date().toISOString(),
+            ym, amount, category, description, paidTo, billLink
+          });
           const amtEl = document.getElementById("expenseAmountInput");
           const dEl = document.getElementById("expenseDescInput");
           const linkEl = document.getElementById("expenseBillLinkInput");
@@ -12164,12 +12209,6 @@
           if (dEl) dEl.value = "";
           if (linkEl) linkEl.value = "";
           alert("Expense saved successfully.");
-          try {
-            await portalServerFetchState();
-            updateMaintenanceCollectionCards();
-          } catch (e) {
-            console.warn("Expense saved but refresh failed", e);
-          }
         })();
       });
       const expenseShowUpdateBtn = document.getElementById("expenseShowUpdateBtn");
@@ -12207,10 +12246,12 @@
             if (errEl) errEl.textContent = sr.error || "Could not update expense.";
             return;
           }
-          await portalServerFetchState();
-          updateMaintenanceCollectionCards();
+          upsertLocalExpense_({
+            id, atIso: new Date().toISOString(),
+            ym, amount, category, description, paidTo, billLink
+          });
           resetExpenseManageEdit();
-          renderExpenseManageTable();
+          alert("Expense updated successfully.");
         })();
       });
       const expenseManageTbody = document.getElementById("expenseManageTbody");
@@ -12234,11 +12275,9 @@
               if (errEl) errEl.textContent = dr.error || "Could not delete expense.";
               return;
             }
-            await portalServerFetchState();
-            updateMaintenanceCollectionCards();
+            removeLocalExpense_(idDel);
             const editingId = norm(document.getElementById("expenseManageEditId")?.value);
             if (editingId && editingId === idDel) resetExpenseManageEdit();
-            renderExpenseManageTable();
           })();
           return;
         }
