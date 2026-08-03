@@ -4214,7 +4214,20 @@
       return false;
     }
 
+    function collectionUsesPagesProxy(){
+      try {
+        const u = new URL(sanitizeAppsScriptUrl(COLLECTION_API_URL), location.href);
+        return u.origin === location.origin && /\/api\/collection\/?$/i.test(u.pathname);
+      } catch { return false; }
+    }
+
     function collectionRelayHint(){
+      if (collectionUsesPagesProxy()){
+        return (
+          " The same-origin /api/collection relay is in use; Google Apps Script sometimes returns a temporary error. " +
+          "Wait a few seconds and try again. If it keeps failing, open /api/collection — it should say 'Nakshatra collection proxy OK'."
+        );
+      }
       const onPages = (function(){
         try {
           const h = String(location.hostname || "").toLowerCase();
@@ -4224,8 +4237,7 @@
       if (onPages){
         return (
           " On Cloudflare Pages, the portal should POST to /api/collection on the same domain. " +
-          "Redeploy from GitHub with functions/api/collection.js and hard-refresh. " +
-          "Open /api/collection in a tab — it should say 'Nakshatra collection proxy OK'."
+          "Hard-refresh after deploy. Open /api/collection — it should say 'Nakshatra collection proxy OK'."
         );
       }
       return (
@@ -4301,7 +4313,9 @@
           lastResult = await appsScriptPostJsonOnce_(url, bodyStr);
           if (lastResult.ok) return lastResult;
           const errText = String(lastResult.error || "");
-          const retryable = /HTTP (524|502|503|504)/.test(errText) || /Failed to fetch|network|timeout/i.test(errText);
+          const retryable =
+            /HTTP (404|405|408|429|500|502|503|504|524)/.test(errText) ||
+            /apps_script_upstream_failed|Failed to fetch|network|timeout/i.test(errText);
           if (!retryable || attempt >= maxAttempts) return lastResult;
           await new Promise(res => setTimeout(res, 1200 * attempt));
         }
@@ -4309,6 +4323,22 @@
       } finally {
         __insPopBackendLoading();
       }
+    }
+
+    function formatCollectionHttpError_(status, txt){
+      const raw = String(txt || "");
+      let detail = raw.slice(0, 160);
+      try {
+        const j = JSON.parse(raw);
+        if (j && typeof j === "object"){
+          detail = String(j.error || j.message || detail);
+          if (j.upstreamStatus) detail += ` (upstream ${j.upstreamStatus})`;
+        }
+      } catch {}
+      if (/<!DOCTYPE|<html|ppConfig/i.test(detail)){
+        detail = "temporary Google Apps Script gateway error";
+      }
+      return `HTTP ${status}: ${detail}` + collectionRelayHint();
     }
 
     async function appsScriptPostJsonOnce_(url, bodyStr){
@@ -4324,7 +4354,7 @@
         if (!res.ok){
           return {
             ok: false,
-            error: `HTTP ${res.status}: ${String(txt || "").slice(0, 160)}` + collectionRelayHint(),
+            error: formatCollectionHttpError_(res.status, txt),
             txt: txt
           };
         }
@@ -4335,7 +4365,7 @@
           if (!r.ok){
             return {
               ok: false,
-              error: `HTTP ${r.status}: ${String(r.txt || "").slice(0, 160)}` + collectionRelayHint(),
+              error: formatCollectionHttpError_(r.status, r.txt),
               txt: r.txt != null ? String(r.txt) : ""
             };
           }
