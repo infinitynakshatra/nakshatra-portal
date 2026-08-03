@@ -12157,14 +12157,19 @@
             alert(sr.error || "Could not save expense.");
             return;
           }
-          await portalServerFetchState();
-          updateMaintenanceCollectionCards();
           const amtEl = document.getElementById("expenseAmountInput");
           const dEl = document.getElementById("expenseDescInput");
           const linkEl = document.getElementById("expenseBillLinkInput");
           if (amtEl) amtEl.value = "";
           if (dEl) dEl.value = "";
           if (linkEl) linkEl.value = "";
+          alert("Expense saved successfully.");
+          try {
+            await portalServerFetchState();
+            updateMaintenanceCollectionCards();
+          } catch (e) {
+            console.warn("Expense saved but refresh failed", e);
+          }
         })();
       });
       const expenseShowUpdateBtn = document.getElementById("expenseShowUpdateBtn");
