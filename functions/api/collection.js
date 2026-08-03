@@ -2,6 +2,11 @@
  * Cloudflare Pages Function — relay portal POSTs to Google Apps Script Web App.
  * Browser calls https://nakshatra-portal.pages.dev/api/collection (same origin).
  * Set APPS_SCRIPT_EXEC_URL in Cloudflare Pages → Settings → Environment variables (optional).
+ *
+ * Apps Script flow (doPost):
+ *   1) POST body to …/exec  → 302 Location → script.googleusercontent.com/macros/echo?…
+ *   2) GET that Location     → JSON result
+ * Re-POSTing the echo URL returns HTTP 405. Auto-follow that keeps POST also returns 405.
  */
 
 const DEFAULT_EXEC_URL =
@@ -23,25 +28,26 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Apps Script /exec returns 302 to script.googleusercontent.com/macros/echo.
- * fetch(redirect:"follow") turns that into GET and Google returns HTML 404.
- * Re-POST the same body to each Location instead.
- */
+/** POST once to /exec, then GET each redirect Location until a non-redirect response. */
 async function postAppsScript(target, body, contentType) {
-  let url = target;
-  let response = null;
-  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    response = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": contentType },
-      body,
-      redirect: "manual",
-    });
+  let response = await fetch(target, {
+    method: "POST",
+    headers: { "Content-Type": contentType },
+    body,
+    redirect: "manual",
+  });
+
+  for (let hop = 0; hop < MAX_REDIRECTS; hop++) {
     if (response.status < 300 || response.status >= 400) return response;
     const loc = response.headers.get("Location");
     if (!loc) return response;
-    url = new URL(loc, url).href;
+    const nextUrl = new URL(loc, target).href;
+    // Echo URL only accepts GET (POST → 405 Method Not Allowed).
+    response = await fetch(nextUrl, {
+      method: "GET",
+      redirect: "manual",
+    });
+    target = nextUrl;
   }
   return response;
 }
