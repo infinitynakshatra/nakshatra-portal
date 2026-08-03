@@ -64,7 +64,7 @@ const PORTAL_TICKETS_HEADERS = ["id","plotNo","requesterMobile","category","desc
 const PORTAL_NOTICES_HEADERS = ["id","title","body","audience","createdAt","createdBy","attachmentUrl"];
 const PORTAL_AUDIT_HEADERS = ["atIso","actor","action","detail"];
 const PORTAL_EXPENSES_SHEET = "portal_expenses";
-const PORTAL_EXPENSES_HEADERS = ["id","atIso","ym","category","amount","description","paidTo"];
+const PORTAL_EXPENSES_HEADERS = ["id","atIso","ym","category","amount","description","paidTo","billLink"];
 const PORTAL_OTHER_EARNINGS_SHEET = "portal_other_earnings";
 const PORTAL_OTHER_EARNINGS_HEADERS = ["id","atIso","ym","category","amount","description","source"];
 /** Visitor log at society gate (watchman entries; photo stored in Drive when available). */
@@ -98,8 +98,19 @@ function ensureSheetWithHeaders_(ss, name, headers) {
     if (String(cur[i] || "").trim() !== String(headers[i])) { need = true; break; }
   }
   if (need) {
-    sh.insertRowBefore(1);
-    sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    // Prefer extending row-1 headers in place when existing columns match a prefix
+    // (e.g. adding billLink). Avoid inserting a second header row that breaks reads.
+    var canExtend = true;
+    for (var j = 0; j < headers.length; j++) {
+      var existing = String(cur[j] || "").trim();
+      if (existing && existing !== String(headers[j])) { canExtend = false; break; }
+    }
+    if (canExtend) {
+      sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    } else {
+      sh.insertRowBefore(1);
+      sh.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
   }
   return sh;
 }
@@ -391,7 +402,8 @@ function readPortalExpenses_(ss) {
       category: String(r.category || ""),
       amount: Number(r.amount || 0),
       description: String(r.description || ""),
-      paidTo: String(r.paidTo || "")
+      paidTo: String(r.paidTo || ""),
+      billLink: String(r.billLink || "")
     });
   }
   return out;
@@ -2008,10 +2020,11 @@ function doPost(e) {
       var catE = String(data.category || "").trim();
       var descE = String(data.description || "").trim();
       var paidE = String(data.paidTo || "").trim();
+      var linkE = String(data.billLink || "").trim();
       if (!ymE || amountE <= 0) return json_({ ok: false, error: "ym and positive amount required" }, 400);
       var shE = ensureSheetWithHeaders_(ss, PORTAL_EXPENSES_SHEET, PORTAL_EXPENSES_HEADERS);
       var idE = newId_();
-      shE.appendRow([idE, nowIso_(), ymE, catE, amountE, descE, paidE]);
+      shE.appendRow([idE, nowIso_(), ymE, catE, amountE, descE, paidE, linkE]);
       audit_(ss, actorE, "addExpense", { id: idE, ym: ymE, amount: amountE, category: catE });
       invalidatePortalStateCache_();
       return json_({ ok: true, id: idE }, 200);
@@ -2024,6 +2037,7 @@ function doPost(e) {
       var catU = String(data.category || "").trim();
       var descU = String(data.description || "").trim();
       var paidU = String(data.paidTo || "").trim();
+      var linkU = String(data.billLink || "").trim();
       if (!idU || !ymU || amountU <= 0) return json_({ ok: false, error: "id, ym and positive amount required" }, 400);
       var shU = ensureSheetWithHeaders_(ss, PORTAL_EXPENSES_SHEET, PORTAL_EXPENSES_HEADERS);
       var lastRowU = shU.getLastRow();
@@ -2035,7 +2049,7 @@ function doPost(e) {
       }
       if (targetU < 0) return json_({ ok: false, error: "not_found" }, 404);
       shU.getRange(targetU, 2).setValue(nowIso_());
-      shU.getRange(targetU, 3, 1, 5).setValues([[ymU, catU, amountU, descU, paidU]]);
+      shU.getRange(targetU, 3, 1, 6).setValues([[ymU, catU, amountU, descU, paidU, linkU]]);
       audit_(ss, actorU, "updateExpense", { id: idU, ym: ymU, amount: amountU });
       invalidatePortalStateCache_();
       return json_({ ok: true }, 200);
