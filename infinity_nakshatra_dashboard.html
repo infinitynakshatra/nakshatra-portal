@@ -4305,7 +4305,7 @@
         return { ok:false, error: "COLLECTION_API_URL must be https://script.google.com/.../exec, http://127.0.0.1:PORT (local relay), or same-origin /api/collection (Cloudflare Pages)." };
       }
       const bodyStr = JSON.stringify(body);
-      const maxAttempts = 3;
+      const maxAttempts = collectionUsesPagesProxy() ? 4 : 3;
       __insPushBackendLoading();
       try {
         let lastResult = { ok:false, error: "unknown" };
