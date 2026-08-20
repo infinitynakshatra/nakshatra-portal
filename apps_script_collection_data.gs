@@ -67,6 +67,13 @@ const PORTAL_EXPENSES_SHEET = "portal_expenses";
 const PORTAL_EXPENSES_HEADERS = ["id","atIso","ym","category","amount","description","paidTo","billLink"];
 const PORTAL_OTHER_EARNINGS_SHEET = "portal_other_earnings";
 const PORTAL_OTHER_EARNINGS_HEADERS = ["id","atIso","ym","category","amount","description","source"];
+/** Society events (Ganpati, Navratri, etc.) — separate from maintenance. */
+const PORTAL_EVENTS_SHEET = "portal_events";
+const PORTAL_EVENTS_HEADERS = ["id","atIso","eventName","eventYear"];
+const PORTAL_EVENT_COLLECTIONS_SHEET = "portal_event_collections";
+const PORTAL_EVENT_COLLECTIONS_HEADERS = ["id","atIso","eventId","plotNo","amount","by","source","note"];
+const PORTAL_EVENT_EXPENSES_SHEET = "portal_event_expenses";
+const PORTAL_EVENT_EXPENSES_HEADERS = ["id","atIso","eventId","amount","description","paidTo","billLink"];
 /** Visitor log at society gate (watchman entries; photo stored in Drive when available). */
 const PORTAL_GATE_VISITS_SHEET = "portal_my_gate_visitors";
 const PORTAL_GATE_VISITS_HEADERS = ["id","atIso","plotNo","ownerMobile","visitorName","visitorMobile","vehicle","purpose","photoUrl"];
@@ -407,6 +414,118 @@ function readPortalExpenses_(ss) {
     });
   }
   return out;
+}
+
+function eventDisplayLabel_(eventName, eventYear) {
+  var n = String(eventName || "").trim();
+  var y = String(eventYear || "").trim();
+  if (!n) return "";
+  return y ? n + "-" + y : n;
+}
+
+function readPortalEvents_(ss) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_EVENTS_SHEET, PORTAL_EVENTS_HEADERS);
+  var rows = rowsToObjects_(sh, PORTAL_EVENTS_HEADERS);
+  var out = [];
+  var i;
+  for (i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var idRaw = String(r.id || "").trim();
+    if (!idRaw || idRaw.toLowerCase() === "null") continue;
+    var eventName = String(r.eventName || "").trim();
+    var eventYear = String(r.eventYear || "").trim();
+    if (!eventName) continue;
+    out.push({
+      id: idRaw,
+      atIso: String(r.atIso || ""),
+      eventName: eventName,
+      eventYear: eventYear,
+      label: eventDisplayLabel_(eventName, eventYear)
+    });
+  }
+  out.sort(function (a, b) {
+    var ya = Number(a.eventYear) || 0;
+    var yb = Number(b.eventYear) || 0;
+    if (yb !== ya) return yb - ya;
+    return String(a.label || "").localeCompare(String(b.label || ""));
+  });
+  return out;
+}
+
+function readPortalEventCollections_(ss) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_EVENT_COLLECTIONS_SHEET, PORTAL_EVENT_COLLECTIONS_HEADERS);
+  var rows = rowsToObjects_(sh, PORTAL_EVENT_COLLECTIONS_HEADERS);
+  var out = [];
+  var i;
+  for (i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var idRaw = String(r.id || "").trim();
+    if (!idRaw || idRaw.toLowerCase() === "null") continue;
+    out.push({
+      id: idRaw,
+      atIso: String(r.atIso || ""),
+      eventId: String(r.eventId || "").trim(),
+      plotNo: String(r.plotNo || "").trim(),
+      amount: Number(r.amount || 0),
+      by: String(r.by || ""),
+      source: String(r.source || ""),
+      note: String(r.note || "")
+    });
+  }
+  return out;
+}
+
+function readPortalEventExpenses_(ss) {
+  var sh = ensureSheetWithHeaders_(ss, PORTAL_EVENT_EXPENSES_SHEET, PORTAL_EVENT_EXPENSES_HEADERS);
+  var rows = rowsToObjects_(sh, PORTAL_EVENT_EXPENSES_HEADERS);
+  var out = [];
+  var i;
+  for (i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var idRaw = String(r.id || "").trim();
+    if (!idRaw || idRaw.toLowerCase() === "null") continue;
+    out.push({
+      id: idRaw,
+      atIso: String(r.atIso || ""),
+      eventId: String(r.eventId || "").trim(),
+      amount: Number(r.amount || 0),
+      description: String(r.description || ""),
+      paidTo: String(r.paidTo || ""),
+      billLink: String(r.billLink || "")
+    });
+  }
+  return out;
+}
+
+function eventCollectionExists_(sh, eventId, plotNo) {
+  var wantE = String(eventId || "").trim();
+  var wantP = String(plotNo || "").trim();
+  if (!wantE || !wantP) return false;
+  var lr = sh.getLastRow();
+  if (lr < 2) return false;
+  var vals = sh.getRange(2, 1, lr, PORTAL_EVENT_COLLECTIONS_HEADERS.length).getValues();
+  var i;
+  for (i = 0; i < vals.length; i++) {
+    if (String(vals[i][2] || "").trim() === wantE && String(vals[i][3] || "").trim() === wantP) return true;
+    var np = Number(vals[i][3]);
+    var nwant = Number(wantP);
+    if (String(vals[i][2] || "").trim() === wantE && isFinite(np) && isFinite(nwant) && np === nwant) return true;
+  }
+  return false;
+}
+
+function findPortalEventExpenseRowNum_(ss, id) {
+  var want = String(id || "").trim();
+  if (!want) return -1;
+  var sh = ss.getSheetByName(PORTAL_EVENT_EXPENSES_SHEET);
+  if (!sh || sh.getLastRow() < 2) return -1;
+  var lr = sh.getLastRow();
+  var ids = sh.getRange(2, 1, lr, 1).getDisplayValues();
+  var i;
+  for (i = 0; i < ids.length; i++) {
+    if (String(ids[i][0] || "").trim() === want) return i + 2;
+  }
+  return -1;
 }
 
 function readPortalOtherEarnings_(ss) {
@@ -1011,6 +1130,9 @@ function getPortalState_(ss) {
         cachedOut.ownerAccess = readPortalOwnerAccess_(ss);
         cachedOut.expenses = readPortalExpenses_(ss);
         cachedOut.otherEarnings = readPortalOtherEarnings_(ss);
+        cachedOut.events = readPortalEvents_(ss);
+        cachedOut.eventCollections = readPortalEventCollections_(ss);
+        cachedOut.eventExpenses = readPortalEventExpenses_(ss);
         cachedOut.ownerPortalMayYear = readPortalOwnerFyMayYear_(ss);
         cachedOut.gateVisits = readPortalGateVisits_(ss);
         return cachedOut;
@@ -1056,6 +1178,9 @@ function getPortalState_(ss) {
   out.ownerAccess = readPortalOwnerAccess_(ss);
   out.expenses = readPortalExpenses_(ss);
   out.otherEarnings = readPortalOtherEarnings_(ss);
+  out.events = readPortalEvents_(ss);
+  out.eventCollections = readPortalEventCollections_(ss);
+  out.eventExpenses = readPortalEventExpenses_(ss);
   out.ownerPortalMayYear = readPortalOwnerFyMayYear_(ss);
   out.gateVisits = readPortalGateVisits_(ss);
   try {
@@ -1067,6 +1192,9 @@ function getPortalState_(ss) {
       tickets: out.tickets,
       notices: out.notices,
       expenses: out.expenses,
+      events: out.events,
+      eventCollections: out.eventCollections,
+      eventExpenses: out.eventExpenses,
       ownerPortalMayYear: out.ownerPortalMayYear,
       gateVisits: out.gateVisits
     };
@@ -2072,6 +2200,87 @@ function doPost(e) {
       if (targetDel < 0) return json_({ ok: false, error: "not_found" }, 404);
       shDel.deleteRow(targetDel);
       audit_(ss, actorDel, "deleteExpense", { id: idDel });
+      invalidatePortalStateCache_();
+      return json_({ ok: true }, 200);
+    }
+    if (action === "addEvent") {
+      var actorEv = String(data.actor || "admin").trim();
+      var evName = String(data.eventName || "").trim();
+      var evYear = String(data.eventYear || "").trim();
+      if (!evName || !evYear) return json_({ ok: false, error: "eventName and eventYear required" }, 400);
+      var shEv = ensureSheetWithHeaders_(ss, PORTAL_EVENTS_SHEET, PORTAL_EVENTS_HEADERS);
+      var existingEv = readPortalEvents_(ss);
+      var labelWant = eventDisplayLabel_(evName, evYear).toLowerCase();
+      var ei;
+      for (ei = 0; ei < existingEv.length; ei++) {
+        if (String(existingEv[ei].label || "").toLowerCase() === labelWant) {
+          return json_({ ok: false, error: "event_exists", id: existingEv[ei].id }, 409);
+        }
+      }
+      var idEv = newId_();
+      shEv.appendRow([idEv, nowIso_(), evName, evYear]);
+      audit_(ss, actorEv, "addEvent", { id: idEv, eventName: evName, eventYear: evYear });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, id: idEv, label: eventDisplayLabel_(evName, evYear) }, 200);
+    }
+    if (action === "addEventCollection") {
+      var actorEc = String(data.actor || "admin").trim();
+      var eventIdEc = String(data.eventId || "").trim();
+      var plotEc = String(data.plotNo || "").trim();
+      var amountEc = Number(data.amount || 0);
+      if (!eventIdEc || !plotEc) return json_({ ok: false, error: "eventId and plotNo required" }, 400);
+      if (amountEc <= 0) return json_({ ok: false, error: "positive amount required" }, 400);
+      var shEc = ensureSheetWithHeaders_(ss, PORTAL_EVENT_COLLECTIONS_SHEET, PORTAL_EVENT_COLLECTIONS_HEADERS);
+      if (eventCollectionExists_(shEc, eventIdEc, plotEc)) {
+        return json_({ ok: false, error: "already_paid" }, 409);
+      }
+      var idEc = newId_();
+      shEc.appendRow([idEc, nowIso_(), eventIdEc, plotEc, amountEc, "admin", "admin_portal", "event_collection"]);
+      audit_(ss, actorEc, "addEventCollection", { id: idEc, eventId: eventIdEc, plotNo: plotEc, amount: amountEc });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, id: idEc }, 200);
+    }
+    if (action === "addEventExpense") {
+      var actorEe = String(data.actor || "admin").trim();
+      var eventIdEe = String(data.eventId || "").trim();
+      var amountEe = Number(data.amount || 0);
+      var descEe = String(data.description || "").trim();
+      var paidEe = String(data.paidTo || "").trim();
+      var linkEe = String(data.billLink || "").trim();
+      if (!eventIdEe || amountEe <= 0) return json_({ ok: false, error: "eventId and positive amount required" }, 400);
+      var shEe = ensureSheetWithHeaders_(ss, PORTAL_EVENT_EXPENSES_SHEET, PORTAL_EVENT_EXPENSES_HEADERS);
+      var idEe = newId_();
+      shEe.appendRow([idEe, nowIso_(), eventIdEe, amountEe, descEe, paidEe, linkEe]);
+      audit_(ss, actorEe, "addEventExpense", { id: idEe, eventId: eventIdEe, amount: amountEe });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, id: idEe }, 200);
+    }
+    if (action === "updateEventExpense") {
+      var actorEu = String(data.actor || "admin").trim();
+      var idEu = String(data.id || "").trim();
+      var eventIdEu = String(data.eventId || "").trim();
+      var amountEu = Number(data.amount || 0);
+      var descEu = String(data.description || "").trim();
+      var paidEu = String(data.paidTo || "").trim();
+      var linkEu = String(data.billLink || "").trim();
+      if (!idEu || !eventIdEu || amountEu <= 0) return json_({ ok: false, error: "id, eventId and positive amount required" }, 400);
+      var rowEu = findPortalEventExpenseRowNum_(ss, idEu);
+      if (rowEu < 0) return json_({ ok: false, error: "not_found" }, 404);
+      var shEu = ss.getSheetByName(PORTAL_EVENT_EXPENSES_SHEET);
+      shEu.getRange(rowEu, 2).setValue(nowIso_());
+      shEu.getRange(rowEu, 3, 1, 5).setValues([[eventIdEu, amountEu, descEu, paidEu, linkEu]]);
+      audit_(ss, actorEu, "updateEventExpense", { id: idEu, eventId: eventIdEu, amount: amountEu });
+      invalidatePortalStateCache_();
+      return json_({ ok: true }, 200);
+    }
+    if (action === "deleteEventExpense") {
+      var actorEd = String(data.actor || "admin").trim();
+      var idEd = String(data.id || "").trim();
+      if (!idEd) return json_({ ok: false, error: "id required" }, 400);
+      var rowEd = findPortalEventExpenseRowNum_(ss, idEd);
+      if (rowEd < 0) return json_({ ok: false, error: "not_found" }, 404);
+      ss.getSheetByName(PORTAL_EVENT_EXPENSES_SHEET).deleteRow(rowEd);
+      audit_(ss, actorEd, "deleteEventExpense", { id: idEd });
       invalidatePortalStateCache_();
       return json_({ ok: true }, 200);
     }

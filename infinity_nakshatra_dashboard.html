@@ -801,6 +801,15 @@
       #adminMaintenanceMcRow .mcKpiStrip,
       #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: 1fr; }
     }
+    #adminEventsMcRow .mcKpiStrip.mcKpiStripThree{
+      display:grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap:6px;
+    }
+    #adminEventsMcRow .mcKpiStrip.mcKpiStripThree .mcKpiCard{ min-height:62px; }
+    @media (max-width: 720px){
+      #adminEventsMcRow .mcKpiStrip.mcKpiStripThree{ grid-template-columns: 1fr; }
+    }
     #adminMaintenanceMcRow .mcSubSectionTitle{
       margin:0 0 5px;
       font-size:10px;
@@ -2233,6 +2242,58 @@
       </div>
     </div>
 
+    <div class="mcRow adminOnly" id="adminEventsMcRow">
+      <div class="mcCollectionShell">
+        <div class="mcCollectionHead">
+          <div class="mcBrand">
+            <h3>Events Collection &amp; Expense Management</h3>
+            <div class="smallNote">Separate from maintenance — festival / special event collections and expenses.</div>
+          </div>
+          <div class="mcBtns">
+            <button class="btn secondary tiny" id="eventAddBtn" type="button">Add Event</button>
+            <button class="btn secondary tiny" id="eventCollAddBtn" type="button">Add Event Collection</button>
+            <button class="btn secondary tiny" id="eventExpenseAddBtn" type="button">Add Event Expense</button>
+            <button class="btn secondary tiny" id="eventExpenseShowUpdateBtn" type="button">Show/Update Event Expense</button>
+          </div>
+        </div>
+        <div class="mcCollectionMetricsWrap">
+          <div class="mcFilterToolbar">
+            <div class="mcFilterToolbarRow">
+              <div class="mcFilterToolbarLeft">
+                <span class="mcFilterToolbarTitle">Filters</span>
+                <div class="field" style="margin:0; min-width:min(260px, 100%);">
+                  <label class="mcDdLabel" for="eventFilterSelect">Event Name</label>
+                  <select id="eventFilterSelect" aria-label="Filter by event">
+                    <option value="">ALL</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mcKpiStrip mcKpiStripThree" aria-label="Event summary">
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Total Collection</span>
+                <b class="mcKpiCardValue" id="evCollSummary">—</b>
+              </div>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Expenses</span>
+                <b class="mcKpiCardValue" id="evExpSummary">—</b>
+              </div>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Balance</span>
+                <b class="mcKpiCardValue" id="evBalanceSummary">—</b>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div class="mcRow adminOnly" id="adminNoticesRow">
       <div class="mcRowInner">
         <div class="mcBrand">
@@ -2623,6 +2684,30 @@
           </div>
         </div>
         <div class="sub mcRightNote" id="userSumFoot" style="text-align:justify; text-align-last:right;">—</div>
+      </div>
+
+      <div class="mcRow" id="userEventContribRow">
+        <div class="mcRowInner">
+          <div class="mcBrand">
+            <h3>Your event contributions</h3>
+            <div class="smallNote">Amounts paid toward society events (not included in maintenance).</div>
+          </div>
+        </div>
+        <div class="scroll-x" style="overflow:auto; max-height:min(220px, 38vh); margin-top:8px;">
+          <table class="adminDirTable">
+            <thead>
+              <tr>
+                <th>Event</th>
+                <th>Plot</th>
+                <th>Amount</th>
+                <th>Recorded</th>
+              </tr>
+            </thead>
+            <tbody id="userEventContribTbody">
+              <tr><td colspan="4">—</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
     <div class="grid" style="margin-top:12px;">
@@ -3628,6 +3713,165 @@
     </div>
   </div>
 
+  <div class="backdrop" id="eventAddBackdrop" aria-hidden="true">
+    <div class="modal modalPayAdd" role="dialog" aria-modal="true" aria-labelledby="eventAddTitle" style="width:min(480px, 96vw);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="eventAddTitle">Add Event</div>
+          <div class="modalSub">Creates a new event for collections and expenses (e.g. Ganpati-Utsav-2026).</div>
+        </div>
+        <button class="btn secondary" id="eventAddCloseBtn" type="button">Close</button>
+      </div>
+      <div class="expenseFormGrid" style="margin-top:8px;">
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventAddNameInput">Event Name</label>
+          <input id="eventAddNameInput" type="text" placeholder="e.g. Ganpati-Utsav" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventAddYearInput">Event Year</label>
+          <input id="eventAddYearInput" type="number" min="2000" max="2100" step="1" placeholder="2026" />
+        </div>
+      </div>
+      <div class="err" id="eventAddErr"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; justify-content:flex-end;">
+        <button class="btn" id="eventAddSaveBtn" type="button">Save Event</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="eventCollBackdrop" aria-hidden="true">
+    <div class="modal modalSeePay modalPayAdd" role="dialog" aria-modal="true" aria-labelledby="eventCollTitle">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="eventCollTitle">Add Event Collection</div>
+          <div class="modalSub" id="eventCollSub">Record a plot owner's contribution toward an event.</div>
+        </div>
+        <button class="btn secondary" id="eventCollCloseBtn" type="button">Close</button>
+      </div>
+      <div class="payAddScroll">
+        <div class="field">
+          <label for="eventCollPlotSelect">Plot Number and Name</label>
+          <select id="eventCollPlotSelect"></select>
+        </div>
+        <div class="field">
+          <label for="eventCollEventSelect">Event Name</label>
+          <select id="eventCollEventSelect"></select>
+        </div>
+        <div class="field">
+          <label for="eventCollAmount">Amount</label>
+          <input id="eventCollAmount" type="number" min="0" step="1" placeholder="0" />
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">
+          <button class="btn" id="eventCollSaveBtn" type="button">Add</button>
+        </div>
+        <div class="err" id="eventCollErr"></div>
+        <table style="margin-top:14px;">
+          <thead>
+            <tr><th>Event</th><th>Amount</th></tr>
+          </thead>
+          <tbody id="eventCollHistoryRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="eventExpenseAddBackdrop" aria-hidden="true">
+    <div class="modal modalPayAdd" role="dialog" aria-modal="true" aria-labelledby="eventExpenseAddTitle" style="width:min(560px, 96vw);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="eventExpenseAddTitle">Add Event Expense</div>
+          <div class="modalSub">Event expenses are separate from maintenance expenses.</div>
+        </div>
+        <button class="btn secondary" id="eventExpenseAddCloseBtn" type="button">Close</button>
+      </div>
+      <div class="expenseFormGrid" style="margin-top:8px;">
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventExpenseEventSelect">Event Name</label>
+          <select id="eventExpenseEventSelect"></select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventExpenseAmountInput">Amount</label>
+          <input id="eventExpenseAmountInput" type="number" min="0" step="1" placeholder="0" />
+        </div>
+        <div class="field" style="margin:0; grid-column:1 / -1;">
+          <label class="mcDdLabel" for="eventExpenseDescInput">Description</label>
+          <input id="eventExpenseDescInput" type="text" placeholder="Short description" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventExpensePaidToInput">Paid to / vendor</label>
+          <input id="eventExpensePaidToInput" type="text" placeholder="Name or reference" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventExpenseBillLinkInput">Link</label>
+          <input id="eventExpenseBillLinkInput" type="url" placeholder="Uploaded bill link (Google Drive / URL)" autocomplete="off" />
+        </div>
+      </div>
+      <div class="err" id="eventExpenseAddErr"></div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; justify-content:flex-end;">
+        <button class="btn" id="eventExpenseAddSaveBtn" type="button">Save Event Expense</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="eventExpenseManageBackdrop" aria-hidden="true">
+    <div class="modal modalSeePay" role="dialog" aria-modal="true" aria-labelledby="eventExpenseManageTitle" style="width:min(960px, 98vw); max-height:min(92vh, 900px);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="eventExpenseManageTitle">Show / Update Event Expenses</div>
+          <div class="modalSub">Rows from <strong>portal_event_expenses</strong>. Not included in maintenance totals.</div>
+        </div>
+        <button class="btn secondary" id="eventExpenseManageCloseBtn" type="button">Close</button>
+      </div>
+      <div class="scroll-x" style="overflow:auto; max-height:min(420px, 55vh); margin-top:8px;">
+        <table class="adminDirTable">
+          <thead>
+            <tr>
+              <th>Recorded</th>
+              <th>Event</th>
+              <th>Amount</th>
+              <th>Description</th>
+              <th>Paid to</th>
+              <th>Link</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="eventExpenseManageTbody">
+            <tr><td colspan="7">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="smallNote" style="margin-top:12px;">Click <b>Edit</b> on a row, adjust the fields below, then <b>Save changes</b>.</p>
+      <input type="hidden" id="eventExpenseManageEditId" value="" />
+      <div class="expenseFormGrid" style="margin-top:10px;">
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventExpenseManageEventSelect">Event Name</label>
+          <select id="eventExpenseManageEventSelect"></select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventExpenseManageAmount">Amount</label>
+          <input id="eventExpenseManageAmount" type="number" min="0" step="1" />
+        </div>
+        <div class="field" style="margin:0; grid-column:1 / -1;">
+          <label class="mcDdLabel" for="eventExpenseManageDesc">Description</label>
+          <input id="eventExpenseManageDesc" type="text" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventExpenseManagePaidTo">Paid to / vendor</label>
+          <input id="eventExpenseManagePaidTo" type="text" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventExpenseManageBillLink">Link</label>
+          <input id="eventExpenseManageBillLink" type="url" autocomplete="off" />
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <button class="btn" id="eventExpenseManageSaveBtn" type="button" disabled>Save changes</button>
+        <button class="btn secondary" id="eventExpenseManageCancelEditBtn" type="button">Cancel edit</button>
+      </div>
+      <div class="err" id="eventExpenseManageErr"></div>
+    </div>
+  </div>
+
   <div class="backdrop" id="otherEarningsAddBackdrop" aria-hidden="true">
     <div class="modal modalPayAdd" role="dialog" aria-modal="true" aria-labelledby="otherEarningsAddTitle" style="width:min(560px, 96vw);">
       <div class="modalHead">
@@ -4385,7 +4629,7 @@
     // ---------------------------
     // Shared portal backend (Apps Script) — optional
     // ---------------------------
-    let portalServerState = { loaded: false, paymentsCount: 0, lastFetchError: "", paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], otherEarnings: [], banking: null, inbox: [], projectDocs: [], meetingDocs: [], ownDocs: [], societyDetails: null, serviceContacts: [], ownerAccess: {}, ownerPortalMayYear: null, gateVisits: [] };
+    let portalServerState = { loaded: false, paymentsCount: 0, lastFetchError: "", paymentsByPlot: new Map(), pending: [], tickets: [], notices: [], expenses: [], otherEarnings: [], events: [], eventCollections: [], eventExpenses: [], banking: null, inbox: [], projectDocs: [], meetingDocs: [], ownDocs: [], societyDetails: null, serviceContacts: [], ownerAccess: {}, ownerPortalMayYear: null, gateVisits: [] };
     let portalServerStateFetchInFlight = null;
     function isServerEnabled(){
       return !!sanitizeAppsScriptUrl(COLLECTION_API_URL) && !!COLLECTION_API_KEY;
@@ -4678,6 +4922,9 @@
         notices: Array.isArray(j.notices) ? j.notices : [],
         expenses: Array.isArray(j.expenses) ? j.expenses : [],
         otherEarnings: Array.isArray(j.otherEarnings) ? j.otherEarnings : [],
+        events: Array.isArray(j.events) ? j.events : [],
+        eventCollections: Array.isArray(j.eventCollections) ? j.eventCollections : [],
+        eventExpenses: Array.isArray(j.eventExpenses) ? j.eventExpenses : [],
         banking: (j.banking !== undefined && j.banking !== null && typeof j.banking === "object") ? j.banking : null,
         inbox: Array.isArray(j.inbox) ? j.inbox : [],
         projectDocs: Array.isArray(j.projectDocs) ? j.projectDocs : [],
@@ -4714,6 +4961,9 @@
       try {
         renderAdminPendingApprovalPanel();
         updateMaintenanceCollectionCards();
+        updateEventCollectionCards();
+        populateEventFilterSelect();
+        populateEventSelectOptions();
         renderUserGuideBanner();
         if (document.getElementById("bankViewBackdrop")?.classList.contains("show")) fillBankViewModal();
         const sess = readSession();
@@ -4963,6 +5213,414 @@
       try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
       if (!j || !j.ok) return { ok:false, error: (j && j.error) || "delete_failed", detail: j };
       return { ok:true };
+    }
+
+    // ---------------------------
+    // Events (separate from maintenance)
+    // ---------------------------
+    function eventsList_(){
+      return Array.isArray(portalServerState.events) ? portalServerState.events : [];
+    }
+    function eventById_(id){
+      const want = String(id || "");
+      return eventsList_().find(e => String(e.id) === want) || null;
+    }
+    function eventLabelById_(id){
+      const ev = eventById_(id);
+      return ev ? String(ev.label || ev.eventName || "") : String(id || "");
+    }
+    function getSelectedEventFilterId(){
+      const el = document.getElementById("eventFilterSelect");
+      return el ? String(el.value || "") : "";
+    }
+    function eventCollectionsFiltered_(eventIdFilter){
+      const fid = eventIdFilter != null ? String(eventIdFilter) : getSelectedEventFilterId();
+      return (portalServerState.eventCollections || []).filter(c => {
+        if (!fid) return true;
+        return String(c.eventId) === fid;
+      });
+    }
+    function eventExpensesFiltered_(eventIdFilter){
+      const fid = eventIdFilter != null ? String(eventIdFilter) : getSelectedEventFilterId();
+      return (portalServerState.eventExpenses || []).filter(ex => {
+        if (!fid) return true;
+        return String(ex.eventId) === fid;
+      });
+    }
+    function eventCollectionAmountForPlot_(plotNo, eventId){
+      const p = canonicalPlotNoKey_(String(plotNo || ""));
+      const eid = String(eventId || "");
+      let t = 0;
+      for (const c of portalServerState.eventCollections || []){
+        if (String(c.eventId) !== eid) continue;
+        if (canonicalPlotNoKey_(String(c.plotNo || "")) !== p) continue;
+        t += toMoneyNumber(c.amount);
+      }
+      return Math.round(t);
+    }
+    function populateEventFilterSelect(){
+      const sel = document.getElementById("eventFilterSelect");
+      if (!sel) return;
+      const cur = String(sel.value || "");
+      sel.innerHTML = '<option value="">ALL</option>';
+      for (const ev of eventsList_()){
+        const id = String(ev.id || "");
+        const label = String(ev.label || eventLabelById_(id));
+        const opt = document.createElement("option");
+        opt.value = id;
+        opt.textContent = label;
+        sel.appendChild(opt);
+      }
+      if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+      else sel.value = "";
+    }
+    function fillEventSelectEl_(selectId, selectedId){
+      const sel = document.getElementById(selectId);
+      if (!sel) return;
+      const cur = selectedId != null ? String(selectedId) : String(sel.value || "");
+      sel.innerHTML = "";
+      const evs = eventsList_();
+      if (!evs.length){
+        const o = document.createElement("option");
+        o.value = "";
+        o.textContent = "— Add an event first —";
+        sel.appendChild(o);
+        return;
+      }
+      for (const ev of evs){
+        const opt = document.createElement("option");
+        opt.value = String(ev.id || "");
+        opt.textContent = String(ev.label || eventLabelById_(ev.id));
+        sel.appendChild(opt);
+      }
+      if (cur && [...sel.options].some(o => o.value === cur)) sel.value = cur;
+      else if (sel.options.length) sel.selectedIndex = 0;
+    }
+    function populateEventSelectOptions(){
+      fillEventSelectEl_("eventCollEventSelect");
+      fillEventSelectEl_("eventExpenseEventSelect");
+      fillEventSelectEl_("eventExpenseManageEventSelect");
+    }
+    function updateEventCollectionCards(){
+      const coll = eventCollectionsFiltered_();
+      const exps = eventExpensesFiltered_();
+      let collected = 0;
+      let expTotal = 0;
+      for (const c of coll) collected += toMoneyNumber(c.amount);
+      for (const ex of exps) expTotal += toMoneyNumber(ex.amount);
+      collected = Math.round(collected);
+      expTotal = Math.round(expTotal);
+      const balance = collected - expTotal;
+      const fmt = n => "₹ " + String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      set("evCollSummary", fmt(collected));
+      set("evExpSummary", fmt(expTotal));
+      set("evBalanceSummary", fmt(balance));
+    }
+    function refreshEventsUiFromLocal_(){
+      try { populateEventFilterSelect(); populateEventSelectOptions(); updateEventCollectionCards(); } catch {}
+      try {
+        if (document.getElementById("eventExpenseManageBackdrop")?.classList.contains("show")) renderEventExpenseManageTable();
+      } catch {}
+      try { renderUserEventContributions(); } catch {}
+    }
+    function upsertLocalEvent_(row){
+      if (!row || !row.id) return;
+      if (!Array.isArray(portalServerState.events)) portalServerState.events = [];
+      const id = String(row.id);
+      const next = {
+        id,
+        atIso: String(row.atIso || new Date().toISOString()),
+        eventName: String(row.eventName || ""),
+        eventYear: String(row.eventYear || ""),
+        label: String(row.label || (row.eventName && row.eventYear ? row.eventName + "-" + row.eventYear : row.eventName || ""))
+      };
+      const idx = portalServerState.events.findIndex(x => String(x.id) === id);
+      if (idx >= 0) portalServerState.events[idx] = Object.assign({}, portalServerState.events[idx], next);
+      else portalServerState.events.push(next);
+      portalServerState.loaded = true;
+      refreshEventsUiFromLocal_();
+    }
+    function upsertLocalEventCollection_(row){
+      if (!row || !row.id) return;
+      if (!Array.isArray(portalServerState.eventCollections)) portalServerState.eventCollections = [];
+      const id = String(row.id);
+      const next = {
+        id,
+        atIso: String(row.atIso || new Date().toISOString()),
+        eventId: String(row.eventId || ""),
+        plotNo: String(row.plotNo || ""),
+        amount: toMoneyNumber(row.amount),
+        by: String(row.by || "admin"),
+        source: String(row.source || ""),
+        note: String(row.note || "")
+      };
+      const idx = portalServerState.eventCollections.findIndex(x => String(x.id) === id);
+      if (idx >= 0) portalServerState.eventCollections[idx] = Object.assign({}, portalServerState.eventCollections[idx], next);
+      else portalServerState.eventCollections.push(next);
+      refreshEventsUiFromLocal_();
+    }
+    function upsertLocalEventExpense_(row){
+      if (!row || !row.id) return;
+      if (!Array.isArray(portalServerState.eventExpenses)) portalServerState.eventExpenses = [];
+      const id = String(row.id);
+      const next = {
+        id,
+        atIso: String(row.atIso || new Date().toISOString()),
+        eventId: String(row.eventId || ""),
+        amount: toMoneyNumber(row.amount),
+        description: String(row.description || ""),
+        paidTo: String(row.paidTo || ""),
+        billLink: String(row.billLink || "")
+      };
+      const idx = portalServerState.eventExpenses.findIndex(x => String(x.id) === id);
+      if (idx >= 0) portalServerState.eventExpenses[idx] = Object.assign({}, portalServerState.eventExpenses[idx], next);
+      else portalServerState.eventExpenses.push(next);
+      refreshEventsUiFromLocal_();
+    }
+    function removeLocalEventExpense_(id){
+      const idS = String(id || "");
+      portalServerState.eventExpenses = (portalServerState.eventExpenses || []).filter(x => String(x.id) !== idS);
+      refreshEventsUiFromLocal_();
+    }
+    async function portalServerAddEvent(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "addEvent",
+        actor: "admin",
+        eventName: String(payload.eventName || ""),
+        eventYear: String(payload.eventYear || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true, id: j.id, label: j.label };
+    }
+    async function portalServerAddEventCollection(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "addEventCollection",
+        actor: "admin",
+        eventId: String(payload.eventId || ""),
+        plotNo: String(payload.plotNo || ""),
+        amount: Number(payload.amount) || 0
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true, id: j.id };
+    }
+    async function portalServerAddEventExpense(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "addEventExpense",
+        actor: "admin",
+        eventId: String(payload.eventId || ""),
+        amount: Number(payload.amount) || 0,
+        description: String(payload.description || ""),
+        paidTo: String(payload.paidTo || ""),
+        billLink: String(payload.billLink || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true, id: j.id };
+    }
+    async function portalServerUpdateEventExpense(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "updateEventExpense",
+        actor: "admin",
+        id: String(payload.id || ""),
+        eventId: String(payload.eventId || ""),
+        amount: Number(payload.amount) || 0,
+        description: String(payload.description || ""),
+        paidTo: String(payload.paidTo || ""),
+        billLink: String(payload.billLink || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true };
+    }
+    async function portalServerDeleteEventExpense(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "deleteEventExpense",
+        actor: "admin",
+        id: String(payload.id || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "delete_failed", detail: j };
+      return { ok:true };
+    }
+    function openEventAddModal(){
+      setErr(document.getElementById("eventAddErr"), "");
+      const n = document.getElementById("eventAddNameInput");
+      const y = document.getElementById("eventAddYearInput");
+      if (n) n.value = "";
+      if (y) y.value = String(new Date().getFullYear());
+      showBackdrop("eventAddBackdrop", true);
+    }
+    function openEventCollModal(){
+      if (!eventsList_().length){
+        alert("Add an event first (Add Event button).");
+        return;
+      }
+      setErr(document.getElementById("eventCollErr"), "");
+      populatePlotSelect(document.getElementById("eventCollPlotSelect"));
+      fillEventSelectEl_("eventCollEventSelect");
+      const amt = document.getElementById("eventCollAmount");
+      if (amt) amt.value = "";
+      renderEventCollHistory();
+      showBackdrop("eventCollBackdrop", true);
+    }
+    function renderEventCollHistory(){
+      const tb = document.getElementById("eventCollHistoryRows");
+      const plotSel = document.getElementById("eventCollPlotSelect");
+      if (!tb) return;
+      const plotNo = plotSel ? String(plotSel.value || "") : "";
+      if (!plotNo){
+        tb.innerHTML = "<tr><td colspan=\"2\">Select a plot</td></tr>";
+        return;
+      }
+      const rows = (portalServerState.eventCollections || []).filter(c =>
+        canonicalPlotNoKey_(String(c.plotNo || "")) === canonicalPlotNoKey_(plotNo)
+      );
+      if (!rows.length){
+        tb.innerHTML = "<tr><td colspan=\"2\">No event collections yet</td></tr>";
+        return;
+      }
+      tb.innerHTML = rows.map(c =>
+        `<tr><td>${escapeHtml(eventLabelById_(c.eventId))}</td><td>${Math.round(toMoneyNumber(c.amount))}</td></tr>`
+      ).join("");
+    }
+    function openEventExpenseAddModal(){
+      if (!eventsList_().length){
+        alert("Add an event first (Add Event button).");
+        return;
+      }
+      setErr(document.getElementById("eventExpenseAddErr"), "");
+      fillEventSelectEl_("eventExpenseEventSelect");
+      ["eventExpenseAmountInput","eventExpenseDescInput","eventExpensePaidToInput","eventExpenseBillLinkInput"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      showBackdrop("eventExpenseAddBackdrop", true);
+    }
+    function openEventExpenseManageModal(){
+      fillEventSelectEl_("eventExpenseManageEventSelect");
+      resetEventExpenseManageEdit();
+      renderEventExpenseManageTable();
+      showBackdrop("eventExpenseManageBackdrop", true);
+    }
+    function resetEventExpenseManageEdit(){
+      const idEl = document.getElementById("eventExpenseManageEditId");
+      if (idEl) idEl.value = "";
+      ["eventExpenseManageAmount","eventExpenseManageDesc","eventExpenseManagePaidTo","eventExpenseManageBillLink"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = "";
+      });
+      const saveBtn = document.getElementById("eventExpenseManageSaveBtn");
+      if (saveBtn) saveBtn.disabled = true;
+      const err = document.getElementById("eventExpenseManageErr");
+      if (err) err.textContent = "";
+    }
+    function renderEventExpenseManageTable(){
+      const tb = document.getElementById("eventExpenseManageTbody");
+      if (!tb) return;
+      const fid = getSelectedEventFilterId();
+      const list = [...(portalServerState.eventExpenses || [])].filter(ex => {
+        if (!fid) return true;
+        return String(ex.eventId) === fid;
+      }).sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      if (!list.length){
+        tb.innerHTML = "<tr><td colspan=\"7\">No event expense rows yet.</td></tr>";
+        return;
+      }
+      tb.innerHTML = list.map(ex => {
+        const id = escapeHtml(String(ex.id || ""));
+        const linkRaw = expenseCellStr_(ex.billLink);
+        const linkCell = isHttpUrl(linkRaw)
+          ? `<a href="${escapeHtml(linkRaw)}" target="_blank" rel="noreferrer">Open</a>`
+          : "—";
+        return `<tr>
+          <td>${escapeHtml(formatIsoDateShort_(ex.atIso))}</td>
+          <td>${escapeHtml(eventLabelById_(ex.eventId))}</td>
+          <td>${Math.round(toMoneyNumber(ex.amount))}</td>
+          <td>${escapeHtml(expenseCellStr_(ex.description))}</td>
+          <td>${escapeHtml(expenseCellStr_(ex.paidTo))}</td>
+          <td>${linkCell}</td>
+          <td><span class="expenseManageRowActions">
+            <button type="button" class="btn secondary tiny eventExpenseManageEditRowBtn" data-event-expense-id="${id}">Edit</button>
+            <button type="button" class="btn danger tiny eventExpenseManageDeleteRowBtn" data-event-expense-id="${id}">Delete</button>
+          </span></td>
+        </tr>`;
+      }).join("");
+    }
+    function renderUserEventContributions(){
+      const tb = document.getElementById("userEventContribTbody");
+      if (!tb) return;
+      const sess = readSession();
+      if (!sess || sess.role !== "user"){
+        tb.innerHTML = "<tr><td colspan=\"4\">—</td></tr>";
+        return;
+      }
+      const plotNos = userPlotNumbersForSession_(sess);
+      if (!plotNos.length){
+        tb.innerHTML = "<tr><td colspan=\"4\">No plots linked to your login.</td></tr>";
+        return;
+      }
+      const plotSet = new Set(plotNos.map(p => canonicalPlotNoKey_(p)));
+      const rows = (portalServerState.eventCollections || []).filter(c =>
+        plotSet.has(canonicalPlotNoKey_(String(c.plotNo || "")))
+      ).sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      if (!rows.length){
+        tb.innerHTML = "<tr><td colspan=\"4\">No event contributions recorded yet.</td></tr>";
+        return;
+      }
+      tb.innerHTML = rows.map(c =>
+        `<tr>
+          <td>${escapeHtml(eventLabelById_(c.eventId))}</td>
+          <td>${escapeHtml(String(c.plotNo || ""))}</td>
+          <td>₹ ${Math.round(toMoneyNumber(c.amount)).toLocaleString("en-IN")}</td>
+          <td>${escapeHtml(formatIsoDateShort_(c.atIso))}</td>
+        </tr>`
+      ).join("");
+    }
+    function userPlotNumbersForSession_(sess){
+      if (!sess) return [];
+      const rows = findUserPlotRows(sess.userId);
+      return [...new Set(rows.map(plotNoOfRow).filter(Boolean))];
+    }
+    function formatIsoDateShort_(iso){
+      if (!iso) return "—";
+      try {
+        const d = new Date(iso);
+        if (isNaN(d.getTime())) return String(iso).slice(0, 10);
+        return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+      } catch { return String(iso).slice(0, 10); }
     }
 
     async function portalServerAddOtherEarning(payload){
@@ -9418,6 +10076,9 @@
         alert("No FY months available for this report.");
         return;
       }
+      const pdfEvents = eventsList_();
+      const pdfEventLabels = pdfEvents.map(ev => String(ev.label || eventLabelById_(ev.id)).slice(0, 22));
+      const eventColSums = pdfEvents.map(() => 0);
       /** Plot directory counts for the summary page (dedupe by Plot No.). */
       function sixMonthPdfDirectorySummaryStats_(){
         const byPlot = new Map();
@@ -9483,8 +10144,8 @@
       }
 
       const head = isShort
-        ? [["Plot No.", "Name", ...slots.map(sixMonthReportColumnLabel), "Total"]]
-        : [["Plot No.", "Name", "Primary Contact", ...slots.map(sixMonthReportColumnLabel), "Total"]];
+        ? [["Plot No.", "Name", ...slots.map(sixMonthReportColumnLabel), ...pdfEventLabels, "Total"]]
+        : [["Plot No.", "Name", "Primary Contact", ...slots.map(sixMonthReportColumnLabel), ...pdfEventLabels, "Total"]];
       const body = [];
       const colSums = slots.map(() => 0);
       const colPaidCounts = slots.map(() => 0);
@@ -9519,6 +10180,11 @@
             row.push(String(v));
           }
         });
+        pdfEvents.forEach((ev, ei) => {
+          const v = eventCollectionAmountForPlot_(plotNo, ev.id);
+          eventColSums[ei] += v;
+          row.push(v > 0 ? String(Math.round(v)) : "—");
+        });
         grandTotal += rowSum;
         if (isShort){
           grandPaidMonths += rowPaidMonths;
@@ -9528,9 +10194,10 @@
         }
         body.push(row);
       }
+      const eventFootCells = eventColSums.map(v => String(Math.round(v)));
       const foot = isShort
-        ? [["Total", "", ...colPaidCounts.map(String), String(grandPaidMonths)]]
-        : [["Total", "", "", ...colSums.map(String), String(Math.round(grandTotal))]];
+        ? [["Total", "", ...colPaidCounts.map(String), ...eventFootCells, String(grandPaidMonths)]]
+        : [["Total", "", "", ...colSums.map(String), ...eventFootCells, String(Math.round(grandTotal))]];
       const dirStats = sixMonthPdfDirectorySummaryStats_();
       const expensePerSlot = slots.map(s => {
         let t = 0;
@@ -9580,10 +10247,11 @@
       const tableW = pageW - margin * 2;
       const nameColMm = 52;
       const fixed = isShort ? (7 + nameColMm + 14) : (7 + nameColMm + 22 + 14);
-      const mo = Math.max(9, (tableW - fixed) / slots.length);
+      const nDataCols = slots.length + pdfEvents.length;
+      const mo = Math.max(8, (tableW - fixed) / Math.max(1, nDataCols));
       const colWidths = isShort
-        ? [7, nameColMm, ...slots.map(() => mo), 14]
-        : [7, nameColMm, 22, ...slots.map(() => mo), 14];
+        ? [7, nameColMm, ...slots.map(() => mo), ...pdfEvents.map(() => mo), 14]
+        : [7, nameColMm, 22, ...slots.map(() => mo), ...pdfEvents.map(() => mo), 14];
 
       const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
       if (typeof doc.autoTable !== "function"){
@@ -9850,13 +10518,15 @@
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7.6);
       doc.text(`As of ${footerDateTimeStr}`, cx, 17, { align: "center" });
+      doc.setFontSize(6.8);
+      doc.text("Note: Event contributions (columns after April) are not included in maintenance totals.", cx, 21.5, { align: "center" });
       if (expenseReportRowsAll.length > 200){
         doc.setFontSize(7);
-        doc.text("(Showing first 200 expense rows; total below includes all rows in this period.)", cx, 22, { align: "center" });
+        doc.text("(Showing first 200 expense rows; total below includes all rows in this period.)", cx, 26, { align: "center" });
       }
       const expLine = { lineWidth: 0.12, lineColor: [55, 55, 55] };
       doc.autoTable({
-        startY: expenseReportRowsAll.length > 200 ? 26 : 21,
+        startY: expenseReportRowsAll.length > 200 ? 30 : 25,
         margin: { left: margin, right: margin, bottom: 10 },
         tableWidth: tableW,
         theme: "grid",
@@ -10110,6 +10780,40 @@
           }
         }
       });
+
+      if (pdfEvents.length){
+        doc.addPage();
+        let yEv = 12;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.text("Event Collection and Expense Report", cx, yEv, { align: "center" });
+        yEv += 8;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        for (const ev of pdfEvents){
+          let coll = 0;
+          let exp = 0;
+          for (const c of portalServerState.eventCollections || []){
+            if (String(c.eventId) === String(ev.id)) coll += toMoneyNumber(c.amount);
+          }
+          for (const ex of portalServerState.eventExpenses || []){
+            if (String(ex.eventId) === String(ev.id)) exp += toMoneyNumber(ex.amount);
+          }
+          coll = Math.round(coll);
+          exp = Math.round(exp);
+          const bal = coll - exp;
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.text(String(ev.label || eventLabelById_(ev.id)), sm, yEv);
+          yEv += 5;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.text(`Amount Collected: Rs. ${coll}   |   Total Expense: Rs. ${exp}   |   Balance: Rs. ${bal}`, sm, yEv);
+          yEv += 9;
+        }
+        doc.setFontSize(7);
+        doc.text("Event amounts are separate from maintenance collection and are not included in maintenance report totals.", sm, yEv);
+      }
 
       const yThank = (doc.lastAutoTable && typeof doc.lastAutoTable.finalY === "number")
         ? doc.lastAutoTable.finalY + 10
@@ -11495,6 +12199,7 @@
       renderPortalNotificationsPanels();
       renderUserGateVisitsPanel();
       renderOwnDocsTable();
+      renderUserEventContributions();
     }
 
     function compressImageFileToJpegDataUrl_(file, maxW){
@@ -12300,6 +13005,170 @@
         if (saveBtn) saveBtn.disabled = false;
         const err = document.getElementById("expenseManageErr");
         if (err) err.textContent = "";
+      });
+      const eventFilterSelect = document.getElementById("eventFilterSelect");
+      if (eventFilterSelect) eventFilterSelect.addEventListener("change", () => {
+        updateEventCollectionCards();
+        if (document.getElementById("eventExpenseManageBackdrop")?.classList.contains("show")) renderEventExpenseManageTable();
+      });
+      const eventAddBtn = document.getElementById("eventAddBtn");
+      if (eventAddBtn) eventAddBtn.addEventListener("click", () => openEventAddModal());
+      const eventAddCloseBtn = document.getElementById("eventAddCloseBtn");
+      if (eventAddCloseBtn) eventAddCloseBtn.addEventListener("click", () => showBackdrop("eventAddBackdrop", false));
+      const eventAddSaveBtn = document.getElementById("eventAddSaveBtn");
+      if (eventAddSaveBtn) eventAddSaveBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        if (!isServerEnabled()){ alert("Configure COLLECTION_API_URL and API key."); return; }
+        const eventName = norm(document.getElementById("eventAddNameInput")?.value);
+        const eventYear = norm(document.getElementById("eventAddYearInput")?.value);
+        const errEl = document.getElementById("eventAddErr");
+        setErr(errEl, "");
+        if (!eventName){ setErr(errEl, "Enter event name."); return; }
+        if (!eventYear){ setErr(errEl, "Enter event year."); return; }
+        void (async () => {
+          const sr = await portalServerAddEvent({ eventName, eventYear });
+          if (!sr.ok){
+            setErr(errEl, sr.error === "event_exists" ? "This event already exists." : (sr.error || "Could not save event."));
+            return;
+          }
+          upsertLocalEvent_({
+            id: sr.id,
+            eventName, eventYear,
+            label: sr.label || (eventName + "-" + eventYear)
+          });
+          showBackdrop("eventAddBackdrop", false);
+          alert("Event added: " + (sr.label || eventName + "-" + eventYear));
+        })();
+      });
+      const eventCollAddBtn = document.getElementById("eventCollAddBtn");
+      if (eventCollAddBtn) eventCollAddBtn.addEventListener("click", () => openEventCollModal());
+      const eventCollCloseBtn = document.getElementById("eventCollCloseBtn");
+      if (eventCollCloseBtn) eventCollCloseBtn.addEventListener("click", () => showBackdrop("eventCollBackdrop", false));
+      const eventCollPlotSelect = document.getElementById("eventCollPlotSelect");
+      if (eventCollPlotSelect) eventCollPlotSelect.addEventListener("change", () => renderEventCollHistory());
+      const eventCollSaveBtn = document.getElementById("eventCollSaveBtn");
+      if (eventCollSaveBtn) eventCollSaveBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        if (!isServerEnabled()){ alert("Configure COLLECTION_API_URL and API key."); return; }
+        const plotNo = norm(document.getElementById("eventCollPlotSelect")?.value);
+        const eventId = norm(document.getElementById("eventCollEventSelect")?.value);
+        const amount = toMoneyNumber(document.getElementById("eventCollAmount")?.value);
+        const errEl = document.getElementById("eventCollErr");
+        setErr(errEl, "");
+        if (!plotNo){ setErr(errEl, "Choose a plot."); return; }
+        if (!eventId){ setErr(errEl, "Choose an event."); return; }
+        if (amount <= 0){ setErr(errEl, "Enter a positive amount."); return; }
+        void (async () => {
+          const sr = await portalServerAddEventCollection({ plotNo, eventId, amount });
+          if (!sr.ok){
+            setErr(errEl, sr.error === "already_paid" ? "This plot already has a collection for this event." : (sr.error || "Could not save."));
+            return;
+          }
+          upsertLocalEventCollection_({
+            id: sr.id, plotNo, eventId, amount, by: "admin", source: "admin_portal"
+          });
+          const amtEl = document.getElementById("eventCollAmount");
+          if (amtEl) amtEl.value = "";
+          renderEventCollHistory();
+          alert("Event collection saved.");
+        })();
+      });
+      const eventExpenseAddBtn = document.getElementById("eventExpenseAddBtn");
+      if (eventExpenseAddBtn) eventExpenseAddBtn.addEventListener("click", () => openEventExpenseAddModal());
+      const eventExpenseAddCloseBtn = document.getElementById("eventExpenseAddCloseBtn");
+      if (eventExpenseAddCloseBtn) eventExpenseAddCloseBtn.addEventListener("click", () => showBackdrop("eventExpenseAddBackdrop", false));
+      const eventExpenseShowUpdateBtn = document.getElementById("eventExpenseShowUpdateBtn");
+      if (eventExpenseShowUpdateBtn) eventExpenseShowUpdateBtn.addEventListener("click", () => openEventExpenseManageModal());
+      const eventExpenseAddSaveBtn = document.getElementById("eventExpenseAddSaveBtn");
+      if (eventExpenseAddSaveBtn) eventExpenseAddSaveBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        if (!isServerEnabled()){ alert("Configure COLLECTION_API_URL and API key."); return; }
+        const eventId = norm(document.getElementById("eventExpenseEventSelect")?.value);
+        const amount = toMoneyNumber(document.getElementById("eventExpenseAmountInput")?.value);
+        const description = norm(document.getElementById("eventExpenseDescInput")?.value);
+        const paidTo = norm(document.getElementById("eventExpensePaidToInput")?.value);
+        const billLink = norm(document.getElementById("eventExpenseBillLinkInput")?.value);
+        const errEl = document.getElementById("eventExpenseAddErr");
+        setErr(errEl, "");
+        if (!eventId){ setErr(errEl, "Choose an event."); return; }
+        if (amount <= 0){ setErr(errEl, "Enter a positive amount."); return; }
+        if (billLink && !isHttpUrl(billLink)){ setErr(errEl, "Bill link must start with http:// or https://"); return; }
+        void (async () => {
+          const sr = await portalServerAddEventExpense({ eventId, amount, description, paidTo, billLink });
+          if (!sr.ok){ setErr(errEl, sr.error || "Could not save event expense."); return; }
+          upsertLocalEventExpense_({ id: sr.id, eventId, amount, description, paidTo, billLink });
+          showBackdrop("eventExpenseAddBackdrop", false);
+          alert("Event expense saved successfully.");
+        })();
+      });
+      const eventExpenseManageCloseBtn = document.getElementById("eventExpenseManageCloseBtn");
+      if (eventExpenseManageCloseBtn) eventExpenseManageCloseBtn.addEventListener("click", () => showBackdrop("eventExpenseManageBackdrop", false));
+      const eventExpenseManageCancelEditBtn = document.getElementById("eventExpenseManageCancelEditBtn");
+      if (eventExpenseManageCancelEditBtn) eventExpenseManageCancelEditBtn.addEventListener("click", () => {
+        resetEventExpenseManageEdit();
+        renderEventExpenseManageTable();
+      });
+      const eventExpenseManageSaveBtn = document.getElementById("eventExpenseManageSaveBtn");
+      if (eventExpenseManageSaveBtn) eventExpenseManageSaveBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        const id = norm(document.getElementById("eventExpenseManageEditId")?.value);
+        if (!id){ alert("Choose a row with Edit first."); return; }
+        const eventId = norm(document.getElementById("eventExpenseManageEventSelect")?.value);
+        const amount = toMoneyNumber(document.getElementById("eventExpenseManageAmount")?.value);
+        const description = norm(document.getElementById("eventExpenseManageDesc")?.value);
+        const paidTo = norm(document.getElementById("eventExpenseManagePaidTo")?.value);
+        const billLink = norm(document.getElementById("eventExpenseManageBillLink")?.value);
+        const errEl = document.getElementById("eventExpenseManageErr");
+        if (errEl) errEl.textContent = "";
+        if (!eventId){ if (errEl) errEl.textContent = "Choose an event."; return; }
+        if (amount <= 0){ if (errEl) errEl.textContent = "Enter a positive amount."; return; }
+        if (billLink && !isHttpUrl(billLink)){ if (errEl) errEl.textContent = "Bill link must start with http:// or https://"; return; }
+        void (async () => {
+          const sr = await portalServerUpdateEventExpense({ id, eventId, amount, description, paidTo, billLink });
+          if (!sr.ok){ if (errEl) errEl.textContent = sr.error || "Could not update."; return; }
+          upsertLocalEventExpense_({ id, eventId, amount, description, paidTo, billLink });
+          resetEventExpenseManageEdit();
+          alert("Event expense updated successfully.");
+        })();
+      });
+      const eventExpenseManageTbody = document.getElementById("eventExpenseManageTbody");
+      if (eventExpenseManageTbody) eventExpenseManageTbody.addEventListener("click", (e) => {
+        const delBtn = e.target.closest(".eventExpenseManageDeleteRowBtn");
+        if (delBtn){
+          const sess = readSession();
+          if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+          if (!isServerEnabled()){ alert("Configure COLLECTION_API_URL and API key."); return; }
+          const idDel = norm(delBtn.getAttribute("data-event-expense-id"));
+          if (!idDel) return;
+          if (!confirm("Delete this event expense row?")) return;
+          const errEl = document.getElementById("eventExpenseManageErr");
+          void (async () => {
+            const dr = await portalServerDeleteEventExpense({ id: idDel });
+            if (!dr.ok){ if (errEl) errEl.textContent = dr.error || "Could not delete."; return; }
+            removeLocalEventExpense_(idDel);
+            const editingId = norm(document.getElementById("eventExpenseManageEditId")?.value);
+            if (editingId && editingId === idDel) resetEventExpenseManageEdit();
+          })();
+          return;
+        }
+        const btn = e.target.closest(".eventExpenseManageEditRowBtn");
+        if (!btn) return;
+        const idRaw = btn.getAttribute("data-event-expense-id");
+        const ex = (portalServerState.eventExpenses || []).find(x => String(x.id) === String(idRaw));
+        if (!ex) return;
+        document.getElementById("eventExpenseManageEditId").value = String(ex.id || "");
+        fillEventSelectEl_("eventExpenseManageEventSelect", ex.eventId);
+        const setv = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+        setv("eventExpenseManageAmount", String(Math.round(toMoneyNumber(ex.amount)) || ""));
+        setv("eventExpenseManageDesc", expenseCellStr_(ex.description));
+        setv("eventExpenseManagePaidTo", expenseCellStr_(ex.paidTo));
+        setv("eventExpenseManageBillLink", expenseCellStr_(ex.billLink));
+        document.getElementById("eventExpenseManageSaveBtn").disabled = false;
+        document.getElementById("eventExpenseManageErr").textContent = "";
       });
       const otherEarningsAddBtn = document.getElementById("otherEarningsAddBtn");
       if (otherEarningsAddBtn) otherEarningsAddBtn.addEventListener("click", () => { void openOtherEarningsAddModal(); });
