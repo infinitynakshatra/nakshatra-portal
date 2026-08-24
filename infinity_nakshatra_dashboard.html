@@ -825,14 +825,17 @@
       #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix,
       #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripTwelve{ grid-template-columns: 1fr; }
     }
-    #adminEventsMcRow .mcKpiStrip.mcKpiStripThree{
+    #adminEventsMcRow .mcKpiStrip.mcKpiStripSix{
       display:grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap:6px;
     }
-    #adminEventsMcRow .mcKpiStrip.mcKpiStripThree .mcKpiCard{ min-height:62px; }
-    @media (max-width: 720px){
-      #adminEventsMcRow .mcKpiStrip.mcKpiStripThree{ grid-template-columns: 1fr; }
+    #adminEventsMcRow .mcKpiStrip.mcKpiStripSix .mcKpiCard{ min-height:62px; }
+    @media (max-width: 1100px){
+      #adminEventsMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 520px){
+      #adminEventsMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: 1fr; }
     }
     #adminMaintenanceMcRow .mcSubSectionTitle{
       margin:0 0 5px;
@@ -2211,17 +2214,16 @@
             </div>
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
-                <span class="mcKpiCardLabel">Other Earnings</span>
-                <b class="mcKpiCardValue" id="mcOtherEarningsSummary">—</b>
+                <span class="mcKpiCardLabel">Maintenance Expenses</span>
+                <b class="mcKpiCardValue" id="mcExpensesSummary">—</b>
               </div>
               <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
             </div>
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
-                <span class="mcKpiCardLabel">Maintenance Expenses</span>
-                <b class="mcKpiCardValue" id="mcExpensesSummary">—</b>
+                <span class="mcKpiCardLabel">Maintenance Collection Balance</span>
+                <b class="mcKpiCardValue" id="mcMaintCollBalanceSummary">—</b>
               </div>
-              <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
             </div>
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
@@ -2237,15 +2239,16 @@
             </div>
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
-                <span class="mcKpiCardLabel">Maintenance Collection Balance</span>
-                <b class="mcKpiCardValue" id="mcMaintCollBalanceSummary">—</b>
+                <span class="mcKpiCardLabel">Events Collection Balance</span>
+                <b class="mcKpiCardValue" id="mcEventsCollBalanceSummary">—</b>
               </div>
             </div>
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
-                <span class="mcKpiCardLabel">Events Collection Balance</span>
-                <b class="mcKpiCardValue" id="mcEventsCollBalanceSummary">—</b>
+                <span class="mcKpiCardLabel">Other Earnings</span>
+                <b class="mcKpiCardValue" id="mcOtherEarningsSummary">—</b>
               </div>
+              <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
             </div>
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
@@ -2327,7 +2330,7 @@
               </div>
             </div>
           </div>
-          <div class="mcKpiStrip mcKpiStripThree" aria-label="Event summary">
+          <div class="mcKpiStrip mcKpiStripSix" aria-label="Event summary">
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
                 <span class="mcKpiCardLabel">Total Collection</span>
@@ -3783,6 +3786,24 @@
         <div class="field" style="margin:0;">
           <label class="mcDdLabel" for="eventAddNameInput">Event Name</label>
           <input id="eventAddNameInput" type="text" placeholder="e.g. Ganpati-Utsav" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventAddMonthInput">Event Month</label>
+          <select id="eventAddMonthInput" aria-label="Event month">
+            <option value="">Select month</option>
+            <option value="1">January</option>
+            <option value="2">February</option>
+            <option value="3">March</option>
+            <option value="4">April</option>
+            <option value="5">May</option>
+            <option value="6">June</option>
+            <option value="7">July</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+          </select>
         </div>
         <div class="field" style="margin:0;">
           <label class="mcDdLabel" for="eventAddYearInput">Event Year</label>
@@ -5286,6 +5307,59 @@
       const ev = eventById_(id);
       return ev ? String(ev.label || ev.eventName || "") : String(id || "");
     }
+    function eventMonthToYm_(eventMonth, eventYear){
+      const y = parseInt(String(eventYear || ""), 10);
+      if (!Number.isFinite(y)) return "";
+      const raw = String(eventMonth || "").trim();
+      if (!raw) return "";
+      const mon3 = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"];
+      let m = parseInt(raw, 10);
+      if (!Number.isFinite(m) || m < 1 || m > 12){
+        const idx = mon3.findIndex(n => raw.toLowerCase().startsWith(n));
+        if (idx < 0) return "";
+        m = idx + 1;
+      }
+      return y + "-" + String(m).padStart(2, "0");
+    }
+    function eventYmFromEvent_(ev){
+      if (!ev) return "";
+      let month = String(ev.eventMonth || "").trim();
+      let year = String(ev.eventYear || "").trim();
+      if (!year && /^\d{4}$/.test(month)){
+        year = month;
+        month = "";
+      }
+      return eventMonthToYm_(month, year);
+    }
+    function computeEventAmountsPerSlot_(slots){
+      const collPerSlot = slots.map(() => 0);
+      const expPerSlot = slots.map(() => 0);
+      const ymToIdx = new Map(slots.map((s, i) => [normalizePortalYm(s.ym), i]));
+      for (const c of portalServerState.eventCollections || []){
+        const ym = eventYmFromEvent_(eventById_(c.eventId));
+        if (!ym) continue;
+        const idx = ymToIdx.get(normalizePortalYm(ym));
+        if (idx == null) continue;
+        collPerSlot[idx] += toMoneyNumber(c.amount);
+      }
+      for (const ex of portalServerState.eventExpenses || []){
+        const ym = eventYmFromEvent_(eventById_(ex.eventId));
+        if (!ym) continue;
+        const idx = ymToIdx.get(normalizePortalYm(ym));
+        if (idx == null) continue;
+        expPerSlot[idx] += toMoneyNumber(ex.amount);
+      }
+      const collR = collPerSlot.map(v => Math.round(v));
+      const expR = expPerSlot.map(v => Math.round(v));
+      return {
+        collPerSlot: collR,
+        expPerSlot: expR,
+        balancePerSlot: collR.map((c, i) => Math.round(c - expR[i]))
+      };
+    }
+    function eventAmountCellsForSlot_(perSlot){
+      return perSlot.map(v => v > 0 ? `Rs. ${v}` : "—");
+    }
     function getSelectedEventFilterId(){
       const el = document.getElementById("eventFilterSelect");
       return el ? String(el.value || "") : "";
@@ -5389,6 +5463,7 @@
         id,
         atIso: String(row.atIso || new Date().toISOString()),
         eventName: String(row.eventName || ""),
+        eventMonth: String(row.eventMonth || ""),
         eventYear: String(row.eventYear || ""),
         label: String(row.label || (row.eventName && row.eventYear ? row.eventName + "-" + row.eventYear : row.eventName || ""))
       };
@@ -5448,6 +5523,7 @@
         action: "addEvent",
         actor: "admin",
         eventName: String(payload.eventName || ""),
+        eventMonth: String(payload.eventMonth || ""),
         eventYear: String(payload.eventYear || "")
       });
       if (r.skipped) return { ok:false, skipped:true };
@@ -5535,8 +5611,10 @@
     function openEventAddModal(){
       setErr(document.getElementById("eventAddErr"), "");
       const n = document.getElementById("eventAddNameInput");
+      const m = document.getElementById("eventAddMonthInput");
       const y = document.getElementById("eventAddYearInput");
       if (n) n.value = "";
+      if (m) m.value = "";
       if (y) y.value = String(new Date().getFullYear());
       showBackdrop("eventAddBackdrop", true);
     }
@@ -10381,8 +10459,12 @@
       const lateFeeGrand = lateFeePerSlot.reduce((a, b) => a + b, 0);
       const finTotals = computeFinancialSummaryTotals_(slots.map(s => s.ym));
       const maintCollBalancePerSlot = balancePerSlot;
-      const maintCollBalanceGrand = finTotals.maintenanceCollectionBalance;
-      const evDash = slots.map(() => "—");
+      const eventSlotAmounts = computeEventAmountsPerSlot_(slots);
+      const eventCollPerSlot = eventSlotAmounts.collPerSlot;
+      const eventExpPerSlot = eventSlotAmounts.expPerSlot;
+      const eventBalancePerSlot = eventSlotAmounts.balancePerSlot;
+      const totalExpPerSlot = expensePerSlot.map((v, i) => Math.round(v + eventExpPerSlot[i]));
+      const totalBalancePerSlot = maintCollBalancePerSlot.map((v, i) => Math.round(v + eventBalancePerSlot[i]));
       const poolNPerSlot = slots.map(slot => existingMemberPlotCountForYm_(slot.ym));
       const paidOwnersPerSlot = slots.map(slot => {
         let c = 0;
@@ -10840,17 +10922,19 @@
         const at = String(c.atIso || "").replace("T", " ").slice(0, 19);
         const evLabel = eventLabelById_(c.eventId).slice(0, 80);
         const plot = String(c.plotNo || "").trim();
+        const ownerName = sheetOwnerNameForSixMonthPdf(sheetRowForPlotNo(plot)).slice(0, 80);
         const by = String(c.by || c.source || "").trim().slice(0, 120);
         return [
           at,
           plot || "—",
+          ownerName || "—",
           evLabel || "—",
           by || "—",
           `Rs. ${Math.round(toMoneyNumber(c.amount))}`
         ];
       });
       if (!eventCollReportBody.length){
-        eventCollReportBody.push(["—", "—", "—", "No event collections recorded.", "Rs. 0"]);
+        eventCollReportBody.push(["—", "—", "—", "—", "No event collections recorded.", "Rs. 0"]);
       }
 
       doc.addPage();
@@ -10872,9 +10956,9 @@
         margin: { left: margin, right: margin, bottom: 10 },
         tableWidth: tableW,
         theme: "grid",
-        head: [["Date / time", "Plot No.", "Event", "By / Source", "Amount (Rs.)"]],
+        head: [["Date / time", "Plot No.", "Owner Name", "Event", "By / Source", "Amount (Rs.)"]],
         body: eventCollReportBody,
-        foot: [[`TOTAL (${eventCollReportRowsAll.length} entries)`, "", "", "", `Rs. ${Math.round(eventCollGrand)}`]],
+        foot: [[`TOTAL (${eventCollReportRowsAll.length} entries)`, "", "", "", "", `Rs. ${Math.round(eventCollGrand)}`]],
         showFoot: "lastPage",
         styles: {
           font: "helvetica",
@@ -10902,21 +10986,23 @@
           ...evCollLine
         },
         didParseCell: function (data) {
-          if (data.column.index === 4) data.cell.styles.halign = "right";
+          if (data.column.index === 5) data.cell.styles.halign = "right";
         },
         columnStyles: (() => {
-          const wDate = 32;
-          const wPlot = 16;
-          const wAmt = 24;
-          const rem = tableW - wDate - wPlot - wAmt;
+          const wDate = 28;
+          const wPlot = 14;
+          const wOwner = 34;
+          const wAmt = 22;
+          const rem = tableW - wDate - wPlot - wOwner - wAmt;
           const wEvent = rem * 0.55;
           const wBy = rem * 0.45;
           return {
             0: { cellWidth: wDate, halign: "left" },
             1: { cellWidth: wPlot, halign: "center" },
-            2: { cellWidth: wEvent, halign: "left" },
-            3: { cellWidth: wBy, halign: "left" },
-            4: { cellWidth: wAmt, halign: "right" }
+            2: { cellWidth: wOwner, halign: "left" },
+            3: { cellWidth: wEvent, halign: "left" },
+            4: { cellWidth: wBy, halign: "left" },
+            5: { cellWidth: wAmt, halign: "right" }
           };
         })()
       });
@@ -11064,12 +11150,12 @@
           ["Maintenance collected", `Rs. ${finTotals.maintenanceCollected}`],
           ["Pending/Due Amount", `Rs. ${finTotals.pendingDueAmount}`],
           ["Late Fee Amount", `Rs. ${finTotals.lateFeeAmount}`],
-          ["Other Earnings", `Rs. ${finTotals.otherEarnings}`],
           ["Maintenance Expenses", `Rs. ${finTotals.maintenanceExpenses}`],
           ["Events Collection", `Rs. ${finTotals.eventsCollection}`],
           ["Events Expenses", `Rs. ${finTotals.eventsExpenses}`],
           ["Maintenance Collection Balance", `Rs. ${finTotals.maintenanceCollectionBalance}`],
           ["Events Collection Balance", `Rs. ${finTotals.eventsCollectionBalance}`],
+          ["Other Earnings", `Rs. ${finTotals.otherEarnings}`],
           ["Total Expenses", `Rs. ${finTotals.totalExpenses}`],
           ["Total Balance", `Rs. ${finTotals.totalBalance}`]
         ],
@@ -11089,6 +11175,11 @@
 
       const moHead = slots.map(sixMonthReportColumnLabel);
       const columnTotalsPerSlot = paidOwnersPerSlot.map((paid, i) => paid + unpaidOwnersPerSlot[i]);
+      const evCollCells = eventAmountCellsForSlot_(eventCollPerSlot);
+      const evExpCells = eventAmountCellsForSlot_(eventExpPerSlot);
+      const evBalCells = eventAmountCellsForSlot_(eventBalancePerSlot);
+      const totalExpCells = eventAmountCellsForSlot_(totalExpPerSlot);
+      const totalBalCells = eventAmountCellsForSlot_(totalBalancePerSlot);
       const summaryCategoryBody = isShort
         ? [
             ["Total Paid Owners", ...paidOwnersPerSlot.map(String)],
@@ -11102,15 +11193,27 @@
             ["Maintenance collected", ...colSums.map(v => `Rs. ${Math.round(v)}`), `Rs. ${finTotals.maintenanceCollected}`],
             ["Pending/Due Amount", ...pendingAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.pendingDueAmount}`],
             ["Late Fee Amount", ...lateFeePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.lateFeeAmount}`],
-            ["Other Earnings", ...otherEarningsPerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.otherEarnings}`],
             ["Maintenance Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.maintenanceExpenses}`],
-            ["Events Collection", ...evDash, `Rs. ${finTotals.eventsCollection}`],
-            ["Events Expenses", ...evDash, `Rs. ${finTotals.eventsExpenses}`],
+            ["Events Collection", ...evCollCells, `Rs. ${finTotals.eventsCollection}`],
+            ["Events Expenses", ...evExpCells, `Rs. ${finTotals.eventsExpenses}`],
             ["Maintenance Collection Balance", ...maintCollBalancePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.maintenanceCollectionBalance}`],
-            ["Events Collection Balance", ...evDash, `Rs. ${finTotals.eventsCollectionBalance}`],
-            ["Total Expenses", ...evDash, `Rs. ${finTotals.totalExpenses}`],
-            ["Total Balance", ...evDash, `Rs. ${finTotals.totalBalance}`]
+            ["Events Collection Balance", ...evBalCells, `Rs. ${finTotals.eventsCollectionBalance}`],
+            ["Other Earnings", ...otherEarningsPerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.otherEarnings}`],
+            ["Total Expenses", ...totalExpCells, `Rs. ${finTotals.totalExpenses}`],
+            ["Total Balance", ...totalBalCells, `Rs. ${finTotals.totalBalance}`]
           ];
+      if (!isShort){
+        doc.addPage();
+        ySum = 17;
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9.5);
+        doc.text("Monthly Summary", cx, ySum, { align: "center" });
+        ySum += 5;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text(rangeTitle, cx, ySum, { align: "center" });
+        ySum += 6;
+      }
       doc.autoTable({
         startY: ySum,
         margin: { left: sm, right: sm },
@@ -11135,7 +11238,7 @@
             }
             return;
           }
-          if (data.section === "body" && (data.row.index === 10 || data.row.index === 13)){
+          if (data.section === "body" && (data.row.index === 9 || data.row.index === 13)){
             data.cell.styles.fillColor = [255, 247, 200];
             data.cell.styles.fontStyle = "bold";
           }
@@ -13323,24 +13426,27 @@
         if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
         if (!isServerEnabled()){ alert("Configure COLLECTION_API_URL and API key."); return; }
         const eventName = norm(document.getElementById("eventAddNameInput")?.value);
+        const eventMonth = norm(document.getElementById("eventAddMonthInput")?.value);
         const eventYear = norm(document.getElementById("eventAddYearInput")?.value);
         const errEl = document.getElementById("eventAddErr");
         setErr(errEl, "");
         if (!eventName){ setErr(errEl, "Enter event name."); return; }
+        if (!eventMonth){ setErr(errEl, "Select event month."); return; }
         if (!eventYear){ setErr(errEl, "Enter event year."); return; }
         void (async () => {
-          const sr = await portalServerAddEvent({ eventName, eventYear });
+          const sr = await portalServerAddEvent({ eventName, eventMonth, eventYear });
           if (!sr.ok){
             setErr(errEl, sr.error === "event_exists" ? "This event already exists." : (sr.error || "Could not save event."));
             return;
           }
           upsertLocalEvent_({
             id: sr.id,
-            eventName, eventYear,
+            eventName, eventMonth, eventYear,
             label: sr.label || (eventName + "-" + eventYear)
           });
           showBackdrop("eventAddBackdrop", false);
           alert("Event added: " + (sr.label || eventName + "-" + eventYear));
+          refreshEventsUiFromLocal_();
         })();
       });
       const eventCollAddBtn = document.getElementById("eventCollAddBtn");

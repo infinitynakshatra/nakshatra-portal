@@ -69,7 +69,7 @@ const PORTAL_OTHER_EARNINGS_SHEET = "portal_other_earnings";
 const PORTAL_OTHER_EARNINGS_HEADERS = ["id","atIso","ym","category","amount","description","source"];
 /** Society events (Ganpati, Navratri, etc.) — separate from maintenance. */
 const PORTAL_EVENTS_SHEET = "portal_events";
-const PORTAL_EVENTS_HEADERS = ["id","atIso","eventName","eventYear"];
+const PORTAL_EVENTS_HEADERS = ["id","atIso","eventName","eventMonth","eventYear"];
 const PORTAL_EVENT_COLLECTIONS_SHEET = "portal_event_collections";
 const PORTAL_EVENT_COLLECTIONS_HEADERS = ["id","atIso","eventId","plotNo","amount","by","source","note"];
 const PORTAL_EVENT_EXPENSES_SHEET = "portal_event_expenses";
@@ -416,10 +416,28 @@ function readPortalExpenses_(ss) {
   return out;
 }
 
-function eventDisplayLabel_(eventName, eventYear) {
+function eventMonthShort_(eventMonth) {
+  var raw = String(eventMonth || "").trim();
+  if (!raw) return "";
+  var n = Number(raw);
+  if (isFinite(n) && n >= 1 && n <= 12) {
+    var mon3n = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return mon3n[n - 1];
+  }
+  var mon3 = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  var head = raw.slice(0, 3).toLowerCase();
+  for (var i = 0; i < mon3.length; i++) {
+    if (mon3[i] === head) return mon3[i].charAt(0).toUpperCase() + mon3[i].slice(1);
+  }
+  return raw.slice(0, 3);
+}
+
+function eventDisplayLabel_(eventName, eventYear, eventMonth) {
   var n = String(eventName || "").trim();
   var y = String(eventYear || "").trim();
+  var mShort = eventMonthShort_(eventMonth);
   if (!n) return "";
+  if (mShort && y) return n + "-" + mShort + "-" + y;
   return y ? n + "-" + y : n;
 }
 
@@ -433,14 +451,20 @@ function readPortalEvents_(ss) {
     var idRaw = String(r.id || "").trim();
     if (!idRaw || idRaw.toLowerCase() === "null") continue;
     var eventName = String(r.eventName || "").trim();
+    var eventMonth = String(r.eventMonth || "").trim();
     var eventYear = String(r.eventYear || "").trim();
+    if (!eventYear && /^\d{4}$/.test(eventMonth)) {
+      eventYear = eventMonth;
+      eventMonth = "";
+    }
     if (!eventName) continue;
     out.push({
       id: idRaw,
       atIso: String(r.atIso || ""),
       eventName: eventName,
+      eventMonth: eventMonth,
       eventYear: eventYear,
-      label: eventDisplayLabel_(eventName, eventYear)
+      label: eventDisplayLabel_(eventName, eventYear, eventMonth)
     });
   }
   out.sort(function (a, b) {
@@ -2206,11 +2230,12 @@ function doPost(e) {
     if (action === "addEvent") {
       var actorEv = String(data.actor || "admin").trim();
       var evName = String(data.eventName || "").trim();
+      var evMonth = String(data.eventMonth || "").trim();
       var evYear = String(data.eventYear || "").trim();
-      if (!evName || !evYear) return json_({ ok: false, error: "eventName and eventYear required" }, 400);
+      if (!evName || !evMonth || !evYear) return json_({ ok: false, error: "eventName, eventMonth and eventYear required" }, 400);
       var shEv = ensureSheetWithHeaders_(ss, PORTAL_EVENTS_SHEET, PORTAL_EVENTS_HEADERS);
       var existingEv = readPortalEvents_(ss);
-      var labelWant = eventDisplayLabel_(evName, evYear).toLowerCase();
+      var labelWant = eventDisplayLabel_(evName, evYear, evMonth).toLowerCase();
       var ei;
       for (ei = 0; ei < existingEv.length; ei++) {
         if (String(existingEv[ei].label || "").toLowerCase() === labelWant) {
@@ -2218,10 +2243,10 @@ function doPost(e) {
         }
       }
       var idEv = newId_();
-      shEv.appendRow([idEv, nowIso_(), evName, evYear]);
-      audit_(ss, actorEv, "addEvent", { id: idEv, eventName: evName, eventYear: evYear });
+      shEv.appendRow([idEv, nowIso_(), evName, evMonth, evYear]);
+      audit_(ss, actorEv, "addEvent", { id: idEv, eventName: evName, eventMonth: evMonth, eventYear: evYear });
       invalidatePortalStateCache_();
-      return json_({ ok: true, id: idEv, label: eventDisplayLabel_(evName, evYear) }, 200);
+      return json_({ ok: true, id: idEv, label: eventDisplayLabel_(evName, evYear, evMonth) }, 200);
     }
     if (action === "addEventCollection") {
       var actorEc = String(data.actor || "admin").trim();
