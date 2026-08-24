@@ -11447,7 +11447,7 @@
         }
       });
 
-      if (pdfEvents.length){
+      if (!isShort && pdfEvents.length){
         doc.addPage();
         let yEv = 12;
         doc.setFont("helvetica", "bold");
