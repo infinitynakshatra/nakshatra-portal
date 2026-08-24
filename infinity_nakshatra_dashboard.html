@@ -784,22 +784,46 @@
       flex-wrap:wrap;
       justify-content:flex-end;
     }
+    #adminEventsMcRow .mcCollectionShell{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+    }
+    #adminEventsMcRow .mcCollectionHead{
+      display:flex;
+      flex-wrap:wrap;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px 16px;
+    }
+    #adminEventsMcRow .mcCollectionHead .mcBrand{ flex:1 1 220px; }
+    #adminEventsMcRow .mcCollectionHead .mcBtns{
+      margin:0;
+      margin-left:auto;
+      flex:0 0 auto;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      align-self:flex-start;
+    }
     .mcBrand h3{margin:0; font-size:12px; font-weight:900;}
     .mcBrand .smallNote{color:var(--muted);}
     #adminMaintenanceMcRow .mcKpiStrip{
       display:grid;
-      grid-template-columns: repeat(7, minmax(0, 1fr));
+      grid-template-columns: repeat(6, minmax(0, 1fr));
       gap:6px;
     }
-    #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix .mcKpiCard{
+    #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix .mcKpiCard,
+    #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripTwelve .mcKpiCard{
       min-height:62px;
     }
     @media (max-width: 1100px){
-      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix,
+      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripTwelve{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 520px){
       #adminMaintenanceMcRow .mcKpiStrip,
-      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: 1fr; }
+      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix,
+      #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripTwelve{ grid-template-columns: 1fr; }
     }
     #adminEventsMcRow .mcKpiStrip.mcKpiStripThree{
       display:grid;
@@ -1839,6 +1863,7 @@
         line-height:1.25;
       }
       #adminMaintenanceMcRow .mcCollectionHead .mcBtns,
+      #adminEventsMcRow .mcCollectionHead .mcBtns,
       #adminRoot .mcRowInner > .mcBtns{
         width:100%;
         flex-direction:column;
@@ -1846,6 +1871,7 @@
         justify-content:flex-start;
       }
       #adminMaintenanceMcRow .mcCollectionHead .mcBtns .btn,
+      #adminEventsMcRow .mcCollectionHead .mcBtns .btn,
       #adminRoot .mcRowInner > .mcBtns .btn{
         width:100%;
         justify-content:center;
@@ -1909,8 +1935,10 @@
       .mcRowInner > .mcBtns,
       .mcRowInner > .pill{margin-left:0;}
       .mcDdBtn{max-width:none; width:100%;}
-      #adminMaintenanceMcRow .mcCollectionHead{flex-direction:column; align-items:stretch;}
-      #adminMaintenanceMcRow .mcCollectionHead .mcBtns{justify-content:flex-start;}
+      #adminMaintenanceMcRow .mcCollectionHead,
+      #adminEventsMcRow .mcCollectionHead{flex-direction:column; align-items:stretch;}
+      #adminMaintenanceMcRow .mcCollectionHead .mcBtns,
+      #adminEventsMcRow .mcCollectionHead .mcBtns{justify-content:flex-start; margin-left:0;}
     }
     @media (max-width: 480px){
       .statMini{flex:1 1 100%; max-width:none;}
@@ -2152,10 +2180,10 @@
             </div>
             <p class="mcFyMetaLine" id="adminMcFyMetaLine"><span id="adminMcFyMetaNote" class="mono">—</span></p>
           </div>
-          <div class="mcKpiStrip mcKpiStripSix" aria-label="Maintenance summary">
+          <div class="mcKpiStrip mcKpiStripTwelve" aria-label="Maintenance and events summary">
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
-                <span class="mcKpiCardLabel">Expected Amount</span>
+                <span class="mcKpiCardLabel">Expected Maintenance Amount</span>
                 <b class="mcKpiCardValue" id="mcExpected">—</b>
               </div>
               <span class="mcKpiCardFoot mcKpiCardFootEmpty" id="mcExpectedFoot" aria-hidden="true"></span>
@@ -2190,17 +2218,46 @@
             </div>
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
-                <span class="mcKpiCardLabel">Expenses</span>
+                <span class="mcKpiCardLabel">Maintenance Expenses</span>
                 <b class="mcKpiCardValue" id="mcExpensesSummary">—</b>
               </div>
               <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
             </div>
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
-                <span class="mcKpiCardLabel">Balance</span>
-                <b class="mcKpiCardValue" id="mcBalanceSummary">—</b>
+                <span class="mcKpiCardLabel">Events Collection</span>
+                <b class="mcKpiCardValue" id="mcEventsCollectionSummary">—</b>
               </div>
-              <span class="mcKpiCardFoot mcKpiCardFootEmpty" aria-hidden="true"></span>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Events Expenses</span>
+                <b class="mcKpiCardValue" id="mcEventsExpensesSummary">—</b>
+              </div>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Maintenance Collection Balance</span>
+                <b class="mcKpiCardValue" id="mcMaintCollBalanceSummary">—</b>
+              </div>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Events Collection Balance</span>
+                <b class="mcKpiCardValue" id="mcEventsCollBalanceSummary">—</b>
+              </div>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Total Expenses</span>
+                <b class="mcKpiCardValue" id="mcTotalExpensesSummary">—</b>
+              </div>
+            </div>
+            <div class="mcKpiCard">
+              <div class="mcKpiCardHead">
+                <span class="mcKpiCardLabel">Total Balance</span>
+                <b class="mcKpiCardValue" id="mcTotalBalanceSummary">—</b>
+              </div>
             </div>
           </div>
           <div class="adminExpenseBlock" style="margin-top:10px; padding-top:10px; border-top:1px solid var(--border);">
@@ -5318,7 +5375,7 @@
       set("evBalanceSummary", fmt(balance));
     }
     function refreshEventsUiFromLocal_(){
-      try { populateEventFilterSelect(); populateEventSelectOptions(); updateEventCollectionCards(); } catch {}
+      try { populateEventFilterSelect(); populateEventSelectOptions(); updateEventCollectionCards(); updateMaintenanceCollectionCards(); } catch {}
       try {
         if (document.getElementById("eventExpenseManageBackdrop")?.classList.contains("show")) renderEventExpenseManageTable();
       } catch {}
@@ -10049,6 +10106,95 @@
       return total;
     }
 
+    /** Shared maintenance + events totals for dashboard KPIs and PDF summary (amounts match exactly). */
+    function computeFinancialSummaryTotals_(selectedYms){
+      const yms = selectedYms || getMcSelectedYms();
+      let received = 0;
+      let lateFee = 0;
+      if (isServerEnabled() && portalServerState.loaded){
+        const plotSet = new Set();
+        for (const r of allRows || []){
+          const p = canonicalPlotNoKey_(plotNoOfRow(r));
+          if (p) plotSet.add(p);
+        }
+        for (const k of (portalServerState.paymentsByPlot || new Map()).keys()){
+          const p = canonicalPlotNoKey_(k);
+          if (p) plotSet.add(p);
+        }
+        for (const plotNo of plotSet){
+          const entries = paymentsLoadEntries(plotNo);
+          const row = sheetRowForPlotNo(plotNo);
+          for (const ym of yms){
+            if (row && !plotMaintenanceApplicableForYm_(row, ym)) continue;
+            received += maintenanceReceivedForYm_(entries, ym);
+            lateFee += toMoneyNumber(sumEntriesForYm(entries, ym).lateFee);
+          }
+        }
+      } else {
+        const rowsRecv = maintenanceCollectionPlotRows();
+        for (const r of rowsRecv){
+          const plotNo = plotNoOfRow(r);
+          if (!plotNo) continue;
+          const entries = paymentsLoadEntries(plotNo);
+          for (const ym of yms){
+            if (!plotMaintenanceApplicableForYm_(r, ym)) continue;
+            const sums = sumEntriesForYm(entries, ym);
+            received += sums.amount;
+            lateFee += sums.lateFee;
+          }
+        }
+      }
+      const expected = totalExpectedForSelectedMonths_(yms);
+      const pending = Math.max(0, expected - received);
+      const selYmSet = new Set(yms.map(y => normalizePortalYm(String(y))));
+      let maintenanceExpenses = 0;
+      let otherEarnings = 0;
+      for (const ex of portalServerState.expenses || []){
+        if (!expenseRowIsValid_(ex)) continue;
+        const ymx = normalizePortalYm(String(ex.ym || ""));
+        if (!selYmSet.has(ymx)) continue;
+        maintenanceExpenses += toMoneyNumber(ex.amount);
+      }
+      for (const oe of portalServerState.otherEarnings || []){
+        if (!otherEarningsRowIsValid_(oe)) continue;
+        const ymx = normalizePortalYm(String(oe.ym || ""));
+        if (!selYmSet.has(ymx)) continue;
+        otherEarnings += toMoneyNumber(oe.amount);
+      }
+      let eventsCollection = 0;
+      let eventsExpenses = 0;
+      for (const c of portalServerState.eventCollections || []){
+        eventsCollection += toMoneyNumber(c.amount);
+      }
+      for (const ex of portalServerState.eventExpenses || []){
+        eventsExpenses += toMoneyNumber(ex.amount);
+      }
+      received = Math.round(received);
+      lateFee = Math.round(lateFee);
+      maintenanceExpenses = Math.round(maintenanceExpenses);
+      otherEarnings = Math.round(otherEarnings);
+      eventsCollection = Math.round(eventsCollection);
+      eventsExpenses = Math.round(eventsExpenses);
+      const maintenanceCollectionBalance = received + otherEarnings - maintenanceExpenses;
+      const eventsCollectionBalance = eventsCollection - eventsExpenses;
+      const totalExpenses = maintenanceExpenses + eventsExpenses;
+      const totalBalance = maintenanceCollectionBalance + eventsCollectionBalance;
+      return {
+        expectedMaintenanceAmount: Math.round(expected),
+        maintenanceCollected: received,
+        pendingDueAmount: Math.round(pending),
+        lateFeeAmount: lateFee,
+        otherEarnings,
+        maintenanceExpenses,
+        eventsCollection,
+        eventsExpenses,
+        maintenanceCollectionBalance,
+        eventsCollectionBalance,
+        totalExpenses,
+        totalBalance
+      };
+    }
+
     function filterYmsApplicableForPlot_(row, yms){
       return (yms || []).filter(ym => plotMaintenanceApplicableForYm_(row, ym));
     }
@@ -10221,6 +10367,22 @@
       const otherEarningsGrand = otherEarningsPerSlot.reduce((a, b) => a + b, 0);
       const balancePerSlot = slots.map((_, i) => Math.round(colSums[i] + otherEarningsPerSlot[i] - expensePerSlot[i]));
       const balanceGrand = Math.round(grandTotal + otherEarningsGrand - expenseGrand);
+      const lateFeePerSlot = slots.map(s => {
+        let t = 0;
+        for (let p = 1; p <= 109; p++){
+          const plotNo = String(p);
+          const r = sheetRowForPlotNo(plotNo);
+          if (!plotMaintenanceApplicableForYm_(r, s.ym)) continue;
+          const entries = paymentsLoadEntries(plotNo);
+          t += toMoneyNumber(sumEntriesForYm(entries, s.ym).lateFee);
+        }
+        return Math.round(t);
+      });
+      const lateFeeGrand = lateFeePerSlot.reduce((a, b) => a + b, 0);
+      const finTotals = computeFinancialSummaryTotals_(slots.map(s => s.ym));
+      const maintCollBalancePerSlot = balancePerSlot;
+      const maintCollBalanceGrand = finTotals.maintenanceCollectionBalance;
+      const evDash = slots.map(() => "—");
       const poolNPerSlot = slots.map(slot => existingMemberPlotCountForYm_(slot.ym));
       const paidOwnersPerSlot = slots.map(slot => {
         let c = 0;
@@ -10671,6 +10833,176 @@
           };
         })()
       });
+
+      const eventCollReportRowsAll = (portalServerState.eventCollections || []).slice().sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      const eventCollGrand = eventCollReportRowsAll.reduce((t, c) => t + toMoneyNumber(c.amount), 0);
+      const eventCollReportBody = eventCollReportRowsAll.slice(0, 200).map(c => {
+        const at = String(c.atIso || "").replace("T", " ").slice(0, 19);
+        const evLabel = eventLabelById_(c.eventId).slice(0, 80);
+        const plot = String(c.plotNo || "").trim();
+        const by = String(c.by || c.source || "").trim().slice(0, 120);
+        return [
+          at,
+          plot || "—",
+          evLabel || "—",
+          by || "—",
+          `Rs. ${Math.round(toMoneyNumber(c.amount))}`
+        ];
+      });
+      if (!eventCollReportBody.length){
+        eventCollReportBody.push(["—", "—", "—", "No event collections recorded.", "Rs. 0"]);
+      }
+
+      doc.addPage();
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(`Event Collection Report — ${rangeTitle}`, cx, 11, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.6);
+      doc.text(`As of ${footerDateTimeStr}`, cx, 17, { align: "center" });
+      doc.setFontSize(6.8);
+      doc.text("Event collections are separate from maintenance and are not included in maintenance totals.", cx, 21.5, { align: "center" });
+      if (eventCollReportRowsAll.length > 200){
+        doc.setFontSize(7);
+        doc.text("(Showing first 200 collection rows; total below includes all rows.)", cx, 26, { align: "center" });
+      }
+      const evCollLine = { lineWidth: 0.12, lineColor: [55, 55, 55] };
+      doc.autoTable({
+        startY: eventCollReportRowsAll.length > 200 ? 30 : 25,
+        margin: { left: margin, right: margin, bottom: 10 },
+        tableWidth: tableW,
+        theme: "grid",
+        head: [["Date / time", "Plot No.", "Event", "By / Source", "Amount (Rs.)"]],
+        body: eventCollReportBody,
+        foot: [[`TOTAL (${eventCollReportRowsAll.length} entries)`, "", "", "", `Rs. ${Math.round(eventCollGrand)}`]],
+        showFoot: "lastPage",
+        styles: {
+          font: "helvetica",
+          fontSize: 7,
+          cellPadding: 0.85,
+          valign: "middle",
+          textColor: 20,
+          overflow: "linebreak",
+          halign: "left",
+          ...evCollLine
+        },
+        headStyles: {
+          font: "helvetica",
+          fontStyle: "bold",
+          fillColor: [230, 238, 248],
+          textColor: 15,
+          fontSize: 7.2,
+          ...evCollLine
+        },
+        footStyles: {
+          font: "helvetica",
+          fontStyle: "bold",
+          fillColor: [236, 248, 236],
+          fontSize: 7,
+          ...evCollLine
+        },
+        didParseCell: function (data) {
+          if (data.column.index === 4) data.cell.styles.halign = "right";
+        },
+        columnStyles: (() => {
+          const wDate = 32;
+          const wPlot = 16;
+          const wAmt = 24;
+          const rem = tableW - wDate - wPlot - wAmt;
+          const wEvent = rem * 0.55;
+          const wBy = rem * 0.45;
+          return {
+            0: { cellWidth: wDate, halign: "left" },
+            1: { cellWidth: wPlot, halign: "center" },
+            2: { cellWidth: wEvent, halign: "left" },
+            3: { cellWidth: wBy, halign: "left" },
+            4: { cellWidth: wAmt, halign: "right" }
+          };
+        })()
+      });
+
+      const eventExpReportRowsAll = (portalServerState.eventExpenses || []).slice().sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      const eventExpGrand = eventExpReportRowsAll.reduce((t, ex) => t + toMoneyNumber(ex.amount), 0);
+      const eventExpReportBody = eventExpReportRowsAll.slice(0, 200).map(ex => {
+        const at = String(ex.atIso || "").replace("T", " ").slice(0, 19);
+        const evLabel = eventLabelById_(ex.eventId).slice(0, 80);
+        return [
+          at,
+          evLabel || "—",
+          String(ex.description || "").trim().slice(0, 200),
+          String(ex.paidTo || "").trim().slice(0, 400),
+          `Rs. ${Math.round(toMoneyNumber(ex.amount))}`
+        ];
+      });
+      if (!eventExpReportBody.length){
+        eventExpReportBody.push(["—", "—", "No event expenses recorded.", "—", "Rs. 0"]);
+      }
+
+      doc.addPage();
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(`Event Expense Report — ${rangeTitle}`, cx, 11, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.6);
+      doc.text(`As of ${footerDateTimeStr}`, cx, 17, { align: "center" });
+      if (eventExpReportRowsAll.length > 200){
+        doc.setFontSize(7);
+        doc.text("(Showing first 200 expense rows; total below includes all rows.)", cx, 22, { align: "center" });
+      }
+      const evExpLine = { lineWidth: 0.12, lineColor: [55, 55, 55] };
+      doc.autoTable({
+        startY: eventExpReportRowsAll.length > 200 ? 26 : 21,
+        margin: { left: margin, right: margin, bottom: 10 },
+        tableWidth: tableW,
+        theme: "grid",
+        head: [["Date / time", "Event", "Description", "Paid to", "Amount (Rs.)"]],
+        body: eventExpReportBody,
+        foot: [[`TOTAL (${eventExpReportRowsAll.length} entries)`, "", "", "", `Rs. ${Math.round(eventExpGrand)}`]],
+        showFoot: "lastPage",
+        styles: {
+          font: "helvetica",
+          fontSize: 7,
+          cellPadding: 0.85,
+          valign: "middle",
+          textColor: 20,
+          overflow: "linebreak",
+          halign: "left",
+          ...evExpLine
+        },
+        headStyles: {
+          font: "helvetica",
+          fontStyle: "bold",
+          fillColor: [230, 238, 248],
+          textColor: 15,
+          fontSize: 7.2,
+          ...evExpLine
+        },
+        footStyles: {
+          font: "helvetica",
+          fontStyle: "bold",
+          fillColor: [236, 248, 236],
+          fontSize: 7,
+          ...evExpLine
+        },
+        didParseCell: function (data) {
+          if (data.column.index === 4) data.cell.styles.halign = "right";
+        },
+        columnStyles: (() => {
+          const wDate = 30;
+          const wEvent = 38;
+          const wAmt = 24;
+          const rem = tableW - wDate - wEvent - wAmt;
+          const wDesc = rem * 0.55;
+          const wPaid = rem * 0.45;
+          return {
+            0: { cellWidth: wDate, halign: "left" },
+            1: { cellWidth: wEvent, halign: "left" },
+            2: { cellWidth: wDesc, halign: "left" },
+            3: { cellWidth: wPaid, halign: "left" },
+            4: { cellWidth: wAmt, halign: "right" }
+          };
+        })()
+      });
       }
 
       const rangeTitle = `${slots[0].shortMonth}-${slots[0].calendarYear} To ${slots[slots.length - 1].shortMonth}-${slots[slots.length - 1].calendarYear}`;
@@ -10686,7 +11018,7 @@
       doc.setFontSize(8);
       const sumDesc = isShort
         ? "This report shows maintenance paid and unpaid status for the full financial year (May to April)."
-        : "This report shows the maintenance received for the full financial year (May to April) along with the monthly expense and other earnings summary.";
+        : "This report shows maintenance collection, expenses, other earnings, and event collections for the full financial year (May to April). Event amounts are listed separately and are not included in maintenance monthly totals.";
       const sumDescLines = doc.splitTextToSize(sumDesc, sumW - sm * 2);
       doc.text(sumDescLines, cx, ySum, { align: "center" });
       ySum += sumDescLines.length * 3.6 + 5;
@@ -10719,15 +11051,38 @@
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
 
-      const finW = sumW * 0.72;
+      const finW = sumW * 0.78;
       if (!isShort){
       doc.autoTable({
         ...sumTableBase,
         startY: ySum,
         margin: { left: (pageW - finW) / 2, right: (pageW - finW) / 2 },
         tableWidth: finW,
-        head: [["Total Maintenance Amount Received", "Total Other Earnings", "Total Expenses", "Balance Amount"]],
-        body: [[`Rs. ${Math.round(grandTotal)}`, `Rs. ${Math.round(otherEarningsGrand)}`, `Rs. ${expenseGrand}`, `Rs. ${balanceGrand}`]]
+        head: [["Summary Item", "Amount (Rs.)"]],
+        body: [
+          ["Expected Maintenance Amount", `Rs. ${finTotals.expectedMaintenanceAmount}`],
+          ["Maintenance collected", `Rs. ${finTotals.maintenanceCollected}`],
+          ["Pending/Due Amount", `Rs. ${finTotals.pendingDueAmount}`],
+          ["Late Fee Amount", `Rs. ${finTotals.lateFeeAmount}`],
+          ["Other Earnings", `Rs. ${finTotals.otherEarnings}`],
+          ["Maintenance Expenses", `Rs. ${finTotals.maintenanceExpenses}`],
+          ["Events Collection", `Rs. ${finTotals.eventsCollection}`],
+          ["Events Expenses", `Rs. ${finTotals.eventsExpenses}`],
+          ["Maintenance Collection Balance", `Rs. ${finTotals.maintenanceCollectionBalance}`],
+          ["Events Collection Balance", `Rs. ${finTotals.eventsCollectionBalance}`],
+          ["Total Expenses", `Rs. ${finTotals.totalExpenses}`],
+          ["Total Balance", `Rs. ${finTotals.totalBalance}`]
+        ],
+        columnStyles: {
+          0: { halign: "left", cellWidth: finW * 0.62, fontStyle: "bold" },
+          1: { halign: "right", cellWidth: finW * 0.38 }
+        },
+        didParseCell(data){
+          if (data.section === "body" && data.row.index === 11){
+            data.cell.styles.fillColor = [255, 247, 200];
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
       });
       ySum = doc.lastAutoTable.finalY + 8;
       }
@@ -10743,12 +11098,18 @@
         : [
             ["Total Paid Owners", ...paidOwnersPerSlot.map(String), String(paidOwnersTotalSum)],
             ["Total Unpaid Owners", ...unpaidOwnersPerSlot.map(String), String(unpaidOwnersTotalSum)],
-            ["Expected Amount", ...expectedAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${expectedAmtGrand}`],
-            ["Received Amount", ...colSums.map(v => `Rs. ${Math.round(v)}`), `Rs. ${Math.round(grandTotal)}`],
-            ["Pending Amount", ...pendingAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${pendingAmtGrand}`],
-            ["Other Earnings", ...otherEarningsPerSlot.map(v => `Rs. ${v}`), `Rs. ${otherEarningsGrand}`],
-            ["Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${expenseGrand}`],
-            ["Balance", ...balancePerSlot.map(v => `Rs. ${v}`), `Rs. ${balanceGrand}`]
+            ["Expected Maintenance Amount", ...expectedAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.expectedMaintenanceAmount}`],
+            ["Maintenance collected", ...colSums.map(v => `Rs. ${Math.round(v)}`), `Rs. ${finTotals.maintenanceCollected}`],
+            ["Pending/Due Amount", ...pendingAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.pendingDueAmount}`],
+            ["Late Fee Amount", ...lateFeePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.lateFeeAmount}`],
+            ["Other Earnings", ...otherEarningsPerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.otherEarnings}`],
+            ["Maintenance Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.maintenanceExpenses}`],
+            ["Events Collection", ...evDash, `Rs. ${finTotals.eventsCollection}`],
+            ["Events Expenses", ...evDash, `Rs. ${finTotals.eventsExpenses}`],
+            ["Maintenance Collection Balance", ...maintCollBalancePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.maintenanceCollectionBalance}`],
+            ["Events Collection Balance", ...evDash, `Rs. ${finTotals.eventsCollectionBalance}`],
+            ["Total Expenses", ...evDash, `Rs. ${finTotals.totalExpenses}`],
+            ["Total Balance", ...evDash, `Rs. ${finTotals.totalBalance}`]
           ];
       doc.autoTable({
         startY: ySum,
@@ -10774,7 +11135,7 @@
             }
             return;
           }
-          if (data.section === "body" && data.row.index === 7){
+          if (data.section === "body" && (data.row.index === 10 || data.row.index === 13)){
             data.cell.styles.fillColor = [255, 247, 200];
             data.cell.styles.fontStyle = "bold";
           }
@@ -10787,9 +11148,11 @@
         doc.setFont("helvetica", "bold");
         doc.setFontSize(11);
         doc.text("Event Collection and Expense Report", cx, yEv, { align: "center" });
-        yEv += 8;
+        yEv += 7;
         doc.setFont("helvetica", "normal");
         doc.setFontSize(8);
+        doc.text(`Overall — Collection: Rs. ${finTotals.eventsCollection}   |   Expenses: Rs. ${finTotals.eventsExpenses}   |   Balance: Rs. ${finTotals.eventsCollectionBalance}`, cx, yEv, { align: "center" });
+        yEv += 8;
         for (const ev of pdfEvents){
           let coll = 0;
           let exp = 0;
@@ -10858,84 +11221,23 @@
       const lateFeeEl = document.getElementById("lateFeeReceived");
       if (!expectedEl || !pendingEl || !lateFeeEl) return;
 
-      // Avoid overwriting KPIs with empty math only on the *first* load (no rows yet).
-      // During CSV refresh we still have the previous allRows — keep KPIs updated so server
-      // payment merges and modals stay in sync (portal fetch can finish while csvLoading is true).
       if (csvLoading && !(Array.isArray(allRows) && allRows.length)) return;
 
-      const selectedYms = getMcSelectedYms();
-      // Received/lateFee should reflect actual payments even if the plot is not "eligible"
-      // (e.g. missing contact or group status). Compute from server payments when available.
-      let received = 0;
-      let lateFee = 0;
-      if (isServerEnabled() && portalServerState.loaded){
-        // Use paymentsLoadEntries per plot so Received matches modals: it merges server sheet
-        // rows with this browser's localStorage (avoids dropping to 0 when /state is empty/stale).
-        const plotSet = new Set();
-        for (const r of allRows || []){
-          const p = canonicalPlotNoKey_(plotNoOfRow(r));
-          if (p) plotSet.add(p);
-        }
-        for (const k of (portalServerState.paymentsByPlot || new Map()).keys()){
-          const p = canonicalPlotNoKey_(k);
-          if (p) plotSet.add(p);
-        }
-        for (const plotNo of plotSet){
-          const entries = paymentsLoadEntries(plotNo);
-          const row = sheetRowForPlotNo(plotNo);
-          for (const ym of selectedYms){
-            if (row && !plotMaintenanceApplicableForYm_(row, ym)) continue;
-            received += maintenanceReceivedForYm_(entries, ym);
-            lateFee += toMoneyNumber(sumEntriesForYm(entries, ym).lateFee);
-          }
-        }
-      } else {
-        const rowsRecv = maintenanceCollectionPlotRows();
-        for (const r of rowsRecv){
-        const plotNo = plotNoOfRow(r);
-        if (!plotNo) continue;
-        const entries = paymentsLoadEntries(plotNo);
-        for (const ym of selectedYms){
-          if (!plotMaintenanceApplicableForYm_(r, ym)) continue;
-          const sums = sumEntriesForYm(entries, ym);
-          received += sums.amount;
-          lateFee += sums.lateFee;
-          }
-        }
-      }
+      const t = computeFinancialSummaryTotals_(getMcSelectedYms());
+      expectedEl.textContent = String(t.expectedMaintenanceAmount);
+      pendingEl.textContent = String(t.pendingDueAmount);
+      lateFeeEl.textContent = String(t.lateFeeAmount);
 
-      // Expected/pending: liable members per month (Maintenance Starting From) × ₹350.
-      const expected = totalExpectedForSelectedMonths_(selectedYms);
-
-      const pending = Math.max(0, expected - received);
-
-      expectedEl.textContent = String(Math.round(expected));
-      pendingEl.textContent = String(Math.round(pending));
-      lateFeeEl.textContent = String(Math.round(lateFee));
-
-      const selYmSet = new Set(selectedYms.map(y => normalizePortalYm(String(y))));
-      let expensesSum = 0;
-      let otherEarningsSum = 0;
-      for (const ex of portalServerState.expenses || []){
-        if (!expenseRowIsValid_(ex)) continue;
-        const ymx = normalizePortalYm(String(ex.ym || ""));
-        if (!selYmSet.has(ymx)) continue;
-        expensesSum += toMoneyNumber(ex.amount);
-      }
-      for (const oe of portalServerState.otherEarnings || []){
-        if (!otherEarningsRowIsValid_(oe)) continue;
-        const ymx = normalizePortalYm(String(oe.ym || ""));
-        if (!selYmSet.has(ymx)) continue;
-        otherEarningsSum += toMoneyNumber(oe.amount);
-      }
-      const collEl = document.getElementById("mcMaintenanceCollectedSummary");
-      const oeEl = document.getElementById("mcOtherEarningsSummary");
-      const expEl = document.getElementById("mcExpensesSummary");
-      const balEl = document.getElementById("mcBalanceSummary");
-      if (collEl) collEl.textContent = String(Math.round(received));
-      if (oeEl) oeEl.textContent = String(Math.round(otherEarningsSum));
-      if (expEl) expEl.textContent = String(Math.round(expensesSum));
-      if (balEl) balEl.textContent = String(Math.round(received + otherEarningsSum - expensesSum));
+      const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
+      set("mcMaintenanceCollectedSummary", t.maintenanceCollected);
+      set("mcOtherEarningsSummary", t.otherEarnings);
+      set("mcExpensesSummary", t.maintenanceExpenses);
+      set("mcEventsCollectionSummary", t.eventsCollection);
+      set("mcEventsExpensesSummary", t.eventsExpenses);
+      set("mcMaintCollBalanceSummary", t.maintenanceCollectionBalance);
+      set("mcEventsCollBalanceSummary", t.eventsCollectionBalance);
+      set("mcTotalExpensesSummary", t.totalExpenses);
+      set("mcTotalBalanceSummary", t.totalBalance);
     }
 
     function openPendingModal(){
