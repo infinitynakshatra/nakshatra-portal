@@ -825,17 +825,14 @@
       #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripSix,
       #adminMaintenanceMcRow .mcKpiStrip.mcKpiStripTwelve{ grid-template-columns: 1fr; }
     }
-    #adminEventsMcRow .mcKpiStrip.mcKpiStripSix{
+    #adminEventsMcRow .mcKpiStrip.mcKpiStripThree{
       display:grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
       gap:6px;
     }
-    #adminEventsMcRow .mcKpiStrip.mcKpiStripSix .mcKpiCard{ min-height:62px; }
-    @media (max-width: 1100px){
-      #adminEventsMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    }
-    @media (max-width: 520px){
-      #adminEventsMcRow .mcKpiStrip.mcKpiStripSix{ grid-template-columns: 1fr; }
+    #adminEventsMcRow .mcKpiStrip.mcKpiStripThree .mcKpiCard{ min-height:62px; }
+    @media (max-width: 720px){
+      #adminEventsMcRow .mcKpiStrip.mcKpiStripThree{ grid-template-columns: 1fr; }
     }
     #adminMaintenanceMcRow .mcSubSectionTitle{
       margin:0 0 5px;
@@ -916,6 +913,7 @@
       align-items:center;
     }
     .accountDetailsWrap .profilePanel{min-width:200px;}
+    #adminEventsMcRow .mcKpiCard,
     #adminMaintenanceMcRow .mcKpiCard{
       background:var(--surface2);
       border:1px solid var(--border);
@@ -927,6 +925,7 @@
       min-width:0;
       align-items:stretch;
     }
+    #adminEventsMcRow .mcKpiCardHead,
     #adminMaintenanceMcRow .mcKpiCardHead{
       display:flex;
       align-items:flex-start;
@@ -934,6 +933,7 @@
       gap:8px;
       min-width:0;
     }
+    #adminEventsMcRow .mcKpiCardLabel,
     #adminMaintenanceMcRow .mcKpiCardLabel{
       font-size:10px;
       color:var(--muted);
@@ -942,6 +942,7 @@
       flex:1;
       min-width:0;
     }
+    #adminEventsMcRow .mcKpiCardValue,
     #adminMaintenanceMcRow .mcKpiCardValue{
       font-size:15px;
       font-weight:900;
@@ -1847,20 +1848,24 @@
       .adminDirTable tbody td{min-width:72px;}
       thead th{white-space:normal;}
       /* Admin mobile: KPI cards, tables, filters */
+      #adminEventsMcRow .mcKpiCard,
       #adminMaintenanceMcRow .mcKpiCard{
         min-height:0;
         padding:8px 10px;
       }
+      #adminEventsMcRow .mcKpiCardHead,
       #adminMaintenanceMcRow .mcKpiCardHead{
         flex-direction:column;
         align-items:flex-start;
         gap:4px;
       }
+      #adminEventsMcRow .mcKpiCardValue,
       #adminMaintenanceMcRow .mcKpiCardValue{
         text-align:left;
         width:100%;
         font-size:17px;
       }
+      #adminEventsMcRow .mcKpiCardLabel,
       #adminMaintenanceMcRow .mcKpiCardLabel{
         font-size:11px;
         line-height:1.25;
@@ -2331,7 +2336,7 @@
               </div>
             </div>
           </div>
-          <div class="mcKpiStrip mcKpiStripSix" aria-label="Event summary">
+          <div class="mcKpiStrip mcKpiStripThree" aria-label="Event summary">
             <div class="mcKpiCard">
               <div class="mcKpiCardHead">
                 <span class="mcKpiCardLabel">Total Collection</span>
@@ -10648,7 +10653,6 @@
       const eventExpPerSlot = eventSlotAmounts.expPerSlot;
       const eventBalancePerSlot = eventSlotAmounts.balancePerSlot;
       const totalExpPerSlot = expensePerSlot.map((v, i) => Math.round(v + eventExpPerSlot[i]));
-      const totalBalancePerSlot = maintCollBalancePerSlot.map((v, i) => Math.round(v + eventBalancePerSlot[i]));
       const poolNPerSlot = slots.map(slot => existingMemberPlotCountForYm_(slot.ym));
       const paidOwnersPerSlot = slots.map(slot => {
         let c = 0;
@@ -11375,7 +11379,7 @@
       const evExpCells = eventAmountCellsForSlot_(eventExpPerSlot);
       const evBalCells = eventAmountCellsForSlot_(eventBalancePerSlot);
       const totalExpCells = eventAmountCellsForSlot_(totalExpPerSlot);
-      const totalBalCells = eventAmountCellsForSlot_(totalBalancePerSlot);
+      const summaryTotalOnlyDash = slots.map(() => "—");
       const summaryCategoryBody = isShort
         ? [
             ["Total Paid Owners", ...paidOwnersPerSlot.map(String)],
@@ -11390,13 +11394,13 @@
             ["Pending/Due Amount", ...pendingAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.pendingDueAmount}`],
             ["Late Fee Amount", ...lateFeePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.lateFeeAmount}`],
             ["Maintenance Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.maintenanceExpenses}`],
-            ["Maintenance Collection Balance", ...maintCollBalancePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.maintenanceCollectionBalance}`],
+            ["Maintenance Collection Balance", ...summaryTotalOnlyDash, `Rs. ${finTotals.maintenanceCollectionBalance}`],
             ["Events Collection", ...evCollCells, `Rs. ${finTotals.eventsCollection}`],
             ["Events Expenses", ...evExpCells, `Rs. ${finTotals.eventsExpenses}`],
             ["Events Collection Balance", ...evBalCells, `Rs. ${finTotals.eventsCollectionBalance}`],
             ["Other Earnings", ...otherEarningsPerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.otherEarnings}`],
             ["Total Expenses", ...totalExpCells, `Rs. ${finTotals.totalExpenses}`],
-            ["Total Balance", ...totalBalCells, `Rs. ${finTotals.totalBalance}`]
+            ["Total Balance", ...summaryTotalOnlyDash, `Rs. ${finTotals.totalBalance}`]
           ];
       if (!isShort){
         doc.addPage();
