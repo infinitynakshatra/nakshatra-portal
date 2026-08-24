@@ -1027,6 +1027,7 @@
       color:var(--text);
       font-size:11px;
     }
+    #adminEventsMcRow .mcCollectionMetricsWrap,
     #adminMaintenanceMcRow .mcCollectionMetricsWrap{
       display:flex;
       flex-direction:column;
@@ -1036,6 +1037,7 @@
       border:1px solid var(--border);
       background:var(--surface2);
     }
+    #adminEventsMcRow .mcCollectionMetricsWrap .mcFilterToolbar,
     #adminMaintenanceMcRow .mcCollectionMetricsWrap .mcFilterToolbar{
       background:transparent;
       border:none;
@@ -13799,6 +13801,10 @@
       if (eventExpenseManageSaveBtn) eventExpenseManageSaveBtn.addEventListener("click", () => {
         const sess = readSession();
         if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        if (!isServerEnabled()){
+          alert("Configure COLLECTION_API_URL and API key to save event expenses.");
+          return;
+        }
         const id = norm(document.getElementById("eventExpenseManageEditId")?.value);
         if (!id){ alert("Choose a row with Edit first."); return; }
         const eventId = norm(document.getElementById("eventExpenseManageEventSelect")?.value);
@@ -13807,16 +13813,30 @@
         const paidTo = norm(document.getElementById("eventExpenseManagePaidTo")?.value);
         const billLink = norm(document.getElementById("eventExpenseManageBillLink")?.value);
         const errEl = document.getElementById("eventExpenseManageErr");
-        if (errEl) errEl.textContent = "";
-        if (!eventId){ if (errEl) errEl.textContent = "Choose an event."; return; }
-        if (amount <= 0){ if (errEl) errEl.textContent = "Enter a positive amount."; return; }
-        if (billLink && !isHttpUrl(billLink)){ if (errEl) errEl.textContent = "Bill link must start with http:// or https://"; return; }
+        setErr(errEl, "");
+        if (!eventId){ setErr(errEl, "Choose an event."); return; }
+        if (amount <= 0){ setErr(errEl, "Enter a positive amount."); return; }
+        if (billLink && !isHttpUrl(billLink)){ setErr(errEl, "Bill link must start with http:// or https://"); return; }
+        const saveBtn = eventExpenseManageSaveBtn;
         void (async () => {
-          const sr = await portalServerUpdateEventExpense({ id, eventId, amount, description, paidTo, billLink });
-          if (!sr.ok){ if (errEl) errEl.textContent = sr.error || "Could not update."; return; }
-          upsertLocalEventExpense_({ id, eventId, amount, description, paidTo, billLink });
-          resetEventExpenseManageEdit();
-          alert("Event expense updated successfully.");
+          if (saveBtn) saveBtn.disabled = true;
+          try {
+            const sr = await portalServerUpdateEventExpense({ id, eventId, amount, description, paidTo, billLink });
+            if (!sr.ok){
+              const msg = sr.skipped
+                ? "Server save is not configured."
+                : (sr.error === "not_found" ? "Expense row not found on server. Refresh and try again."
+                  : (sr.error || "Could not update event expense."));
+              setErr(errEl, msg);
+              return;
+            }
+            upsertLocalEventExpense_({ id, eventId, amount, description, paidTo, billLink });
+            resetEventExpenseManageEdit();
+            renderEventExpenseManageTable();
+            alert("Event expense updated successfully.");
+          } finally {
+            if (saveBtn) saveBtn.disabled = false;
+          }
         })();
       });
       const eventExpenseManageTbody = document.getElementById("eventExpenseManageTbody");
@@ -13832,10 +13852,15 @@
           const errEl = document.getElementById("eventExpenseManageErr");
           void (async () => {
             const dr = await portalServerDeleteEventExpense({ id: idDel });
-            if (!dr.ok){ if (errEl) errEl.textContent = dr.error || "Could not delete."; return; }
+            if (!dr.ok){
+              setErr(errEl, dr.skipped ? "Server save is not configured." : (dr.error || "Could not delete."));
+              return;
+            }
             removeLocalEventExpense_(idDel);
             const editingId = norm(document.getElementById("eventExpenseManageEditId")?.value);
             if (editingId && editingId === idDel) resetEventExpenseManageEdit();
+            renderEventExpenseManageTable();
+            alert("Event expense deleted.");
           })();
           return;
         }
@@ -13847,7 +13872,7 @@
         document.getElementById("eventExpenseManageEditId").value = String(ex.id || "");
         fillEventSelectEl_("eventExpenseManageEventSelect", ex.eventId);
         const setv = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-        setv("eventExpenseManageAmount", String(Math.round(toMoneyNumber(ex.amount)) || ""));
+        setv("eventExpenseManageAmount", String(Math.round(toMoneyNumber(ex.amount))));
         setv("eventExpenseManageDesc", expenseCellStr_(ex.description));
         setv("eventExpenseManagePaidTo", expenseCellStr_(ex.paidTo));
         setv("eventExpenseManageBillLink", expenseCellStr_(ex.billLink));
