@@ -552,6 +552,44 @@ function findPortalEventExpenseRowNum_(ss, id) {
   return -1;
 }
 
+function findPortalEventRowNum_(ss, id) {
+  var want = String(id || "").trim();
+  if (!want) return -1;
+  var sh = ss.getSheetByName(PORTAL_EVENTS_SHEET);
+  if (!sh || sh.getLastRow() < 2) return -1;
+  var lr = sh.getLastRow();
+  var ids = sh.getRange(2, 1, lr, 1).getDisplayValues();
+  var i;
+  for (i = 0; i < ids.length; i++) {
+    if (String(ids[i][0] || "").trim() === want) return i + 2;
+  }
+  return -1;
+}
+
+function eventHasLinkedRecords_(ss, eventId) {
+  var want = String(eventId || "").trim();
+  if (!want) return false;
+  var shEc = ss.getSheetByName(PORTAL_EVENT_COLLECTIONS_SHEET);
+  if (shEc && shEc.getLastRow() >= 2) {
+    var lrEc = shEc.getLastRow();
+    var ecIds = shEc.getRange(2, 3, lrEc, 3).getDisplayValues();
+    var i;
+    for (i = 0; i < ecIds.length; i++) {
+      if (String(ecIds[i][0] || "").trim() === want) return true;
+    }
+  }
+  var shEe = ss.getSheetByName(PORTAL_EVENT_EXPENSES_SHEET);
+  if (shEe && shEe.getLastRow() >= 2) {
+    var lrEe = shEe.getLastRow();
+    var eeIds = shEe.getRange(2, 3, lrEe, 3).getDisplayValues();
+    var j;
+    for (j = 0; j < eeIds.length; j++) {
+      if (String(eeIds[j][0] || "").trim() === want) return true;
+    }
+  }
+  return false;
+}
+
 function readPortalOtherEarnings_(ss) {
   var sh = ensureSheetWithHeaders_(ss, PORTAL_OTHER_EARNINGS_SHEET, PORTAL_OTHER_EARNINGS_HEADERS);
   var rows = rowsToObjects_(sh, PORTAL_OTHER_EARNINGS_HEADERS);
@@ -2247,6 +2285,45 @@ function doPost(e) {
       audit_(ss, actorEv, "addEvent", { id: idEv, eventName: evName, eventMonth: evMonth, eventYear: evYear });
       invalidatePortalStateCache_();
       return json_({ ok: true, id: idEv, label: eventDisplayLabel_(evName, evYear, evMonth) }, 200);
+    }
+    if (action === "updateEvent") {
+      var actorEvU = String(data.actor || "admin").trim();
+      var idEvU = String(data.id || "").trim();
+      var evNameU = String(data.eventName || "").trim();
+      var evMonthU = String(data.eventMonth || "").trim();
+      var evYearU = String(data.eventYear || "").trim();
+      if (!idEvU || !evNameU || !evMonthU || !evYearU) return json_({ ok: false, error: "id, eventName, eventMonth and eventYear required" }, 400);
+      var rowEvU = findPortalEventRowNum_(ss, idEvU);
+      if (rowEvU < 0) return json_({ ok: false, error: "not_found" }, 404);
+      var labelWantU = eventDisplayLabel_(evNameU, evYearU, evMonthU).toLowerCase();
+      var existingEvU = readPortalEvents_(ss);
+      var eui;
+      for (eui = 0; eui < existingEvU.length; eui++) {
+        if (String(existingEvU[eui].id) === idEvU) continue;
+        if (String(existingEvU[eui].label || "").toLowerCase() === labelWantU) {
+          return json_({ ok: false, error: "event_exists" }, 409);
+        }
+      }
+      var shEvU = ss.getSheetByName(PORTAL_EVENTS_SHEET);
+      shEvU.getRange(rowEvU, 2).setValue(nowIso_());
+      shEvU.getRange(rowEvU, 3, 1, 3).setValues([[evNameU, evMonthU, evYearU]]);
+      audit_(ss, actorEvU, "updateEvent", { id: idEvU, eventName: evNameU, eventMonth: evMonthU, eventYear: evYearU });
+      invalidatePortalStateCache_();
+      return json_({ ok: true, label: eventDisplayLabel_(evNameU, evYearU, evMonthU) }, 200);
+    }
+    if (action === "deleteEvent") {
+      var actorEvD = String(data.actor || "admin").trim();
+      var idEvD = String(data.id || "").trim();
+      if (!idEvD) return json_({ ok: false, error: "id required" }, 400);
+      var rowEvD = findPortalEventRowNum_(ss, idEvD);
+      if (rowEvD < 0) return json_({ ok: false, error: "not_found" }, 404);
+      if (eventHasLinkedRecords_(ss, idEvD)) {
+        return json_({ ok: false, error: "event_has_records" }, 409);
+      }
+      ss.getSheetByName(PORTAL_EVENTS_SHEET).deleteRow(rowEvD);
+      audit_(ss, actorEvD, "deleteEvent", { id: idEvD });
+      invalidatePortalStateCache_();
+      return json_({ ok: true }, 200);
     }
     if (action === "addEventCollection") {
       var actorEc = String(data.actor || "admin").trim();

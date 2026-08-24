@@ -2311,6 +2311,7 @@
           </div>
           <div class="mcBtns">
             <button class="btn secondary tiny" id="eventAddBtn" type="button">Add Event</button>
+            <button class="btn secondary tiny" id="eventManageBtn" type="button">Show/Update Event</button>
             <button class="btn secondary tiny" id="eventCollAddBtn" type="button">Add Event Collection</button>
             <button class="btn secondary tiny" id="eventExpenseAddBtn" type="button">Add Event Expense</button>
             <button class="btn secondary tiny" id="eventExpenseShowUpdateBtn" type="button">Show/Update Event Expense</button>
@@ -3817,6 +3818,69 @@
     </div>
   </div>
 
+  <div class="backdrop" id="eventManageBackdrop" aria-hidden="true">
+    <div class="modal modalSeePay" role="dialog" aria-modal="true" aria-labelledby="eventManageTitle" style="width:min(920px, 98vw); max-height:min(92vh, 900px);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="eventManageTitle">Show / Update Events</div>
+          <div class="modalSub">Edit or delete society events. Events with collections or expenses cannot be deleted.</div>
+        </div>
+        <button class="btn secondary" id="eventManageCloseBtn" type="button">Close</button>
+      </div>
+      <div class="scroll-x" style="overflow:auto; max-height:min(320px, 45vh); margin-top:8px;">
+        <table class="adminDirTable">
+          <thead>
+            <tr>
+              <th>Event Name</th>
+              <th>Month</th>
+              <th>Year</th>
+              <th>Label</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="eventManageTbody">
+            <tr><td colspan="5">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="smallNote" style="margin-top:12px;">Click <b>Edit</b> on a row, adjust the fields below, then <b>Save changes</b>.</p>
+      <input type="hidden" id="eventManageEditId" value="" />
+      <div class="expenseFormGrid" style="margin-top:10px;">
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventManageNameInput">Event Name</label>
+          <input id="eventManageNameInput" type="text" autocomplete="off" />
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventManageMonthInput">Event Month</label>
+          <select id="eventManageMonthInput" aria-label="Event month">
+            <option value="">Select month</option>
+            <option value="1">January</option>
+            <option value="2">February</option>
+            <option value="3">March</option>
+            <option value="4">April</option>
+            <option value="5">May</option>
+            <option value="6">June</option>
+            <option value="7">July</option>
+            <option value="8">August</option>
+            <option value="9">September</option>
+            <option value="10">October</option>
+            <option value="11">November</option>
+            <option value="12">December</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventManageYearInput">Event Year</label>
+          <input id="eventManageYearInput" type="number" min="2000" max="2100" step="1" />
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <button class="btn" id="eventManageSaveBtn" type="button" disabled>Save changes</button>
+        <button class="btn secondary" id="eventManageCancelEditBtn" type="button">Cancel edit</button>
+      </div>
+      <div class="err" id="eventManageErr"></div>
+    </div>
+  </div>
+
   <div class="backdrop" id="eventCollBackdrop" aria-hidden="true">
     <div class="modal modalSeePay modalPayAdd" role="dialog" aria-modal="true" aria-labelledby="eventCollTitle">
       <div class="modalHead">
@@ -5303,6 +5367,24 @@
       const want = String(id || "");
       return eventsList_().find(e => String(e.id) === want) || null;
     }
+    function eventMonthLabel_(eventMonth){
+      const names = ["","January","February","March","April","May","June","July","August","September","October","November","December"];
+      const m = parseInt(String(eventMonth || ""), 10);
+      return (m >= 1 && m <= 12) ? names[m] : (String(eventMonth || "") || "—");
+    }
+    function eventMonthShortLabel_(eventMonth){
+      const names = ["","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      const m = parseInt(String(eventMonth || ""), 10);
+      return (m >= 1 && m <= 12) ? names[m] : String(eventMonth || "").slice(0, 3);
+    }
+    function buildEventLabelLocal_(eventName, eventYear, eventMonth){
+      const n = String(eventName || "").trim();
+      const y = String(eventYear || "").trim();
+      const mShort = eventMonthShortLabel_(eventMonth);
+      if (!n) return "";
+      if (mShort && y) return n + "-" + mShort + "-" + y;
+      return y ? n + "-" + y : n;
+    }
     function eventLabelById_(id){
       const ev = eventById_(id);
       return ev ? String(ev.label || ev.eventName || "") : String(id || "");
@@ -5451,6 +5533,9 @@
     function refreshEventsUiFromLocal_(){
       try { populateEventFilterSelect(); populateEventSelectOptions(); updateEventCollectionCards(); updateMaintenanceCollectionCards(); } catch {}
       try {
+        if (document.getElementById("eventManageBackdrop")?.classList.contains("show")) renderEventManageTable();
+      } catch {}
+      try {
         if (document.getElementById("eventExpenseManageBackdrop")?.classList.contains("show")) renderEventExpenseManageTable();
       } catch {}
       try { renderUserEventContributions(); } catch {}
@@ -5465,7 +5550,7 @@
         eventName: String(row.eventName || ""),
         eventMonth: String(row.eventMonth || ""),
         eventYear: String(row.eventYear || ""),
-        label: String(row.label || (row.eventName && row.eventYear ? row.eventName + "-" + row.eventYear : row.eventName || ""))
+        label: String(row.label || buildEventLabelLocal_(row.eventName, row.eventYear, row.eventMonth))
       };
       const idx = portalServerState.events.findIndex(x => String(x.id) === id);
       if (idx >= 0) portalServerState.events[idx] = Object.assign({}, portalServerState.events[idx], next);
@@ -5515,6 +5600,17 @@
       portalServerState.eventExpenses = (portalServerState.eventExpenses || []).filter(x => String(x.id) !== idS);
       refreshEventsUiFromLocal_();
     }
+    function removeLocalEvent_(id){
+      const idS = String(id || "");
+      portalServerState.events = (portalServerState.events || []).filter(x => String(x.id) !== idS);
+      refreshEventsUiFromLocal_();
+    }
+    function eventHasLocalRecords_(eventId){
+      const want = String(eventId || "");
+      const hasColl = (portalServerState.eventCollections || []).some(c => String(c.eventId) === want);
+      const hasExp = (portalServerState.eventExpenses || []).some(ex => String(ex.eventId) === want);
+      return hasColl || hasExp;
+    }
     async function portalServerAddEvent(payload){
       const sess = readSession();
       if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
@@ -5532,6 +5628,41 @@
       try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
       if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
       return { ok:true, id: j.id, label: j.label };
+    }
+    async function portalServerUpdateEvent(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "updateEvent",
+        actor: "admin",
+        id: String(payload.id || ""),
+        eventName: String(payload.eventName || ""),
+        eventMonth: String(payload.eventMonth || ""),
+        eventYear: String(payload.eventYear || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true, label: j.label };
+    }
+    async function portalServerDeleteEvent(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "deleteEvent",
+        actor: "admin",
+        id: String(payload.id || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "delete_failed", detail: j };
+      return { ok:true };
     }
     async function portalServerAddEventCollection(payload){
       const sess = readSession();
@@ -5617,6 +5748,59 @@
       if (m) m.value = "";
       if (y) y.value = String(new Date().getFullYear());
       showBackdrop("eventAddBackdrop", true);
+    }
+    function clearEventManageEditForm_(){
+      const idEl = document.getElementById("eventManageEditId");
+      if (idEl) idEl.value = "";
+      const n = document.getElementById("eventManageNameInput");
+      const m = document.getElementById("eventManageMonthInput");
+      const y = document.getElementById("eventManageYearInput");
+      if (n) n.value = "";
+      if (m) m.value = "";
+      if (y) y.value = "";
+      const saveBtn = document.getElementById("eventManageSaveBtn");
+      if (saveBtn) saveBtn.disabled = true;
+      setErr(document.getElementById("eventManageErr"), "");
+    }
+    function openEventManageModal(){
+      clearEventManageEditForm_();
+      renderEventManageTable();
+      showBackdrop("eventManageBackdrop", true);
+    }
+    function renderEventManageTable(){
+      const tb = document.getElementById("eventManageTbody");
+      if (!tb) return;
+      const list = [...eventsList_()].sort((a, b) => String(b.eventYear || "").localeCompare(String(a.eventYear || "")) || String(a.label || "").localeCompare(String(b.label || "")));
+      if (!list.length){
+        tb.innerHTML = "<tr><td colspan=\"5\">No events yet. Use Add Event first.</td></tr>";
+        return;
+      }
+      tb.innerHTML = list.map(ev => {
+        const id = escapeHtml(String(ev.id || ""));
+        return `<tr>
+          <td>${escapeHtml(String(ev.eventName || ""))}</td>
+          <td>${escapeHtml(eventMonthLabel_(ev.eventMonth))}</td>
+          <td>${escapeHtml(String(ev.eventYear || ""))}</td>
+          <td>${escapeHtml(String(ev.label || buildEventLabelLocal_(ev.eventName, ev.eventYear, ev.eventMonth)))}</td>
+          <td><span class="expenseManageRowActions">
+            <button type="button" class="btn secondary tiny eventManageEditRowBtn" data-event-id="${id}">Edit</button>
+            <button type="button" class="btn danger tiny eventManageDeleteRowBtn" data-event-id="${id}">Delete</button>
+          </span></td>
+        </tr>`;
+      }).join("");
+    }
+    function loadEventManageEditRow_(ev){
+      const idEl = document.getElementById("eventManageEditId");
+      if (idEl) idEl.value = String(ev.id || "");
+      const n = document.getElementById("eventManageNameInput");
+      const m = document.getElementById("eventManageMonthInput");
+      const y = document.getElementById("eventManageYearInput");
+      if (n) n.value = String(ev.eventName || "");
+      if (m) m.value = String(ev.eventMonth || "");
+      if (y) y.value = String(ev.eventYear || "");
+      const saveBtn = document.getElementById("eventManageSaveBtn");
+      if (saveBtn) saveBtn.disabled = false;
+      setErr(document.getElementById("eventManageErr"), "");
     }
     function openEventCollModal(){
       if (!eventsList_().length){
@@ -10986,7 +11170,19 @@
           ...evCollLine
         },
         didParseCell: function (data) {
+          if (data.section === "body" && data.column.index === 2 && namePdfCtx){
+            data.cell.text = [];
+          }
           if (data.column.index === 5) data.cell.styles.halign = "right";
+        },
+        didDrawCell: function (data) {
+          if (data.section !== "body" || data.column.index !== 2 || !namePdfCtx) return;
+          let raw = data.cell.raw;
+          if ((raw == null || raw === "") && typeof data.row?.index === "number"){
+            const rowArr = eventCollReportBody[data.row.index];
+            if (rowArr && rowArr.length > 2) raw = rowArr[2];
+          }
+          sixMonthPdfDrawNameCell(doc, data.cell, raw != null ? raw : "");
         },
         columnStyles: (() => {
           const wDate = 28;
@@ -10997,12 +11193,12 @@
           const wEvent = rem * 0.55;
           const wBy = rem * 0.45;
           return {
-            0: { cellWidth: wDate, halign: "left" },
-            1: { cellWidth: wPlot, halign: "center" },
-            2: { cellWidth: wOwner, halign: "left" },
-            3: { cellWidth: wEvent, halign: "left" },
-            4: { cellWidth: wBy, halign: "left" },
-            5: { cellWidth: wAmt, halign: "right" }
+            0: { cellWidth: wDate, halign: "left", font: "helvetica" },
+            1: { cellWidth: wPlot, halign: "center", font: "helvetica" },
+            2: { cellWidth: wOwner, halign: "left", font: nameColFont },
+            3: { cellWidth: wEvent, halign: "left", font: "helvetica" },
+            4: { cellWidth: wBy, halign: "left", font: "helvetica" },
+            5: { cellWidth: wAmt, halign: "right", font: "helvetica" }
           };
         })()
       });
@@ -11151,9 +11347,9 @@
           ["Pending/Due Amount", `Rs. ${finTotals.pendingDueAmount}`],
           ["Late Fee Amount", `Rs. ${finTotals.lateFeeAmount}`],
           ["Maintenance Expenses", `Rs. ${finTotals.maintenanceExpenses}`],
+          ["Maintenance Collection Balance", `Rs. ${finTotals.maintenanceCollectionBalance}`],
           ["Events Collection", `Rs. ${finTotals.eventsCollection}`],
           ["Events Expenses", `Rs. ${finTotals.eventsExpenses}`],
-          ["Maintenance Collection Balance", `Rs. ${finTotals.maintenanceCollectionBalance}`],
           ["Events Collection Balance", `Rs. ${finTotals.eventsCollectionBalance}`],
           ["Other Earnings", `Rs. ${finTotals.otherEarnings}`],
           ["Total Expenses", `Rs. ${finTotals.totalExpenses}`],
@@ -11194,9 +11390,9 @@
             ["Pending/Due Amount", ...pendingAmtPerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.pendingDueAmount}`],
             ["Late Fee Amount", ...lateFeePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.lateFeeAmount}`],
             ["Maintenance Expenses", ...expensePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.maintenanceExpenses}`],
+            ["Maintenance Collection Balance", ...maintCollBalancePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.maintenanceCollectionBalance}`],
             ["Events Collection", ...evCollCells, `Rs. ${finTotals.eventsCollection}`],
             ["Events Expenses", ...evExpCells, `Rs. ${finTotals.eventsExpenses}`],
-            ["Maintenance Collection Balance", ...maintCollBalancePerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.maintenanceCollectionBalance}`],
             ["Events Collection Balance", ...evBalCells, `Rs. ${finTotals.eventsCollectionBalance}`],
             ["Other Earnings", ...otherEarningsPerSlot.map(v => `Rs. ${v}`), `Rs. ${finTotals.otherEarnings}`],
             ["Total Expenses", ...totalExpCells, `Rs. ${finTotals.totalExpenses}`],
@@ -11238,7 +11434,7 @@
             }
             return;
           }
-          if (data.section === "body" && (data.row.index === 9 || data.row.index === 13)){
+          if (data.section === "body" && (data.row.index === 7 || data.row.index === 13)){
             data.cell.styles.fillColor = [255, 247, 200];
             data.cell.styles.fontStyle = "bold";
           }
@@ -13442,11 +13638,87 @@
           upsertLocalEvent_({
             id: sr.id,
             eventName, eventMonth, eventYear,
-            label: sr.label || (eventName + "-" + eventYear)
+            label: sr.label || buildEventLabelLocal_(eventName, eventYear, eventMonth)
           });
           showBackdrop("eventAddBackdrop", false);
           alert("Event added: " + (sr.label || eventName + "-" + eventYear));
           refreshEventsUiFromLocal_();
+        })();
+      });
+      const eventManageBtn = document.getElementById("eventManageBtn");
+      if (eventManageBtn) eventManageBtn.addEventListener("click", () => openEventManageModal());
+      const eventManageCloseBtn = document.getElementById("eventManageCloseBtn");
+      if (eventManageCloseBtn) eventManageCloseBtn.addEventListener("click", () => showBackdrop("eventManageBackdrop", false));
+      const eventManageCancelEditBtn = document.getElementById("eventManageCancelEditBtn");
+      if (eventManageCancelEditBtn) eventManageCancelEditBtn.addEventListener("click", () => clearEventManageEditForm_());
+      const eventManageSaveBtn = document.getElementById("eventManageSaveBtn");
+      if (eventManageSaveBtn) eventManageSaveBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        if (!isServerEnabled()){ alert("Configure COLLECTION_API_URL and API key."); return; }
+        const id = norm(document.getElementById("eventManageEditId")?.value);
+        const eventName = norm(document.getElementById("eventManageNameInput")?.value);
+        const eventMonth = norm(document.getElementById("eventManageMonthInput")?.value);
+        const eventYear = norm(document.getElementById("eventManageYearInput")?.value);
+        const errEl = document.getElementById("eventManageErr");
+        setErr(errEl, "");
+        if (!id){ setErr(errEl, "Select an event row to edit."); return; }
+        if (!eventName){ setErr(errEl, "Enter event name."); return; }
+        if (!eventMonth){ setErr(errEl, "Select event month."); return; }
+        if (!eventYear){ setErr(errEl, "Enter event year."); return; }
+        void (async () => {
+          const sr = await portalServerUpdateEvent({ id, eventName, eventMonth, eventYear });
+          if (!sr.ok){
+            setErr(errEl, sr.error === "event_exists" ? "Another event already uses this name/month/year." : (sr.error || "Could not save event."));
+            return;
+          }
+          const prev = eventById_(id);
+          upsertLocalEvent_({
+            id,
+            atIso: prev ? prev.atIso : new Date().toISOString(),
+            eventName, eventMonth, eventYear,
+            label: sr.label || buildEventLabelLocal_(eventName, eventYear, eventMonth)
+          });
+          clearEventManageEditForm_();
+          renderEventManageTable();
+          updateMaintenanceCollectionCards();
+          alert("Event updated.");
+        })();
+      });
+      const eventManageTbody = document.getElementById("eventManageTbody");
+      if (eventManageTbody) eventManageTbody.addEventListener("click", (e) => {
+        const editBtn = e.target.closest(".eventManageEditRowBtn");
+        const delBtn = e.target.closest(".eventManageDeleteRowBtn");
+        if (editBtn){
+          const id = editBtn.getAttribute("data-event-id");
+          const ev = eventById_(id);
+          if (ev) loadEventManageEditRow_(ev);
+          return;
+        }
+        if (!delBtn) return;
+        const id = delBtn.getAttribute("data-event-id");
+        if (!id) return;
+        if (eventHasLocalRecords_(id)){
+          alert("Cannot delete: this event has collections or expenses. Remove those first.");
+          return;
+        }
+        if (!confirm("Delete this event permanently?")) return;
+        void (async () => {
+          const sr = await portalServerDeleteEvent({ id });
+          const errEl = document.getElementById("eventManageErr");
+          if (!sr.ok){
+            const msg = sr.error === "event_has_records"
+              ? "Cannot delete: this event has collections or expenses."
+              : (sr.error || "Could not delete event.");
+            if (document.getElementById("eventManageBackdrop")?.classList.contains("show")) setErr(errEl, msg);
+            else alert(msg);
+            return;
+          }
+          removeLocalEvent_(id);
+          clearEventManageEditForm_();
+          renderEventManageTable();
+          updateMaintenanceCollectionCards();
+          alert("Event deleted.");
         })();
       });
       const eventCollAddBtn = document.getElementById("eventCollAddBtn");
