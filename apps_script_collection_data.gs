@@ -538,6 +538,40 @@ function eventCollectionExists_(sh, eventId, plotNo) {
   return false;
 }
 
+function findPortalEventCollectionRowNum_(ss, id) {
+  var want = String(id || "").trim();
+  if (!want) return -1;
+  var sh = ss.getSheetByName(PORTAL_EVENT_COLLECTIONS_SHEET);
+  if (!sh || sh.getLastRow() < 2) return -1;
+  var lr = sh.getLastRow();
+  var ids = sh.getRange(2, 1, lr, 1).getDisplayValues();
+  var i;
+  for (i = 0; i < ids.length; i++) {
+    if (String(ids[i][0] || "").trim() === want) return i + 2;
+  }
+  return -1;
+}
+
+function eventCollectionDuplicate_(sh, eventId, plotNo, excludeId) {
+  var wantE = String(eventId || "").trim();
+  var wantP = String(plotNo || "").trim();
+  var skipId = String(excludeId || "").trim();
+  if (!wantE || !wantP) return false;
+  var lr = sh.getLastRow();
+  if (lr < 2) return false;
+  var vals = sh.getRange(2, 1, lr, PORTAL_EVENT_COLLECTIONS_HEADERS.length).getValues();
+  var i;
+  for (i = 0; i < vals.length; i++) {
+    var rowId = String(vals[i][0] || "").trim();
+    if (skipId && rowId === skipId) continue;
+    if (String(vals[i][2] || "").trim() === wantE && String(vals[i][3] || "").trim() === wantP) return true;
+    var np = Number(vals[i][3]);
+    var nwant = Number(wantP);
+    if (String(vals[i][2] || "").trim() === wantE && isFinite(np) && isFinite(nwant) && np === nwant) return true;
+  }
+  return false;
+}
+
 function findPortalEventExpenseRowNum_(ss, id) {
   var want = String(id || "").trim();
   if (!want) return -1;
@@ -2342,6 +2376,37 @@ function doPost(e) {
       invalidatePortalStateCache_();
       return json_({ ok: true, id: idEc }, 200);
     }
+    if (action === "updateEventCollection") {
+      var idEcU = String(body.id || "").trim();
+      var eventIdEcU = String(body.eventId || "").trim();
+      var plotEcU = String(body.plotNo || "").trim();
+      var amountEcU = Number(body.amount);
+      if (!idEcU || !eventIdEcU || !plotEcU || !isFinite(amountEcU) || amountEcU <= 0) {
+        return jsonOut({ ok: false, error: "invalid_payload" });
+      }
+      var ssEcU = getSpreadsheet_();
+      var rowEcU = findPortalEventCollectionRowNum_(ssEcU, idEcU);
+      if (rowEcU < 0) return jsonOut({ ok: false, error: "not_found" });
+      var shEcU = ssEcU.getSheetByName(PORTAL_EVENT_COLLECTIONS_SHEET);
+      if (eventCollectionDuplicate_(shEcU, eventIdEcU, plotEcU, idEcU)) {
+        return jsonOut({ ok: false, error: "already_paid" });
+      }
+      shEcU.getRange(rowEcU, 2).setValue(nowIso_());
+      shEcU.getRange(rowEcU, 3, 1, 3).setValues([[eventIdEcU, plotEcU, amountEcU]]);
+      return jsonOut({ ok: true });
+    }
+
+    if (action === "deleteEventCollection") {
+      var idEcD = String(body.id || "").trim();
+      if (!idEcD) return jsonOut({ ok: false, error: "invalid_payload" });
+      var ssEcD = getSpreadsheet_();
+      var rowEcD = findPortalEventCollectionRowNum_(ssEcD, idEcD);
+      if (rowEcD < 0) return jsonOut({ ok: false, error: "not_found" });
+      var shEcD = ssEcD.getSheetByName(PORTAL_EVENT_COLLECTIONS_SHEET);
+      shEcD.deleteRow(rowEcD);
+      return jsonOut({ ok: true });
+    }
+
     if (action === "addEventExpense") {
       var actorEe = String(data.actor || "admin").trim();
       var eventIdEe = String(data.eventId || "").trim();

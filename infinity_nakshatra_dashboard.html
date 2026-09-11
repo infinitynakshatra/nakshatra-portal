@@ -841,21 +841,25 @@
       text-transform:uppercase;
       letter-spacing:0.05em;
     }
-    #adminMaintenanceMcRow .mcFilterToolbarRow{
+    #adminMaintenanceMcRow .mcFilterToolbarRow,
+    #adminEventsMcRow .mcFilterToolbarRow{
       display:flex;
       flex-wrap:wrap;
       align-items:flex-end;
       justify-content:space-between;
       gap:14px 20px;
     }
-    #adminMaintenanceMcRow .mcFilterToolbarLeft{
+    #adminMaintenanceMcRow .mcFilterToolbarLeft,
+    #adminEventsMcRow .mcFilterToolbarLeft{
       display:flex;
       flex-wrap:wrap;
       align-items:flex-end;
       gap:12px 18px;
     }
-    #adminMaintenanceMcRow .mcFilterToolbarLeft .mcFilterToolbarTitle{margin-bottom:0;}
-    #adminMaintenanceMcRow .mcFilterToolbarRight{
+    #adminMaintenanceMcRow .mcFilterToolbarLeft .mcFilterToolbarTitle,
+    #adminEventsMcRow .mcFilterToolbarLeft .mcFilterToolbarTitle{margin-bottom:0;}
+    #adminMaintenanceMcRow .mcFilterToolbarRight,
+    #adminEventsMcRow .mcFilterToolbarRight{
       display:grid;
       grid-template-columns: repeat(2, minmax(140px, 220px));
       gap:12px 18px;
@@ -863,7 +867,8 @@
       margin-left:auto;
     }
     @media (max-width: 900px){
-      #adminMaintenanceMcRow .mcFilterToolbarRight{
+      #adminMaintenanceMcRow .mcFilterToolbarRight,
+      #adminEventsMcRow .mcFilterToolbarRight{
         grid-template-columns: 1fr;
         margin-left:0;
         width:100%;
@@ -2320,8 +2325,10 @@
             <button class="btn secondary tiny" id="eventAddBtn" type="button">Add Event</button>
             <button class="btn secondary tiny" id="eventManageBtn" type="button">Show/Update Event</button>
             <button class="btn secondary tiny" id="eventCollAddBtn" type="button">Add Event Collection</button>
+            <button class="btn secondary tiny" id="eventCollManageBtn" type="button">Show/Update Event Collection</button>
             <button class="btn secondary tiny" id="eventExpenseAddBtn" type="button">Add Event Expense</button>
             <button class="btn secondary tiny" id="eventExpenseShowUpdateBtn" type="button">Show/Update Event Expense</button>
+            <button class="btn secondary tiny" id="eventDownloadReportBtn" type="button">Download Event Report</button>
           </div>
         </div>
         <div class="mcCollectionMetricsWrap">
@@ -2335,6 +2342,9 @@
                     <option value="">ALL</option>
                   </select>
                 </div>
+              </div>
+              <div class="mcFilterToolbarRight">
+                <button type="button" class="btn secondary" id="eventDownloadReportBtnFilter">Download Event Report</button>
               </div>
             </div>
           </div>
@@ -3921,6 +3931,56 @@
           <tbody id="eventCollHistoryRows"></tbody>
         </table>
       </div>
+    </div>
+  </div>
+
+  <div class="backdrop" id="eventCollManageBackdrop" aria-hidden="true">
+    <div class="modal modalSeePay" role="dialog" aria-modal="true" aria-labelledby="eventCollManageTitle" style="width:min(960px, 98vw); max-height:min(92vh, 900px);">
+      <div class="modalHead">
+        <div>
+          <div class="modalTitle" id="eventCollManageTitle">Show / Update Event Collection</div>
+          <div class="modalSub">Event collections are separate from maintenance and are not included in maintenance totals.</div>
+        </div>
+        <button class="btn secondary" id="eventCollManageCloseBtn" type="button">Close</button>
+      </div>
+      <div class="scroll-x" style="overflow:auto; max-height:min(420px, 55vh); margin-top:8px;">
+        <table class="adminDirTable">
+          <thead>
+            <tr>
+              <th>Recorded</th>
+              <th>Plot</th>
+              <th>Event</th>
+              <th>Amount</th>
+              <th>By</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="eventCollManageTbody">
+            <tr><td colspan="6">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="smallNote" style="margin-top:12px;">Click <b>Edit</b> on a row, adjust the fields below, then <b>Save changes</b>.</p>
+      <input type="hidden" id="eventCollManageEditId" value="" />
+      <div class="expenseFormGrid" style="margin-top:10px;">
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventCollManagePlot">Plot Number and Name</label>
+          <select id="eventCollManagePlot"></select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventCollManageEvent">Event Name</label>
+          <select id="eventCollManageEvent"></select>
+        </div>
+        <div class="field" style="margin:0;">
+          <label class="mcDdLabel" for="eventCollManageAmount">Amount</label>
+          <input id="eventCollManageAmount" type="number" min="0" step="1" />
+        </div>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <button class="btn" id="eventCollManageSaveBtn" type="button" disabled>Save changes</button>
+        <button class="btn secondary" id="eventCollManageCancelEditBtn" type="button">Cancel edit</button>
+      </div>
+      <div class="err" id="eventCollManageErr"></div>
     </div>
   </div>
 
@@ -5520,6 +5580,7 @@
       fillEventSelectEl_("eventCollEventSelect");
       fillEventSelectEl_("eventExpenseEventSelect");
       fillEventSelectEl_("eventExpenseManageEventSelect");
+      fillEventSelectEl_("eventCollManageEvent");
     }
     function updateEventCollectionCards(){
       const coll = eventCollectionsFiltered_();
@@ -5544,6 +5605,9 @@
       } catch {}
       try {
         if (document.getElementById("eventExpenseManageBackdrop")?.classList.contains("show")) renderEventExpenseManageTable();
+      } catch {}
+      try {
+        if (document.getElementById("eventCollManageBackdrop")?.classList.contains("show")) renderEventCollManageTable();
       } catch {}
       try { renderUserEventContributions(); } catch {}
     }
@@ -5605,6 +5669,11 @@
     function removeLocalEventExpense_(id){
       const idS = String(id || "");
       portalServerState.eventExpenses = (portalServerState.eventExpenses || []).filter(x => String(x.id) !== idS);
+      refreshEventsUiFromLocal_();
+    }
+    function removeLocalEventCollection_(id){
+      const idS = String(id || "");
+      portalServerState.eventCollections = (portalServerState.eventCollections || []).filter(x => String(x.id) !== idS);
       refreshEventsUiFromLocal_();
     }
     function removeLocalEvent_(id){
@@ -5688,6 +5757,41 @@
       try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
       if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
       return { ok:true, id: j.id };
+    }
+    async function portalServerUpdateEventCollection(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "updateEventCollection",
+        actor: "admin",
+        id: String(payload.id || ""),
+        eventId: String(payload.eventId || ""),
+        plotNo: String(payload.plotNo || ""),
+        amount: Number(payload.amount) || 0
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "save_failed", detail: j };
+      return { ok:true };
+    }
+    async function portalServerDeleteEventCollection(payload){
+      const sess = readSession();
+      if (!sess || sess.role !== "admin") return { ok:false, error: "admin_required" };
+      const r = await appsScriptPostJson({
+        apiKey: COLLECTION_API_KEY,
+        action: "deleteEventCollection",
+        actor: "admin",
+        id: String(payload.id || "")
+      });
+      if (r.skipped) return { ok:false, skipped:true };
+      if (!r.ok) return { ok:false, error: r.error || "request_failed" };
+      let j;
+      try { j = JSON.parse(r.txt || "{}"); } catch { return { ok:false, error: "bad_json" }; }
+      if (!j || !j.ok) return { ok:false, error: (j && j.error) || "delete_failed", detail: j };
+      return { ok:true };
     }
     async function portalServerAddEventExpense(payload){
       const sess = readSession();
@@ -5821,6 +5925,50 @@
       if (amt) amt.value = "";
       renderEventCollHistory();
       showBackdrop("eventCollBackdrop", true);
+    }
+    function openEventCollManageModal(){
+      populatePlotSelect(document.getElementById("eventCollManagePlot"));
+      fillEventSelectEl_("eventCollManageEvent");
+      resetEventCollManageEdit();
+      renderEventCollManageTable();
+      showBackdrop("eventCollManageBackdrop", true);
+    }
+    function resetEventCollManageEdit(){
+      const idEl = document.getElementById("eventCollManageEditId");
+      if (idEl) idEl.value = "";
+      const amt = document.getElementById("eventCollManageAmount");
+      if (amt) amt.value = "";
+      const saveBtn = document.getElementById("eventCollManageSaveBtn");
+      if (saveBtn) saveBtn.disabled = true;
+      setErr(document.getElementById("eventCollManageErr"), "");
+    }
+    function renderEventCollManageTable(){
+      const tb = document.getElementById("eventCollManageTbody");
+      if (!tb) return;
+      const fid = getSelectedEventFilterId();
+      const list = [...(portalServerState.eventCollections || [])].filter(c => {
+        if (!fid) return true;
+        return String(c.eventId) === fid;
+      }).sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      if (!list.length){
+        tb.innerHTML = "<tr><td colspan=\"6\">No event collection rows yet.</td></tr>";
+        return;
+      }
+      tb.innerHTML = list.map(c => {
+        const id = escapeHtml(String(c.id || ""));
+        const by = String(c.by || c.source || "").trim() || "—";
+        return `<tr>
+          <td>${escapeHtml(formatIsoDateShort_(c.atIso))}</td>
+          <td>${escapeHtml(String(c.plotNo || ""))}</td>
+          <td>${escapeHtml(eventLabelById_(c.eventId))}</td>
+          <td>${Math.round(toMoneyNumber(c.amount))}</td>
+          <td>${escapeHtml(by)}</td>
+          <td><span class="expenseManageRowActions">
+            <button type="button" class="btn secondary tiny eventCollManageEditRowBtn" data-event-coll-id="${id}">Edit</button>
+            <button type="button" class="btn danger tiny eventCollManageDeleteRowBtn" data-event-coll-id="${id}">Delete</button>
+          </span></td>
+        </tr>`;
+      }).join("");
     }
     function renderEventCollHistory(){
       const tb = document.getElementById("eventCollHistoryRows");
@@ -11497,6 +11645,349 @@
       if (canvasFontBlobUrl) try { URL.revokeObjectURL(canvasFontBlobUrl); } catch {}
     }
 
+    async function downloadEventReportPdf(){
+      const jsp = globalThis.jspdf || window.jspdf;
+      if (!jsp || !jsp.jsPDF){
+        alert("PDF library not loaded. Refresh the page and try again.");
+        return;
+      }
+      const eventFilterId = getSelectedEventFilterId();
+      const rangeTitle = eventFilterId ? eventLabelById_(eventFilterId) : "All Events";
+      const pdfEvents = eventFilterId
+        ? eventsList_().filter(ev => String(ev.id) === eventFilterId)
+        : eventsList_();
+      const eventCollReportRowsAll = eventCollectionsFiltered_(eventFilterId || undefined).slice()
+        .sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      const eventExpReportRowsAll = eventExpensesFiltered_(eventFilterId || undefined).slice()
+        .sort((a, b) => String(b.atIso || "").localeCompare(String(a.atIso || "")));
+      let eventsCollection = 0;
+      let eventsExpenses = 0;
+      for (const c of eventCollReportRowsAll) eventsCollection += toMoneyNumber(c.amount);
+      for (const ex of eventExpReportRowsAll) eventsExpenses += toMoneyNumber(ex.amount);
+      eventsCollection = Math.round(eventsCollection);
+      eventsExpenses = Math.round(eventsExpenses);
+      const eventsBalance = eventsCollection - eventsExpenses;
+
+      function sheetOwnerNameForEventPdf(r){
+        if (!r) return "";
+        for (const k of ["Name of Owner 1", "Name of Owner 2", "Name of Owner 3"]){
+          const v = r[k];
+          if (v == null || v === "") continue;
+          const s = String(v).replace(/\s+/g, " ").trim();
+          if (!s) continue;
+          try { return s.normalize("NFC"); } catch { return s; }
+        }
+        return "";
+      }
+
+      const { jsPDF } = jsp;
+      const footerDateTimeStr = new Date().toLocaleString(undefined, {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+      const pageW = 297;
+      const pageH = 210;
+      const margin = 4;
+      const cx = pageW / 2;
+      const sm = 8;
+      const tableW = pageW - margin * 2;
+      const fs = 7;
+      const societyPdfLine = "INFINITY NAKSHATRA SOCIETY, SHIRASWADI (49/A)";
+
+      const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+      if (typeof doc.autoTable !== "function"){
+        alert("PDF table module not loaded. Refresh the page and try again.");
+        return;
+      }
+
+      let tableFont = "helvetica";
+      let buf = null;
+      try {
+        const fontUrls = [
+          "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts@main/unhinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf",
+          "https://cdn.jsdelivr.net/gh/googlefonts/noto-fonts@main/hinted/ttf/NotoSansDevanagari/NotoSansDevanagari-Regular.ttf"
+        ];
+        for (const fontUrl of fontUrls){
+          try {
+            const res = await fetch(fontUrl, { mode: "cors" });
+            if (res.ok){
+              buf = await res.arrayBuffer();
+              break;
+            }
+          } catch { /* try next */ }
+        }
+        if (buf){
+          doc.addFileToVFS("NotoSansDevanagari-Regular.ttf", arrayBufferToBase64(buf));
+          doc.addFont("NotoSansDevanagari-Regular.ttf", "NotoSansDevanagari", "normal");
+          tableFont = "NotoSansDevanagari";
+        }
+      } catch { /* keep helvetica */ }
+
+      let canvasNameFontStack = '"Noto Sans Devanagari", "Noto Sans", ui-sans-serif, sans-serif';
+      let canvasFontBlobUrl = "";
+      if (buf && typeof FontFace !== "undefined" && document.fonts){
+        let blobUrl = "";
+        try {
+          blobUrl = URL.createObjectURL(new Blob([buf], { type: "font/ttf" }));
+          const ff = new FontFace("NakshatraPdfDeva", `url(${blobUrl})`);
+          await ff.load();
+          document.fonts.add(ff);
+          canvasNameFontStack = '"NakshatraPdfDeva", "Noto Sans Devanagari", "Noto Sans", sans-serif';
+          canvasFontBlobUrl = blobUrl;
+        } catch {
+          if (blobUrl) try { URL.revokeObjectURL(blobUrl); } catch {}
+        }
+      }
+
+      const nameColFont = tableFont === "NotoSansDevanagari" ? "NotoSansDevanagari" : "helvetica";
+      const namePdfCanvas = document.createElement("canvas");
+      const namePdfCtx = namePdfCanvas.getContext("2d");
+
+      function eventPdfDrawNameCell(docRef, cell, rawName){
+        if (!namePdfCtx || !cell) return;
+        const name = String(rawName ?? "").trim();
+        if (!name) return;
+        const x = cell.x;
+        const y = cell.y;
+        const width = cell.width;
+        const height = cell.height;
+        const inset = 0.1;
+        const ix = x + inset;
+        const iy = y + inset;
+        const iw = Math.max(0.1, width - inset * 2);
+        const ih = Math.max(0.1, height - inset * 2);
+        docRef.setFillColor(255, 255, 255);
+        docRef.rect(ix, iy, iw, ih, "F");
+        const dpr = Math.min(3, typeof window !== "undefined" && window.devicePixelRatio ? window.devicePixelRatio : 1);
+        const pxPerMm = 96 / 25.4;
+        const cssW = iw * pxPerMm;
+        const cssH = ih * pxPerMm;
+        const pxW = Math.max(32, Math.ceil(cssW * dpr));
+        const pxH = Math.max(12, Math.ceil(cssH * dpr));
+        namePdfCanvas.width = pxW;
+        namePdfCanvas.height = pxH;
+        namePdfCtx.setTransform(1, 0, 0, 1, 0, 0);
+        namePdfCtx.scale(dpr, dpr);
+        namePdfCtx.fillStyle = "#ffffff";
+        namePdfCtx.fillRect(0, 0, cssW, cssH);
+        namePdfCtx.fillStyle = "#141414";
+        const baseFontPx = Math.max(5, fs * (96 / 72));
+        let fpx = baseFontPx;
+        const padX = 1.5;
+        const maxW = Math.max(4, cssW - padX * 2);
+        namePdfCtx.font = `${fpx}px ${canvasNameFontStack}`;
+        while (fpx > 4 && namePdfCtx.measureText(name).width > maxW){
+          fpx -= 0.5;
+          namePdfCtx.font = `${fpx}px ${canvasNameFontStack}`;
+        }
+        const textY = cssH / 2;
+        namePdfCtx.textBaseline = "middle";
+        namePdfCtx.fillText(name, padX, textY);
+        const dataUrl = namePdfCanvas.toDataURL("image/png");
+        docRef.addImage(dataUrl, "PNG", ix, iy, iw, ih);
+      }
+
+      function paintSocietyLineEveryPage(d){
+        const total = d.internal.getNumberOfPages();
+        for (let i = 1; i <= total; i++){
+          d.setPage(i);
+          d.setFont("helvetica", "bold");
+          d.setFontSize(11);
+          d.setTextColor(20, 20, 20);
+          d.text(societyPdfLine, cx, 4, { align: "center" });
+        }
+      }
+
+      let yEv = 12;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text("Event Collection and Expense Report", cx, yEv, { align: "center" });
+      yEv += 6;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.text(`Filter: ${rangeTitle}   |   As of ${footerDateTimeStr}`, cx, yEv, { align: "center" });
+      yEv += 8;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text(`Overall — Collection: Rs. ${eventsCollection}   |   Expenses: Rs. ${eventsExpenses}   |   Balance: Rs. ${eventsBalance}`, cx, yEv, { align: "center" });
+      yEv += 10;
+      if (pdfEvents.length){
+        for (const ev of pdfEvents){
+          let coll = 0;
+          let exp = 0;
+          for (const c of eventCollReportRowsAll){
+            if (String(c.eventId) === String(ev.id)) coll += toMoneyNumber(c.amount);
+          }
+          for (const ex of eventExpReportRowsAll){
+            if (String(ex.eventId) === String(ev.id)) exp += toMoneyNumber(ex.amount);
+          }
+          coll = Math.round(coll);
+          exp = Math.round(exp);
+          const bal = coll - exp;
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.text(String(ev.label || eventLabelById_(ev.id)), sm, yEv);
+          yEv += 5;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.text(`Amount Collected: Rs. ${coll}   |   Total Expense: Rs. ${exp}   |   Balance: Rs. ${bal}`, sm, yEv);
+          yEv += 9;
+        }
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8);
+        doc.text("No events recorded for this filter.", sm, yEv);
+        yEv += 8;
+      }
+      doc.setFontSize(7);
+      doc.text("Event amounts are separate from maintenance collection and are not included in maintenance report totals.", sm, yEv);
+
+      const eventCollGrand = eventCollReportRowsAll.reduce((t, c) => t + toMoneyNumber(c.amount), 0);
+      const eventCollReportBody = eventCollReportRowsAll.slice(0, 200).map(c => {
+        const at = String(c.atIso || "").replace("T", " ").slice(0, 19);
+        const evLabel = eventLabelById_(c.eventId).slice(0, 80);
+        const plot = String(c.plotNo || "").trim();
+        const ownerName = sheetOwnerNameForEventPdf(sheetRowForPlotNo(plot)).slice(0, 80);
+        const by = String(c.by || c.source || "").trim().slice(0, 120);
+        return [at, plot || "—", ownerName || "—", evLabel || "—", by || "—", `Rs. ${Math.round(toMoneyNumber(c.amount))}`];
+      });
+      if (!eventCollReportBody.length){
+        eventCollReportBody.push(["—", "—", "—", "—", "No event collections recorded.", "Rs. 0"]);
+      }
+
+      doc.addPage();
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(`Event Collection Report — ${rangeTitle}`, cx, 11, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.6);
+      doc.text(`As of ${footerDateTimeStr}`, cx, 17, { align: "center" });
+      doc.setFontSize(6.8);
+      doc.text("Event collections are separate from maintenance and are not included in maintenance totals.", cx, 21.5, { align: "center" });
+      if (eventCollReportRowsAll.length > 200){
+        doc.setFontSize(7);
+        doc.text("(Showing first 200 collection rows; total below includes all rows.)", cx, 26, { align: "center" });
+      }
+      const evCollLine = { lineWidth: 0.12, lineColor: [55, 55, 55] };
+      doc.autoTable({
+        startY: eventCollReportRowsAll.length > 200 ? 30 : 25,
+        margin: { left: margin, right: margin, bottom: 10 },
+        tableWidth: tableW,
+        theme: "grid",
+        head: [["Date / time", "Plot No.", "Owner Name", "Event", "By / Source", "Amount (Rs.)"]],
+        body: eventCollReportBody,
+        foot: [[`TOTAL (${eventCollReportRowsAll.length} entries)`, "", "", "", "", `Rs. ${Math.round(eventCollGrand)}`]],
+        showFoot: "lastPage",
+        styles: { font: "helvetica", fontSize: 7, cellPadding: 0.85, valign: "middle", textColor: 20, overflow: "linebreak", halign: "left", ...evCollLine },
+        headStyles: { font: "helvetica", fontStyle: "bold", fillColor: [230, 238, 248], textColor: 15, fontSize: 7.2, ...evCollLine },
+        footStyles: { font: "helvetica", fontStyle: "bold", fillColor: [236, 248, 236], fontSize: 7, ...evCollLine },
+        didParseCell(data){
+          if (data.section === "body" && data.column.index === 2 && namePdfCtx) data.cell.text = [];
+          if (data.column.index === 5) data.cell.styles.halign = "right";
+        },
+        didDrawCell(data){
+          if (data.section !== "body" || data.column.index !== 2 || !namePdfCtx) return;
+          let raw = data.cell.raw;
+          if ((raw == null || raw === "") && typeof data.row?.index === "number"){
+            const rowArr = eventCollReportBody[data.row.index];
+            if (rowArr && rowArr.length > 2) raw = rowArr[2];
+          }
+          eventPdfDrawNameCell(doc, data.cell, raw != null ? raw : "");
+        },
+        columnStyles: (() => {
+          const wDate = 28;
+          const wPlot = 14;
+          const wOwner = 34;
+          const wAmt = 22;
+          const rem = tableW - wDate - wPlot - wOwner - wAmt;
+          const wEvent = rem * 0.55;
+          const wBy = rem * 0.45;
+          return {
+            0: { cellWidth: wDate, halign: "left", font: "helvetica" },
+            1: { cellWidth: wPlot, halign: "center", font: "helvetica" },
+            2: { cellWidth: wOwner, halign: "left", font: nameColFont },
+            3: { cellWidth: wEvent, halign: "left", font: "helvetica" },
+            4: { cellWidth: wBy, halign: "left", font: "helvetica" },
+            5: { cellWidth: wAmt, halign: "right", font: "helvetica" }
+          };
+        })()
+      });
+
+      const eventExpGrand = eventExpReportRowsAll.reduce((t, ex) => t + toMoneyNumber(ex.amount), 0);
+      const eventExpReportBody = eventExpReportRowsAll.slice(0, 200).map(ex => {
+        const at = String(ex.atIso || "").replace("T", " ").slice(0, 19);
+        const evLabel = eventLabelById_(ex.eventId).slice(0, 80);
+        return [
+          at,
+          evLabel || "—",
+          String(ex.description || "").trim().slice(0, 200),
+          String(ex.paidTo || "").trim().slice(0, 400),
+          `Rs. ${Math.round(toMoneyNumber(ex.amount))}`
+        ];
+      });
+      if (!eventExpReportBody.length){
+        eventExpReportBody.push(["—", "—", "No event expenses recorded.", "—", "Rs. 0"]);
+      }
+
+      doc.addPage();
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(`Event Expense Report — ${rangeTitle}`, cx, 11, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.6);
+      doc.text(`As of ${footerDateTimeStr}`, cx, 17, { align: "center" });
+      if (eventExpReportRowsAll.length > 200){
+        doc.setFontSize(7);
+        doc.text("(Showing first 200 expense rows; total below includes all rows.)", cx, 22, { align: "center" });
+      }
+      const evExpLine = { lineWidth: 0.12, lineColor: [55, 55, 55] };
+      doc.autoTable({
+        startY: eventExpReportRowsAll.length > 200 ? 26 : 21,
+        margin: { left: margin, right: margin, bottom: 10 },
+        tableWidth: tableW,
+        theme: "grid",
+        head: [["Date / time", "Event", "Description", "Paid to", "Amount (Rs.)"]],
+        body: eventExpReportBody,
+        foot: [[`TOTAL (${eventExpReportRowsAll.length} entries)`, "", "", "", `Rs. ${Math.round(eventExpGrand)}`]],
+        showFoot: "lastPage",
+        styles: { font: "helvetica", fontSize: 7, cellPadding: 0.85, valign: "middle", textColor: 20, overflow: "linebreak", halign: "left", ...evExpLine },
+        headStyles: { font: "helvetica", fontStyle: "bold", fillColor: [230, 238, 248], textColor: 15, fontSize: 7.2, ...evExpLine },
+        footStyles: { font: "helvetica", fontStyle: "bold", fillColor: [236, 248, 236], fontSize: 7, ...evExpLine },
+        didParseCell(data){
+          if (data.column.index === 4) data.cell.styles.halign = "right";
+        },
+        columnStyles: (() => {
+          const wDate = 30;
+          const wEvent = 38;
+          const wAmt = 24;
+          const rem = tableW - wDate - wEvent - wAmt;
+          const wDesc = rem * 0.55;
+          const wPaid = rem * 0.45;
+          return {
+            0: { cellWidth: wDate, halign: "left" },
+            1: { cellWidth: wEvent, halign: "left" },
+            2: { cellWidth: wDesc, halign: "left" },
+            3: { cellWidth: wPaid, halign: "left" },
+            4: { cellWidth: wAmt, halign: "right" }
+          };
+        })()
+      });
+
+      const yThank = (doc.lastAutoTable && typeof doc.lastAutoTable.finalY === "number")
+        ? doc.lastAutoTable.finalY + 10
+        : pageH - 12;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("Thank You!!", cx, Math.min(yThank, pageH - 5), { align: "center" });
+
+      paintSocietyLineEveryPage(doc);
+      doc.save(`Event-Report-${new Date().toISOString().slice(0, 10)}.pdf`);
+      if (canvasFontBlobUrl) try { URL.revokeObjectURL(canvasFontBlobUrl); } catch {}
+    }
+
     /** Owners who paid maintenance for every selected month (same rule as Payment completed owners modal). */
     function countPaymentCompletedOwnersForMc_(selectedYms){
       if (!selectedYms || !selectedYms.length) return 0;
@@ -13729,8 +14220,102 @@
       });
       const eventCollAddBtn = document.getElementById("eventCollAddBtn");
       if (eventCollAddBtn) eventCollAddBtn.addEventListener("click", () => openEventCollModal());
+      const eventCollManageBtn = document.getElementById("eventCollManageBtn");
+      if (eventCollManageBtn) eventCollManageBtn.addEventListener("click", () => openEventCollManageModal());
       const eventCollCloseBtn = document.getElementById("eventCollCloseBtn");
       if (eventCollCloseBtn) eventCollCloseBtn.addEventListener("click", () => showBackdrop("eventCollBackdrop", false));
+      const eventCollManageCloseBtn = document.getElementById("eventCollManageCloseBtn");
+      if (eventCollManageCloseBtn) eventCollManageCloseBtn.addEventListener("click", () => showBackdrop("eventCollManageBackdrop", false));
+      const eventCollManageCancelEditBtn = document.getElementById("eventCollManageCancelEditBtn");
+      if (eventCollManageCancelEditBtn) eventCollManageCancelEditBtn.addEventListener("click", () => {
+        resetEventCollManageEdit();
+        renderEventCollManageTable();
+      });
+      const eventCollManageSaveBtn = document.getElementById("eventCollManageSaveBtn");
+      if (eventCollManageSaveBtn) eventCollManageSaveBtn.addEventListener("click", () => {
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        if (!isServerEnabled()){
+          alert("Configure COLLECTION_API_URL and API key to save event collections.");
+          return;
+        }
+        const id = norm(document.getElementById("eventCollManageEditId")?.value);
+        if (!id){ alert("Choose a row with Edit first."); return; }
+        const plotNo = norm(document.getElementById("eventCollManagePlot")?.value);
+        const eventId = norm(document.getElementById("eventCollManageEvent")?.value);
+        const amount = toMoneyNumber(document.getElementById("eventCollManageAmount")?.value);
+        const errEl = document.getElementById("eventCollManageErr");
+        setErr(errEl, "");
+        if (!plotNo){ setErr(errEl, "Choose a plot."); return; }
+        if (!eventId){ setErr(errEl, "Choose an event."); return; }
+        if (amount <= 0){ setErr(errEl, "Enter a positive amount."); return; }
+        const saveBtn = eventCollManageSaveBtn;
+        void (async () => {
+          if (saveBtn) saveBtn.disabled = true;
+          try {
+            const sr = await portalServerUpdateEventCollection({ id, plotNo, eventId, amount });
+            if (!sr.ok){
+              const msg = sr.skipped
+                ? "Server save is not configured."
+                : (sr.error === "already_paid" ? "This plot already has a collection for this event."
+                  : (sr.error === "not_found" ? "Collection row not found on server. Refresh and try again."
+                    : (sr.error || "Could not update event collection.")));
+              setErr(errEl, msg);
+              return;
+            }
+            upsertLocalEventCollection_({ id, plotNo, eventId, amount });
+            resetEventCollManageEdit();
+            renderEventCollManageTable();
+            alert("Event collection updated successfully.");
+          } finally {
+            if (saveBtn) saveBtn.disabled = false;
+          }
+        })();
+      });
+      const eventCollManageTbody = document.getElementById("eventCollManageTbody");
+      if (eventCollManageTbody) eventCollManageTbody.addEventListener("click", (e) => {
+        const delBtn = e.target.closest(".eventCollManageDeleteRowBtn");
+        if (delBtn){
+          const sess = readSession();
+          if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+          if (!isServerEnabled()){ alert("Configure COLLECTION_API_URL and API key."); return; }
+          const idDel = norm(delBtn.getAttribute("data-event-coll-id"));
+          if (!idDel) return;
+          if (!confirm("Delete this event collection row?")) return;
+          const errEl = document.getElementById("eventCollManageErr");
+          void (async () => {
+            const dr = await portalServerDeleteEventCollection({ id: idDel });
+            if (!dr.ok){
+              setErr(errEl, dr.skipped ? "Server save is not configured." : (dr.error || "Could not delete."));
+              return;
+            }
+            removeLocalEventCollection_(idDel);
+            const editingId = norm(document.getElementById("eventCollManageEditId")?.value);
+            if (editingId && editingId === idDel) resetEventCollManageEdit();
+            renderEventCollManageTable();
+            alert("Event collection deleted.");
+          })();
+          return;
+        }
+        const btn = e.target.closest(".eventCollManageEditRowBtn");
+        if (!btn) return;
+        const idRaw = btn.getAttribute("data-event-coll-id");
+        const c = (portalServerState.eventCollections || []).find(x => String(x.id) === String(idRaw));
+        if (!c) return;
+        document.getElementById("eventCollManageEditId").value = String(c.id || "");
+        populatePlotSelect(document.getElementById("eventCollManagePlot"));
+        const plotSel = document.getElementById("eventCollManagePlot");
+        if (plotSel) plotSel.value = String(c.plotNo || "");
+        fillEventSelectEl_("eventCollManageEvent", c.eventId);
+        const amtEl = document.getElementById("eventCollManageAmount");
+        if (amtEl) amtEl.value = String(Math.round(toMoneyNumber(c.amount)));
+        document.getElementById("eventCollManageSaveBtn").disabled = false;
+        setErr(document.getElementById("eventCollManageErr"), "");
+      });
+      const eventDownloadReportBtn = document.getElementById("eventDownloadReportBtn");
+      if (eventDownloadReportBtn) eventDownloadReportBtn.addEventListener("click", () => { void downloadEventReportPdf(); });
+      const eventDownloadReportBtnFilter = document.getElementById("eventDownloadReportBtnFilter");
+      if (eventDownloadReportBtnFilter) eventDownloadReportBtnFilter.addEventListener("click", () => { void downloadEventReportPdf(); });
       const eventCollPlotSelect = document.getElementById("eventCollPlotSelect");
       if (eventCollPlotSelect) eventCollPlotSelect.addEventListener("change", () => renderEventCollHistory());
       const eventCollSaveBtn = document.getElementById("eventCollSaveBtn");
