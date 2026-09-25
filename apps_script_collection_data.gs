@@ -378,8 +378,95 @@ function mergePortalPaymentsDedupe_(portalRows, collectionRows) {
   return out;
 }
 
+/** Script Cache max is ~100KB per key; payments alone can exceed a combined payload. */
+var PORTAL_STATE_CACHE_META = "portal_state_meta_v2";
+var PORTAL_STATE_CACHE_PAY_PREFIX = "portal_state_pay_v2_";
+var PORTAL_STATE_CACHE_PAY_MAX = 85000;
+
 function invalidatePortalStateCache_() {
-  try { CacheService.getScriptCache().remove("portal_state_v1"); } catch (e) {}
+  try {
+    var cache = CacheService.getScriptCache();
+    cache.remove("portal_state_v1");
+    cache.remove(PORTAL_STATE_CACHE_META);
+    var i;
+    for (i = 0; i < 16; i++) cache.remove(PORTAL_STATE_CACHE_PAY_PREFIX + i);
+  } catch (e) {}
+}
+
+function putPortalStateCache_(out) {
+  try {
+    var cache = CacheService.getScriptCache();
+    var payments = out.payments || [];
+    var meta = {
+      ok: out.ok,
+      pending: out.pending,
+      tickets: out.tickets,
+      notices: out.notices,
+      expenses: out.expenses,
+      otherEarnings: out.otherEarnings,
+      events: out.events,
+      eventCollections: out.eventCollections,
+      eventExpenses: out.eventExpenses,
+      banking: out.banking,
+      projectDocs: out.projectDocs,
+      meetingDocs: out.meetingDocs,
+      societyDetails: out.societyDetails,
+      serviceContacts: out.serviceContacts,
+      ownerAccess: out.ownerAccess,
+      ownerPortalMayYear: out.ownerPortalMayYear,
+      gateVisits: out.gateVisits,
+      _payChunks: 0
+    };
+    var chunks = [];
+    var buf = [];
+    var bufLen = 2; // []
+    var pi;
+    for (pi = 0; pi < payments.length; pi++) {
+      var piece = JSON.stringify(payments[pi]);
+      var nextLen = bufLen + piece.length + (buf.length ? 1 : 0);
+      if (buf.length && nextLen > PORTAL_STATE_CACHE_PAY_MAX) {
+        chunks.push(buf);
+        buf = [];
+        bufLen = 2;
+        nextLen = bufLen + piece.length;
+      }
+      buf.push(payments[pi]);
+      bufLen = nextLen;
+    }
+    if (buf.length || !chunks.length) chunks.push(buf);
+    meta._payChunks = chunks.length;
+    cache.put(PORTAL_STATE_CACHE_META, JSON.stringify(meta), 120);
+    var ci;
+    for (ci = 0; ci < chunks.length; ci++) {
+      cache.put(PORTAL_STATE_CACHE_PAY_PREFIX + ci, JSON.stringify(chunks[ci]), 120);
+    }
+  } catch (ePut) {}
+}
+
+function getPortalStateCache_() {
+  try {
+    var cache = CacheService.getScriptCache();
+    var metaRaw = cache.get(PORTAL_STATE_CACHE_META);
+    if (!metaRaw) return null;
+    var meta = JSON.parse(metaRaw);
+    var n = Number(meta._payChunks || 0);
+    var payments = [];
+    var i;
+    for (i = 0; i < n; i++) {
+      var raw = cache.get(PORTAL_STATE_CACHE_PAY_PREFIX + i);
+      if (!raw) return null;
+      var part = JSON.parse(raw);
+      if (part && part.length) {
+        var j;
+        for (j = 0; j < part.length; j++) payments.push(part[j]);
+      }
+    }
+    meta.payments = payments;
+    delete meta._payChunks;
+    return meta;
+  } catch (eGet) {
+    return null;
+  }
 }
 
 function sanitizeBankingPayload_(data) {
@@ -1210,34 +1297,10 @@ function paymentsFromCollectionData_(ss) {
 }
 
 function getPortalState_(ss) {
-  // Small cache to speed up repeated dashboard refreshes.
-  // Avoid long stale cache; keep very short.
+  // Chunked Script Cache (100KB/key limit). Mutations call invalidatePortalStateCache_().
   try {
-    var cache = CacheService.getScriptCache();
-    var cached = cache.get("portal_state_v1");
-    if (cached) {
-      try {
-        var cachedOut = JSON.parse(cached);
-        cachedOut.banking = readPortalBankingObject_(ss);
-        cachedOut.projectDocs = readPortalProjectDocs_(ss);
-        cachedOut.meetingDocs = readPortalMeetingDocs_(ss);
-        cachedOut.societyDetails = readPortalSocietyDetails_(ss);
-        cachedOut.serviceContacts = readPortalServiceContacts_(ss);
-        cachedOut.ownerAccess = readPortalOwnerAccess_(ss);
-        cachedOut.expenses = readPortalExpenses_(ss);
-        cachedOut.otherEarnings = readPortalOtherEarnings_(ss);
-        cachedOut.events = readPortalEvents_(ss);
-        cachedOut.eventCollections = readPortalEventCollections_(ss);
-        cachedOut.eventExpenses = readPortalEventExpenses_(ss);
-        cachedOut.ownerPortalMayYear = readPortalOwnerFyMayYear_(ss);
-        cachedOut.gateVisits = readPortalGateVisits_(ss);
-        return cachedOut;
-      } catch (eParse) {
-        try {
-          cache.remove("portal_state_v1");
-        } catch (eRm) {}
-      }
-    }
+    var cachedOut = getPortalStateCache_();
+    if (cachedOut && cachedOut.ok) return cachedOut;
   } catch (e0) {}
 
   var pay = ensureSheetWithHeaders_(ss, PORTAL_PAYMENTS_SHEET, PORTAL_PAYMENTS_HEADERS);
@@ -1279,25 +1342,7 @@ function getPortalState_(ss) {
   out.eventExpenses = readPortalEventExpenses_(ss);
   out.ownerPortalMayYear = readPortalOwnerFyMayYear_(ss);
   out.gateVisits = readPortalGateVisits_(ss);
-  try {
-    // Cache payments/pending/tickets/notices/expenses (banking + project docs merged fresh from sheet on cache hit).
-    var cachePayload = {
-      ok: out.ok,
-      payments: out.payments,
-      pending: out.pending,
-      tickets: out.tickets,
-      notices: out.notices,
-      expenses: out.expenses,
-      events: out.events,
-      eventCollections: out.eventCollections,
-      eventExpenses: out.eventExpenses,
-      ownerPortalMayYear: out.ownerPortalMayYear,
-      gateVisits: out.gateVisits
-    };
-    // Longer TTL avoids a burst of concurrent /state recomputes returning subtly different payloads;
-    // mutations still call invalidatePortalStateCache_().
-    CacheService.getScriptCache().put("portal_state_v1", JSON.stringify(cachePayload), 120);
-  } catch (e1) {}
+  putPortalStateCache_(out);
   return out;
 }
 

@@ -5055,16 +5055,19 @@
       portalServerState.paymentsByPlot.set(serverPaymentsKey(plotNo), entries || []);
     }
 
-    async function portalServerFetchState(){
+    async function portalServerFetchState(opts){
       if (!isServerEnabled()) return { ok:false, skipped:true };
       if (portalServerStateFetchInFlight) return portalServerStateFetchInFlight;
+      // Quiet by default: full /state can take several seconds; local upserts already refresh UI.
+      // Pass { showLoading: true } only when a blocking spinner is intentional.
+      const quiet = !(opts && opts.showLoading);
       portalServerStateFetchInFlight = (async () => {
       const sessFetch = readSession();
       const stateBody = { apiKey: COLLECTION_API_KEY, action: "state" };
       if (sessFetch && sessFetch.role === "user" && sessFetch.userId){
         stateBody.forUserMobile = String(sessFetch.userId);
       }
-      const r = await appsScriptPostJson(stateBody);
+      const r = await appsScriptPostJson(stateBody, quiet ? { quiet: true } : undefined);
       if (r.skipped) return { ok:false, skipped:true };
       if (!r.ok){
         portalServerState.lastFetchError = String(r.error || "fetch_failed");
@@ -8576,6 +8579,8 @@
         renderAdminPendingApprovalPanel();
         startRefreshTimer();
         loadCsv();
+        // State sync runs in background so the full-screen Loading overlay is not stuck
+        // for the full Apps Script round-trip (~7–12s). CSV overlay hides when owners load.
         void portalServerFetchState().then(() => {
           renderAdminPendingApprovalPanel();
           updateMaintenanceCollectionCards();
@@ -8636,7 +8641,7 @@
     function startRefreshTimer(){
       if (refreshTimer) clearInterval(refreshTimer);
       refreshTimer = null;
-      if (AUTO_REFRESH_MS > 0) refreshTimer = setInterval(loadCsv, AUTO_REFRESH_MS);
+      if (AUTO_REFRESH_MS > 0) refreshTimer = setInterval(() => loadCsv({ quiet: true }), AUTO_REFRESH_MS);
     }
 
     function normalizeLoginId(role, raw){
@@ -15155,8 +15160,9 @@
       })();
     }
 
-    function loadCsv(){
-      __insPushBackendLoading();
+    function loadCsv(opts){
+      const quiet = !!(opts && opts.quiet);
+      if (!quiet) __insPushBackendLoading();
       const gids = SHEET_EXPORT_GIDS.length ? SHEET_EXPORT_GIDS : ["0"];
       let gi = 0;
       csvLoading = true;
@@ -15171,7 +15177,7 @@
         allRows = [];
         portalDataSheetGid = null;
         csvLoading = false;
-        __insPopBackendLoading();
+        if (!quiet) __insPopBackendLoading();
           const sess = readSession();
           if (sess && sess.role === "admin"){
             setStats();
@@ -15199,7 +15205,7 @@
               // once owner rows + server payment state are both available.
               csvLoading = false;
               finalizeCsvLoad_(mapped, gid);
-              __insPopBackendLoading();
+              if (!quiet) __insPopBackendLoading();
           } else {
               tryNext();
           }
