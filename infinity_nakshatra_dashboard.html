@@ -8865,11 +8865,19 @@
         loadCsv();
         // State sync runs in background so the full-screen Loading overlay is not stuck
         // for the full Apps Script round-trip (~7–12s). CSV overlay hides when owners load.
-        void portalServerFetchState().then(() => {
-          renderAdminPendingApprovalPanel();
-          updateMaintenanceCollectionCards();
-          applyFilters();
-        }).catch(() => {});
+        void (async () => {
+          let st = await portalServerFetchState();
+          if (!st || !st.ok){
+            await new Promise(res => setTimeout(res, 1500));
+            st = await portalServerFetchState();
+          }
+          try {
+            renderAdminPendingApprovalPanel();
+            updateMaintenanceCollectionCards();
+            updateEventCollectionCards();
+            applyFilters();
+          } catch {}
+        })();
         renderProjectDocsTables();
         renderMeetingDocsTables();
         renderServiceContactsTables();
@@ -8895,9 +8903,14 @@
         renderUserGuideBanner();
         startRefreshTimer();
         loadCsv();
-        void portalServerFetchState().then(() => {
-          refreshUserView();
-        }).catch(() => {});
+        void (async () => {
+          let st = await portalServerFetchState();
+          if (!st || !st.ok){
+            await new Promise(res => setTimeout(res, 1500));
+            st = await portalServerFetchState();
+          }
+          try { refreshUserView(); } catch {}
+        })();
         renderProjectDocsTables();
         renderMeetingDocsTables();
         renderServiceContactsTables();
@@ -11742,17 +11755,20 @@
       const eventSpecialGrand = eventSpecialReportRowsAll.reduce((t, sd) => t + Math.max(0, toMoneyNumber(sd.amount)), 0);
       const eventSpecialReportBody = eventSpecialReportRowsAll.slice(0, 200).map(sd => {
         const at = String(sd.atIso || "").replace("T", " ").slice(0, 19);
-        const evLabel = eventLabelById_(sd.eventId).slice(0, 80);
+        const evLabel = eventLabelById_(sd.eventId).slice(0, 60);
         const plot = String(sd.plotNo || "").trim();
-        const ownerName = sheetOwnerNameForSixMonthPdf(sheetRowForPlotNo(plot)).slice(0, 80);
-        const donated = String(sd.donated || "").trim().slice(0, 200);
+        const ownerName = sheetOwnerNameForSixMonthPdf(sheetRowForPlotNo(plot)).slice(0, 60);
+        let donated = String(sd.donated || "").trim();
+        try { donated = donated.normalize("NFC"); } catch (_) {}
+        donated = donated.slice(0, 120);
         const amt = toMoneyNumber(sd.amount);
+        const donatedCell = donated || (amt > 0 ? "Cash" : "—");
         return [
           at,
           plot || "—",
           ownerName || "—",
           evLabel || "—",
-          donated || "—",
+          donatedCell,
           amt > 0 ? `Rs. ${Math.round(amt)}` : "—"
         ];
       });
@@ -11768,7 +11784,7 @@
       doc.setFontSize(7.6);
       doc.text(`As of ${footerDateTimeStr}`, cx, 17, { align: "center" });
       doc.setFontSize(6.8);
-      doc.text("Cash amounts are included in Events Collection totals. In-kind gifts are listed here only.", cx, 21.5, { align: "center" });
+      doc.text("Cash amounts are included in Events Collection totals. In-kind gifts appear under Donated (Devanagari supported).", cx, 21.5, { align: "center" });
       if (eventSpecialReportRowsAll.length > 200){
         doc.setFontSize(7);
         doc.text("(Showing first 200 rows; cash total below includes all rows.)", cx, 26, { align: "center" });
@@ -11779,18 +11795,19 @@
         margin: { left: margin, right: margin, bottom: 10 },
         tableWidth: tableW,
         theme: "grid",
-        head: [["Date / time", "Plot No.", "Owner Name", "Event", "Donated", "Amount (Rs.)"]],
+        head: [["Date / time", "Plot", "Owner Name", "Event", "Donated (item / cash)", "Amount (Rs.)"]],
         body: eventSpecialReportBody,
-        foot: [[`TOTAL CASH (${eventSpecialReportRowsAll.length} entries)`, "", "", "", "", `Rs. ${Math.round(eventSpecialGrand)}`]],
+        foot: [["TOTAL CASH AMOUNT", "", "", "", `${eventSpecialReportRowsAll.length} entr${eventSpecialReportRowsAll.length === 1 ? "y" : "ies"}`, `Rs. ${Math.round(eventSpecialGrand)}`]],
         showFoot: "lastPage",
         styles: {
           font: "helvetica",
           fontSize: 7,
-          cellPadding: 0.85,
+          cellPadding: 1.1,
           valign: "middle",
           textColor: 20,
           overflow: "linebreak",
           halign: "left",
+          minCellHeight: 7,
           ...evSdLine
         },
         headStyles: {
@@ -11809,34 +11826,35 @@
           ...evSdLine
         },
         didParseCell: function (data) {
-          if (data.section === "body" && data.column.index === 2 && namePdfCtx){
+          if (data.section === "body" && (data.column.index === 2 || data.column.index === 4) && namePdfCtx){
             data.cell.text = [];
           }
           if (data.column.index === 5) data.cell.styles.halign = "right";
+          if (data.section === "foot" && data.column.index === 5) data.cell.styles.halign = "right";
         },
         didDrawCell: function (data) {
-          if (data.section !== "body" || data.column.index !== 2 || !namePdfCtx) return;
+          if (data.section !== "body" || !namePdfCtx) return;
+          if (data.column.index !== 2 && data.column.index !== 4) return;
           let raw = data.cell.raw;
           if ((raw == null || raw === "") && typeof data.row?.index === "number"){
             const rowArr = eventSpecialReportBody[data.row.index];
-            if (rowArr && rowArr.length > 2) raw = rowArr[2];
+            if (rowArr && rowArr.length > data.column.index) raw = rowArr[data.column.index];
           }
           sixMonthPdfDrawNameCell(doc, data.cell, raw != null ? raw : "");
         },
         columnStyles: (() => {
-          const wDate = 28;
-          const wPlot = 14;
-          const wOwner = 32;
-          const wAmt = 22;
-          const rem = tableW - wDate - wPlot - wOwner - wAmt;
-          const wEvent = rem * 0.45;
-          const wDonated = rem * 0.55;
+          const wDate = 26;
+          const wPlot = 12;
+          const wOwner = 38;
+          const wEvent = 42;
+          const wAmt = 24;
+          const wDonated = Math.max(40, tableW - wDate - wPlot - wOwner - wEvent - wAmt);
           return {
             0: { cellWidth: wDate, halign: "left", font: "helvetica" },
             1: { cellWidth: wPlot, halign: "center", font: "helvetica" },
             2: { cellWidth: wOwner, halign: "left", font: nameColFont },
             3: { cellWidth: wEvent, halign: "left", font: "helvetica" },
-            4: { cellWidth: wDonated, halign: "left", font: "helvetica" },
+            4: { cellWidth: wDonated, halign: "left", font: nameColFont },
             5: { cellWidth: wAmt, halign: "right", font: "helvetica" }
           };
         })()
@@ -12406,17 +12424,20 @@
       const eventSpecialGrand = eventSpecialReportRowsAll.reduce((t, sd) => t + Math.max(0, toMoneyNumber(sd.amount)), 0);
       const eventSpecialReportBody = eventSpecialReportRowsAll.slice(0, 200).map(sd => {
         const at = String(sd.atIso || "").replace("T", " ").slice(0, 19);
-        const evLabel = eventLabelById_(sd.eventId).slice(0, 80);
+        const evLabel = eventLabelById_(sd.eventId).slice(0, 60);
         const plot = String(sd.plotNo || "").trim();
-        const ownerName = sheetOwnerNameForEventPdf(sheetRowForPlotNo(plot)).slice(0, 80);
-        const donated = String(sd.donated || "").trim().slice(0, 200);
+        const ownerName = sheetOwnerNameForEventPdf(sheetRowForPlotNo(plot)).slice(0, 60);
+        let donated = String(sd.donated || "").trim();
+        try { donated = donated.normalize("NFC"); } catch (_) {}
+        donated = donated.slice(0, 120);
         const amt = toMoneyNumber(sd.amount);
+        const donatedCell = donated || (amt > 0 ? "Cash" : "—");
         return [
           at,
           plot || "—",
           ownerName || "—",
           evLabel || "—",
-          donated || "—",
+          donatedCell,
           amt > 0 ? `Rs. ${Math.round(amt)}` : "—"
         ];
       });
@@ -12432,7 +12453,7 @@
       doc.setFontSize(7.6);
       doc.text(`As of ${footerDateTimeStr}`, cx, 17, { align: "center" });
       doc.setFontSize(6.8);
-      doc.text("Cash amounts are included in Total Collection. In-kind gifts (idol, frame, bell, etc.) are listed here only.", cx, 21.5, { align: "center" });
+      doc.text("Cash amounts are included in Total Collection. In-kind gifts appear under Donated (Devanagari supported).", cx, 21.5, { align: "center" });
       if (eventSpecialReportRowsAll.length > 200){
         doc.setFontSize(7);
         doc.text("(Showing first 200 rows; cash total below includes all rows.)", cx, 26, { align: "center" });
@@ -12443,40 +12464,41 @@
         margin: { left: margin, right: margin, bottom: 10 },
         tableWidth: tableW,
         theme: "grid",
-        head: [["Date / time", "Plot No.", "Owner Name", "Event", "Donated", "Amount (Rs.)"]],
+        head: [["Date / time", "Plot", "Owner Name", "Event", "Donated (item / cash)", "Amount (Rs.)"]],
         body: eventSpecialReportBody,
-        foot: [[`TOTAL CASH (${eventSpecialReportRowsAll.length} entries)`, "", "", "", "", `Rs. ${Math.round(eventSpecialGrand)}`]],
+        foot: [["TOTAL CASH AMOUNT", "", "", "", `${eventSpecialReportRowsAll.length} entr${eventSpecialReportRowsAll.length === 1 ? "y" : "ies"}`, `Rs. ${Math.round(eventSpecialGrand)}`]],
         showFoot: "lastPage",
-        styles: { font: "helvetica", fontSize: 7, cellPadding: 0.85, valign: "middle", textColor: 20, overflow: "linebreak", halign: "left", ...evSdLine },
+        styles: { font: "helvetica", fontSize: 7, cellPadding: 1.1, minCellHeight: 7, valign: "middle", textColor: 20, overflow: "linebreak", halign: "left", ...evSdLine },
         headStyles: { font: "helvetica", fontStyle: "bold", fillColor: [255, 243, 224], textColor: 15, fontSize: 7.2, ...evSdLine },
         footStyles: { font: "helvetica", fontStyle: "bold", fillColor: [236, 248, 236], fontSize: 7, ...evSdLine },
         didParseCell(data){
-          if (data.section === "body" && data.column.index === 2 && namePdfCtx) data.cell.text = [];
+          if (data.section === "body" && (data.column.index === 2 || data.column.index === 4) && namePdfCtx) data.cell.text = [];
           if (data.column.index === 5) data.cell.styles.halign = "right";
+          if (data.section === "foot" && data.column.index === 5) data.cell.styles.halign = "right";
         },
         didDrawCell(data){
-          if (data.section !== "body" || data.column.index !== 2 || !namePdfCtx) return;
+          if (data.section !== "body" || !namePdfCtx) return;
+          if (data.column.index !== 2 && data.column.index !== 4) return;
           let raw = data.cell.raw;
           if ((raw == null || raw === "") && typeof data.row?.index === "number"){
             const rowArr = eventSpecialReportBody[data.row.index];
-            if (rowArr && rowArr.length > 2) raw = rowArr[2];
+            if (rowArr && rowArr.length > data.column.index) raw = rowArr[data.column.index];
           }
           eventPdfDrawNameCell(doc, data.cell, raw != null ? raw : "");
         },
         columnStyles: (() => {
-          const wDate = 28;
-          const wPlot = 14;
-          const wOwner = 32;
-          const wAmt = 22;
-          const rem = tableW - wDate - wPlot - wOwner - wAmt;
-          const wEvent = rem * 0.45;
-          const wDonated = rem * 0.55;
+          const wDate = 26;
+          const wPlot = 12;
+          const wOwner = 38;
+          const wEvent = 42;
+          const wAmt = 24;
+          const wDonated = Math.max(40, tableW - wDate - wPlot - wOwner - wEvent - wAmt);
           return {
             0: { cellWidth: wDate, halign: "left", font: "helvetica" },
             1: { cellWidth: wPlot, halign: "center", font: "helvetica" },
             2: { cellWidth: wOwner, halign: "left", font: nameColFont },
             3: { cellWidth: wEvent, halign: "left", font: "helvetica" },
-            4: { cellWidth: wDonated, halign: "left", font: "helvetica" },
+            4: { cellWidth: wDonated, halign: "left", font: nameColFont },
             5: { cellWidth: wAmt, halign: "right", font: "helvetica" }
           };
         })()
