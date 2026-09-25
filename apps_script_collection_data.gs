@@ -1381,20 +1381,34 @@ function getPortalState_(ss) {
     var colPay = paymentsFromCollectionData_(ss);
     out.payments = mergePortalPaymentsDedupe_(out.payments, colPay);
   } catch (eM) {}
-  out.banking = readPortalBankingObject_(ss);
-  out.projectDocs = readPortalProjectDocs_(ss);
-  out.meetingDocs = readPortalMeetingDocs_(ss);
-  out.societyDetails = readPortalSocietyDetails_(ss);
-  out.serviceContacts = readPortalServiceContacts_(ss);
-  out.ownerAccess = readPortalOwnerAccess_(ss);
-  out.expenses = readPortalExpenses_(ss);
-  out.otherEarnings = readPortalOtherEarnings_(ss);
-  out.events = readPortalEvents_(ss);
-  out.eventCollections = readPortalEventCollections_(ss);
-  out.eventExpenses = readPortalEventExpenses_(ss);
-  out.eventSpecialDonations = readPortalEventSpecialDonations_(ss);
-  out.ownerPortalMayYear = readPortalOwnerFyMayYear_(ss);
-  out.gateVisits = readPortalGateVisits_(ss);
+  out.banking = null;
+  out.projectDocs = [];
+  out.meetingDocs = [];
+  out.societyDetails = null;
+  out.serviceContacts = [];
+  out.ownerAccess = {};
+  out.expenses = [];
+  out.otherEarnings = [];
+  out.events = [];
+  out.eventCollections = [];
+  out.eventExpenses = [];
+  out.eventSpecialDonations = [];
+  out.ownerPortalMayYear = null;
+  out.gateVisits = [];
+  try { out.banking = readPortalBankingObject_(ss); } catch (eB) {}
+  try { out.projectDocs = readPortalProjectDocs_(ss); } catch (eP) {}
+  try { out.meetingDocs = readPortalMeetingDocs_(ss); } catch (eMtg) {}
+  try { out.societyDetails = readPortalSocietyDetails_(ss); } catch (eSd) {}
+  try { out.serviceContacts = readPortalServiceContacts_(ss); } catch (eSc) {}
+  try { out.ownerAccess = readPortalOwnerAccess_(ss); } catch (eOa) {}
+  try { out.expenses = readPortalExpenses_(ss); } catch (eEx) {}
+  try { out.otherEarnings = readPortalOtherEarnings_(ss); } catch (eOe) {}
+  try { out.events = readPortalEvents_(ss); } catch (eEv) {}
+  try { out.eventCollections = readPortalEventCollections_(ss); } catch (eEc) {}
+  try { out.eventExpenses = readPortalEventExpenses_(ss); } catch (eEe) {}
+  try { out.eventSpecialDonations = readPortalEventSpecialDonations_(ss); } catch (eEsd) {}
+  try { out.ownerPortalMayYear = readPortalOwnerFyMayYear_(ss); } catch (eFy) {}
+  try { out.gateVisits = readPortalGateVisits_(ss); } catch (eGv) {}
   putPortalStateCache_(out);
   return out;
 }

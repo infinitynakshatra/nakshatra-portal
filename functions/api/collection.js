@@ -40,6 +40,18 @@ function looksLikeGoogleHtml(text) {
   );
 }
 
+/** Apps Script doGet health JSON — must not be treated as a successful doPost /state result. */
+function looksLikeAppsScriptHealthCheck(text) {
+  const s = String(text || "").trim();
+  if (!s.startsWith("{")) return false;
+  try {
+    const j = JSON.parse(s);
+    return !!(j && j.ok === true && typeof j.service === "string" && /portal backend/i.test(j.service) && !Array.isArray(j.payments));
+  } catch {
+    return false;
+  }
+}
+
 function deploymentHint(target) {
   try {
     const m = String(target).match(/\/macros\/s\/([^/]+)\//i);
@@ -67,8 +79,16 @@ async function postAppsScript(target, body, contentType) {
     const loc = response.headers.get("Location");
     if (!loc) return response;
     const nextUrl = new URL(loc, base).href;
+    // Never follow a redirect back to the /exec web app — that runs doGet and returns a
+    // health-check JSON that the portal would incorrectly treat as a successful /state.
+    if (/\/macros\/s\/[^/]+\/exec\/?$/i.test(nextUrl.split("?")[0])) {
+      return new Response("apps_script_redirected_to_exec", {
+        status: 502,
+        headers: { "Content-Type": "text/plain; charset=utf-8" },
+      });
+    }
     // Brief pause — echo tokens are occasionally not ready on the edge.
-    await sleep(80);
+    await sleep(hop === 0 ? 150 : 80);
     response = await fetch(nextUrl, {
       method: "GET",
       headers: { Accept: "application/json,text/plain,*/*" },
@@ -82,6 +102,8 @@ async function postAppsScript(target, body, contentType) {
 function shouldRetry(status, text) {
   if (RETRY_STATUSES.has(status)) return true;
   if (status >= 200 && status < 300 && looksLikeGoogleHtml(text)) return true;
+  if (status >= 200 && status < 300 && looksLikeAppsScriptHealthCheck(text)) return true;
+  if (status >= 200 && status < 300 && String(text || "").includes("apps_script_redirected_to_exec")) return true;
   return false;
 }
 
@@ -145,7 +167,11 @@ export async function onRequest(context) {
     const upstream = await fetchUpstreamWithRetry(target, body, contentType);
 
     // Never pass Google HTML error pages through — portal expects JSON-ish responses.
-    if (looksLikeGoogleHtml(upstream.text) || (upstream.status >= 400 && !String(upstream.text || "").trim().startsWith("{"))) {
+    if (
+      looksLikeGoogleHtml(upstream.text) ||
+      looksLikeAppsScriptHealthCheck(upstream.text) ||
+      (upstream.status >= 400 && !String(upstream.text || "").trim().startsWith("{"))
+    ) {
       const payload = JSON.stringify({
         ok: false,
         error: "apps_script_upstream_failed",

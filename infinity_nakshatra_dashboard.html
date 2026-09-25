@@ -963,6 +963,8 @@
       text-align:right;
       flex-shrink:0;
       margin:0;
+      color:var(--text);
+      min-width:4.5ch;
     }
     #adminMaintenanceMcRow .mcKpiCardFoot{
       margin-top:auto;
@@ -5187,6 +5189,13 @@
         portalServerState.lastFetchError = String((j && j.error) || "state_failed");
         try { updateAdminMcFyRangeNote(); } catch {}
         return { ok:false, error: (j && j.error) || "state_failed", detail: j };
+      }
+      // Reject Apps Script doGet health-check JSON (ok:true but no payments[]) — that was
+      // wiping KPI numbers when the Cloudflare relay followed a bad redirect.
+      if (!Array.isArray(j.payments) || (typeof j.service === "string" && /portal backend/i.test(j.service))){
+        portalServerState.lastFetchError = "incomplete_state";
+        try { updateAdminMcFyRangeNote(); } catch {}
+        return { ok:false, error: "incomplete_state", detail: j };
       }
       portalServerState.lastFetchError = "";
 
