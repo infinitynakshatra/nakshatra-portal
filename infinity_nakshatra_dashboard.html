@@ -2167,6 +2167,7 @@
           </div>
           <div class="mcBtns">
             <button class="btn secondary tiny adminOnly" id="otherEarningsAddBtn" type="button">Add other Earnings</button>
+            <button class="btn secondary tiny adminOnly" id="otherEarningsEditUpdateBtn" type="button">Edit/Update Other Earnings</button>
             <button class="btn secondary tiny" id="doneOwnersBtn" type="button">Payment completed owners</button>
             <button class="btn secondary tiny" id="pendingListBtn" type="button">Payment pending owners</button>
             <button class="btn secondary tiny adminOnly" id="backupPaymentsSheetBtn" type="button" title="Requires COLLECTION_API_URL + key">Backup payments to Sheet</button>
@@ -15114,6 +15115,8 @@
       });
       const otherEarningsAddBtn = document.getElementById("otherEarningsAddBtn");
       if (otherEarningsAddBtn) otherEarningsAddBtn.addEventListener("click", () => { void openOtherEarningsAddModal(); });
+      const otherEarningsEditUpdateBtn = document.getElementById("otherEarningsEditUpdateBtn");
+      if (otherEarningsEditUpdateBtn) otherEarningsEditUpdateBtn.addEventListener("click", () => { void openOtherEarningsManageModal(); });
       const otherEarningsAddCloseBtn = document.getElementById("otherEarningsAddCloseBtn");
       if (otherEarningsAddCloseBtn) otherEarningsAddCloseBtn.addEventListener("click", () => showBackdrop("otherEarningsAddBackdrop", false));
       const otherEarningsShowUpdateBtn = document.getElementById("otherEarningsShowUpdateBtn");
