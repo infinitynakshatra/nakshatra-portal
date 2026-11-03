@@ -3425,6 +3425,7 @@
               <th>Amount paid</th>
               <th>Late fee</th>
               <th>Status</th>
+              <th class="adminOnly">Delete Payment</th>
             </tr>
           </thead>
           <tbody id="seePayRows"></tbody>
@@ -13009,6 +13010,7 @@
 
       const sess = readSession();
       const isUser = sess && sess.role === "user";
+      const isAdmin = sess && sess.role === "admin";
       const fyLine = isUser ? fyViewLabelFromMayYear(getOwnerMayYear()) : adminFySelectionLabel();
 
       document.getElementById("seePayTitle").textContent = "See Payment";
@@ -13019,6 +13021,7 @@
       const entries = paymentsLoadEntries(plotNo);
       const plotRow = sheetRowForPlotNo(plotNo);
       const now = new Date();
+      const plotKey = String(plotNo);
 
       let totalReceived = 0;
       let totalLateFee = 0;
@@ -13071,12 +13074,22 @@
         const amtDisp = na ? "—" : (hasPaid ? escapeHtml(String(amt)) : "0");
         const lateDisp = late > 0 ? escapeHtml(String(late)) : "—";
 
+        let deleteTd = "";
+        if (isAdmin){
+          if (hasPaid){
+            deleteTd = `<td><button class="btn danger tiny" type="button" data-see-pay-delete-plot="${escapeHtml(plotKey)}" data-see-pay-delete-ym="${escapeHtml(String(slot.ym))}" data-see-pay-delete-label="${escapeHtml(slot.label)}">Delete</button></td>`;
+          } else {
+            deleteTd = `<td>—</td>`;
+          }
+        }
+
         return `<tr class="${rowClass}">
           <td>${escapeHtml(slot.label)}</td>
           <td>${escapeHtml(duePretty)}</td>
           <td>${amtDisp}</td>
           <td>${lateDisp}</td>
           <td><span class="seePayStatus ${stClass}">${escapeHtml(statusText)}</span></td>
+          ${deleteTd}
         </tr>`;
       }).join("");
 
@@ -13090,7 +13103,8 @@
         <div class="seePayStat"><div class="k">Upcoming / pending</div><div class="v" style="color:var(--warn);">${pendingMonths}</div></div>
       `;
 
-      document.getElementById("seePayRows").innerHTML = body || `<tr><td colspan="5">No rows.</td></tr>`;
+      const colSpan = isAdmin ? 6 : 5;
+      document.getElementById("seePayRows").innerHTML = body || `<tr><td colspan="${colSpan}">No rows.</td></tr>`;
       showBackdrop("seePayBackdrop", true);
     }
 
@@ -15752,6 +15766,27 @@
       }
 
       document.getElementById("seePayCloseBtn").addEventListener("click", () => showBackdrop("seePayBackdrop", false));
+      const seePayRowsEl = document.getElementById("seePayRows");
+      if (seePayRowsEl) seePayRowsEl.addEventListener("click", (ev) => {
+        const btn = ev.target && ev.target.closest ? ev.target.closest("button[data-see-pay-delete-ym]") : null;
+        if (!btn) return;
+        const sess = readSession();
+        if (!sess || sess.role !== "admin"){ alert("Admin login required."); return; }
+        const plot = String(btn.getAttribute("data-see-pay-delete-plot") || "").trim();
+        const ym = String(btn.getAttribute("data-see-pay-delete-ym") || "").trim();
+        const label = String(btn.getAttribute("data-see-pay-delete-label") || ym).trim();
+        if (!plot || !ym) return;
+        if (!confirm(`Delete recorded payment for Plot ${plot} — ${label}?\n\nThis removes the payment from the spreadsheet and cannot be undone.`)) return;
+        btn.disabled = true;
+        void (async () => {
+          await removePaymentEntriesForPlotMonths(plot, [ym]);
+          updateMaintenanceCollectionCards();
+          try { applyFilters(); } catch {}
+          const sess2 = readSession();
+          if (sess2 && sess2.role === "user") refreshUserView();
+          openSeePaymentsModal(plot);
+        })();
+      });
       document.getElementById("pendingCloseBtn").addEventListener("click", () => showBackdrop("pendingBackdrop", false));
       document.getElementById("pendingListBtn").addEventListener("click", openPendingModal);
       document.getElementById("doneCloseBtn").addEventListener("click", () => showBackdrop("doneBackdrop", false));
